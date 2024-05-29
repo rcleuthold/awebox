@@ -134,6 +134,7 @@ def setup_nlp_cost():
         cas.entry('tracking'),
         cas.entry('u_regularisation'),
         cas.entry('xdot_regularisation'),
+        cas.entry('vortex_regularisation'),
         cas.entry('gamma'),
         cas.entry('iota'),
         cas.entry('psi'),

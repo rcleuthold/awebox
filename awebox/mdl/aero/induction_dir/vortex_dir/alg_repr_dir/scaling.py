@@ -92,6 +92,8 @@ def append_geometric_scaling(options, geometry, options_tree, architecture, q_sc
         position_scaling = q_scaling
     elif position_scaling_method == 'convection':
         position_scaling = q_scaling + avg_downstream * vect_op.xhat_dm()
+    elif position_scaling_method == 'kilometer':
+        position_scaling = 1.e3
     elif position_scaling_method in ['radius', 'b_ref', 'c_ref']:
         position_scaling = properties_ref[position_scaling_method]
     else:

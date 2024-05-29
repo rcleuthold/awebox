@@ -711,17 +711,26 @@ class Optimization(object):
             options_dict['Homotopy step'] = self.__options['homotopy_step']
 
         print_op.print_dict_as_table(options_dict)
-
         return None
+
+    def get_current_step(self):
+        if 'homotopy' in self.schedule.keys():
+            homotopy_schedule_copy = copy.deepcopy(self.schedule['homotopy'])
+            homotopy_schedule_reverse = homotopy_schedule_copy[::-1]
+            for step_name in homotopy_schedule_reverse:
+                if (step_name in self.iterations.keys()):
+                    return step_name
+            else:
+                return 'unstarted'
+        else:
+            return 'unknown'
 
     def get_failure_step(self):
-        homotopy_schedule_copy = copy.deepcopy(self.schedule['homotopy'])
-        homotopy_schedule_reverse = homotopy_schedule_copy[::-1]
-        for step_name in homotopy_schedule_reverse:
-            if (step_name in self.iterations.keys()) and not self.solve_succeeded:
-                return step_name
-
+        step_name = self.get_current_step()
+        if not self.solve_succeeded:
+            return step_name
         return None
+
 
     @property
     def status(self):

@@ -69,7 +69,7 @@ def get_general_reg_costs_function(nlp_options, variables, V):
     reg_fun = get_general_regularization_function(variables)
     regs = variables(reg_fun(var_sym, ref_sym, weight_sym))
 
-    sorting_dict, reg_list = get_regularization_sorting_dict(nlp_options)
+    sorting_dict, reg_list = get_regularization_sorting_dict(nlp_options, variables)
     reg_costs_dict = collections.OrderedDict()
     for cost in reg_list:
         reg_costs_dict[cost] = 0.0
@@ -79,13 +79,18 @@ def get_general_reg_costs_function(nlp_options, variables, V):
         exceptions = sorting_dict[var_type]['exceptions']
 
         for var_name in set(struct_op.subkeys(variables, var_type)):
-            name, _ = struct_op.split_name_and_node_identifier(var_name)
+            base_name, _ = struct_op.split_name_and_node_identifier(var_name)
+            no_exception_for_variable = (base_name not in exceptions.keys()) and (var_name not in exceptions.keys())
 
-            if (not name in exceptions.keys()) and (not category == None):
+            if no_exception_for_variable and (not category == None):
                 reg_costs_dict[category] = reg_costs_dict[category] + cas.sum1(regs[var_type, var_name])
 
-            elif (name in exceptions.keys()) and (not exceptions[name] == None):
-                exc_category = exceptions[name]
+            elif (base_name in exceptions.keys()) and (not exceptions[base_name] == None):
+                exc_category = exceptions[base_name]
+                reg_costs_dict[exc_category] = reg_costs_dict[exc_category] + cas.sum1(regs[var_type, var_name])
+
+            elif (var_name in exceptions.keys()) and (not exceptions[var_name] == None):
+                exc_category = exceptions[var_name]
                 reg_costs_dict[exc_category] = reg_costs_dict[exc_category] + cas.sum1(regs[var_type, var_name])
 
     reg_costs_list = cas.vertcat(*reg_costs_dict.values())
@@ -102,6 +107,7 @@ def get_costs_struct(V):
         cas.entry("u_regularisation_cost"),
         cas.entry("fictitious_cost"),
         cas.entry("theta_regularisation_cost"),
+        cas.entry("vortex_regularisation_cost"),
         cas.entry("beta_cost")] +
        [cas.entry(name + '_cost') for name in struct_op.subkeys(V, 'phi')] +
        [cas.entry("time_cost"),
@@ -117,7 +123,7 @@ def get_costs_struct(V):
     return costs_struct
 
 
-def get_regularization_sorting_dict(nlp_options):
+def get_regularization_sorting_dict(nlp_options, variables):
 
     # in general, regularization of the variables of type TYPE, enters the cost in the category CATEGORY,
     # with the exception of those variables named EXCLUDED_VARIABLE_NAME, which enter the cost in the category CATEGORY_FOR_EXCLUDED_VARIABLE
@@ -125,11 +131,16 @@ def get_regularization_sorting_dict(nlp_options):
     # sorting_dict[TYPE] = {'category': CATEGORY, 'exceptions': {EXCLUDED_VARIABLE_NAME: CATEGORY_FOR_EXCLUDED_VARIABLE}}
     #
 
+    vortex_exceptions = {}
+    for z_var in struct_op.subkeys(variables, 'z'):
+        if z_var[0] == 'w':
+            vortex_exceptions[z_var] = 'vortex_regularisation_cost'
+
     sorting_dict = {}
     sorting_dict['x'] = {'category': 'tracking_cost', 'exceptions': {'e': None} }
     sorting_dict['xdot'] = {'category': 'xdot_regularisation_cost', 'exceptions': {} }
     sorting_dict['u'] = {'category': 'u_regularisation_cost', 'exceptions': {'f_fict': 'fictitious_cost', 'm_fict': 'fictitious_cost'} }
-    sorting_dict['z'] = {'category': 'tracking_cost', 'exceptions': {}}
+    sorting_dict['z'] = {'category': 'tracking_cost', 'exceptions': vortex_exceptions}
     sorting_dict['theta'] = {'category': 'theta_regularisation_cost', 'exceptions': {'t_f': None}}
 
     for item in nlp_options['cost']['adjustments_to_general_regularization_distribution']:
@@ -138,14 +149,14 @@ def get_regularization_sorting_dict(nlp_options):
         reassigment = item[2]
         sorting_dict[var_type]['exceptions'][var_name] = reassigment
 
-    reg_list = ['tracking_cost', 'xdot_regularisation_cost', 'u_regularisation_cost', 'fictitious_cost', 'theta_regularisation_cost']
+    reg_list = ['tracking_cost', 'xdot_regularisation_cost', 'u_regularisation_cost', 'fictitious_cost', 'theta_regularisation_cost', 'vortex_regularisation_cost']
 
     return sorting_dict, reg_list
 
 
 def get_regularization_weights(variables, P, nlp_options):
 
-    sorting_dict, _ = get_regularization_sorting_dict(nlp_options)
+    sorting_dict, _ = get_regularization_sorting_dict(nlp_options, variables)
 
     weights = variables(P['p', 'weights'])
 
@@ -154,16 +165,23 @@ def get_regularization_weights(variables, P, nlp_options):
         exceptions = sorting_dict[var_type]['exceptions']
 
         for var_name in set(struct_op.subkeys(variables, var_type)):
-            name, _ = struct_op.split_name_and_node_identifier(var_name)
+            base_name, _ = struct_op.split_name_and_node_identifier(var_name)
 
-            if (name not in exceptions.keys()) and (category is not None):
+            no_exception_for_variable = (base_name not in exceptions.keys()) and (var_name not in exceptions.keys())
+            if no_exception_for_variable and (category is not None):
                 shortened_cat_name = category[:-5]
                 normalization = nlp_options['cost']['normalization'][shortened_cat_name]
                 factor = P['cost', shortened_cat_name]
                 weights[var_type, var_name] = weights[var_type, var_name] * factor / normalization
 
-            elif (name in exceptions.keys()) and (exceptions[name] is not None):
-                shortened_cat_name = exceptions[name][:-5]
+            elif (base_name in exceptions.keys()) and (exceptions[base_name] is not None):
+                shortened_cat_name = exceptions[base_name][:-5]
+                normalization = nlp_options['cost']['normalization'][shortened_cat_name]
+                factor = P['cost', shortened_cat_name]
+                weights[var_type, var_name] = weights[var_type, var_name] * factor / normalization
+
+            elif (var_name in exceptions.keys()) and (exceptions[var_name] is not None):
+                shortened_cat_name = exceptions[var_name][:-5]
                 normalization = nlp_options['cost']['normalization'][shortened_cat_name]
                 factor = P['cost', shortened_cat_name]
                 weights[var_type, var_name] = weights[var_type, var_name] * factor / normalization
@@ -365,8 +383,9 @@ def find_general_problem_cost(component_costs):
     beta_cost = component_costs['beta_cost']
     time_cost = component_costs['time_cost']
     fictitious_cost = component_costs['fictitious_cost']
+    vortex_regularisation_cost = component_costs['vortex_regularisation_cost']
 
-    general_problem_cost = fictitious_cost + u_regularisation_cost + xdot_regularisation_cost + theta_regularisation_cost + beta_cost + time_cost
+    general_problem_cost = fictitious_cost + u_regularisation_cost + xdot_regularisation_cost + theta_regularisation_cost + beta_cost + time_cost + vortex_regularisation_cost
 
     return general_problem_cost
 
