@@ -88,7 +88,7 @@ def test_drawing(test_includes_visualization):
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
-        wake.draw(ax, 'isometric')
+        wake.draw(ax, 'isometric', variables_scaled=variables_si, parameters=parameters)
 
         plt.show()
 

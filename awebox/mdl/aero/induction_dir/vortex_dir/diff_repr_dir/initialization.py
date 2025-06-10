@@ -47,8 +47,6 @@ from awebox.logger.logger import Logger as awelogger
 
 def get_initialization(init_options, V_init_si, p_fix_num, nlp, model):
 
-    stop_now
-
     time_grids = nlp.time_grids
 
     V_init_si_temp = copy.deepcopy(V_init_si)
