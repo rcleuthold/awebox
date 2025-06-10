@@ -45,8 +45,16 @@ import awebox.mdl.aero.induction_dir.vortex_dir.vortex_objects_dir.semi_infinite
 import awebox.mdl.aero.induction_dir.vortex_dir.vortex_objects_dir.wake_substructure as obj_wake_substructure
 import awebox.mdl.aero.induction_dir.vortex_dir.vortex_objects_dir.wake as obj_wake
 
+
+
 import awebox.mdl.aero.induction_dir.vortex_dir.alg_repr_dir.algebraic_representation as algebraic_representation
 import awebox.mdl.aero.induction_dir.vortex_dir.alg_repr_dir.structure as alg_structure
+
+import awebox.mdl.aero.induction_dir.vortex_dir.diff_repr_dir.difference_representation as difference_representation
+import awebox.mdl.aero.induction_dir.vortex_dir.diff_repr_dir.structure as diff_structure
+
+import awebox.mdl.aero.induction_dir.vortex_dir.wake_objects_dir.entire_wake as wod_entire_wake
+
 
 import awebox.tools.vector_operations as vect_op
 import awebox.tools.constraint_operations as cstr_op
@@ -63,8 +71,8 @@ def build(model_options, architecture, wind, variables_si, variables_scaled, par
     vortex_tools.check_positive_vortex_wake_nodes(model_options)
 
     vortex_representation = general_tools.get_option_from_possible_dicts(model_options, 'representation', 'vortex')
-    if vortex_representation == 'alg':
-        return algebraic_representation.build(model_options, architecture, wind, variables_si, variables_scaled, parameters)
+    if vortex_representation in ['alg', 'diff']:
+        return wod_entire_wake.build(model_options, architecture, wind, variables_si, variables_scaled, parameters)
     else:
         vortex_tools.log_and_raise_unknown_representation_error(vortex_representation)
 
@@ -81,7 +89,7 @@ def get_model_constraints(model_options, wake, system_variables, parameters, out
 
     cstr_list = cstr_op.ConstraintList()
 
-    wingtip_position_cstr = get_wingtip_position_cstr(system_variables['SI'], outputs, architecture, scaling)
+    wingtip_position_cstr = get_wingtip_position_cstr(model_options, system_variables['SI'], outputs, architecture, scaling)
     cstr_list.append(wingtip_position_cstr)
 
     if degree_of_induced_velocity_lifting == 1:
@@ -98,7 +106,7 @@ def get_model_constraints(model_options, wake, system_variables, parameters, out
 
     return cstr_list
 
-def get_wingtip_position_cstr(variables_si, outputs, architecture, scaling):
+def get_wingtip_position_cstr(model_options, variables_si, outputs, architecture, scaling):
 
     message = 'adding shedding position constraints'
     print_op.base_print(message, level='info')
@@ -110,7 +118,9 @@ def get_wingtip_position_cstr(variables_si, outputs, architecture, scaling):
 
             fixing_name = vortex_tools.get_wake_node_position_name(kite_shed=kite_shed, tip=tip,
                                                                    wake_node=wake_node)
-            node_position_si = variables_si['z'][fixing_name]
+
+            node_position_si = vortex_tools.get_wake_node_position_si(model_options, variables_si, kite_shed, tip, wake_node, architecture,
+                                      scaling=scaling)
             wingtip_position_si = outputs['aerodynamics']['wingtip_' + tip + str(kite_shed)]
             local_resi_si = wingtip_position_si - node_position_si
             local_resi_scaled = struct_op.var_si_to_scaled('z', fixing_name, local_resi_si, scaling)
@@ -302,6 +312,8 @@ def get_ocp_constraints(nlp_options, V, P, Xdot, Outputs_structured, Integral_ou
         vortex_representation = general_tools.get_option_from_possible_dicts(nlp_options, 'representation', 'vortex')
         if vortex_representation == 'alg':
             return algebraic_representation.get_ocp_constraints(nlp_options, V, P, Xdot, Outputs_structured, Integral_outputs, model, time_grids)
+        elif vortex_representation == 'diff':
+            return difference_representation.get_ocp_constraints(nlp_options, V, P, Xdot, Outputs_structured, Integral_outputs, model, time_grids)
         else:
             vortex_tools.log_and_raise_unknown_representation_error(vortex_representation)
 
@@ -315,6 +327,8 @@ def get_initialization(nlp_options, V_init_si, p_fix_num, nlp, model):
 
         if vortex_representation == 'alg':
             return algebraic_representation.get_initialization(nlp_options, V_init_si, p_fix_num, nlp, model)
+        elif vortex_representation == 'diff':
+            return difference_representation.get_initialization(nlp_options, V_init_si, p_fix_num, nlp, model)
         else:
             vortex_tools.log_and_raise_unknown_representation_error(vortex_representation)
 
@@ -545,7 +559,7 @@ def test(test_includes_visualization=False):
 
     test_that_model_doesnt_include_velocity_from_bound_kite_on_itsself()
 
-    algebraic_representation.test(test_includes_visualization)
+    wod_entire_wake.test(test_includes_visualization)
 
     for degree_of_induced_velocity_lifting in [2, 3]:
         test_that_model_constraint_residuals_have_correct_shape(degree_of_induced_velocity_lifting)

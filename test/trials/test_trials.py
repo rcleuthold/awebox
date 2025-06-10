@@ -356,7 +356,7 @@ def generate_options_dict():
     vortex_options['nlp.collocation.d'] = 3
     vortex_options['user_options.trajectory.lift_mode.windings'] = 1
     vortex_options['user_options.induction_model'] = 'vortex'
-    vortex_options['model.aero.vortex.representation'] = 'alg'
+    vortex_options['model.aero.vortex.representation'] = 'diff' #'alg'
     vortex_options['quality.test_param.vortex_truncation_error_thresh'] = 1e20
     vortex_options['visualization.cosmetics.trajectory.wake_nodes'] = True
     vortex_options['visualization.cosmetics.save_figs'] = True
@@ -377,7 +377,8 @@ def generate_options_dict():
     # vortex_options['solver.weights.q'] = 1e0 #1e1: 181 steps, 5e0: maxout, 1e0: 89 steps
     # # vortex_options['model.scaling.other.position_scaling_method'] = 'altitude_and_radius'
     # vortex_options['solver.cost.psi.1'] = 1.e1
-    vortex_options['solver.cost_factor.power'] = 1e-1 #2: 6.9e10, 6.9e-7. #1e0
+    vortex_options['model.aero.vortex.position_scaling_method'] = 'wingspan'
+    # vortex_options['solver.cost_factor.power'] = 1e-1 #2: 6.9e10, 6.9e-7. #1e0
     # vortex_options['user_options.system_model.architecture'] = {1: 0, 2: 1, 3: 1}
     # vortex_options['model.aero.vortex.wake_nodes'] = 1
     # vortex_options['visualization.cosmetics.trajectory.reel_in_linestyle'] = '--'
@@ -506,8 +507,8 @@ if __name__ == "__main__":
     # test_dual_kite_tracking()
     # test_dual_kite_tracking_winch()
 
-    # test_vortex_force_zero_basic_health()
-    # test_vortex_force_zero()
+    test_vortex_force_zero_basic_health()
+    test_vortex_force_zero()
     test_vortex_basic_health()
     test_vortex()
 

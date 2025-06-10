@@ -34,15 +34,14 @@ import matplotlib.pyplot as plt
 import casadi.tools as cas
 import numpy as np
 
-import awebox.mdl.aero.induction_dir.vortex_dir.alg_repr_dir.fixing as alg_fixing
-import awebox.mdl.aero.induction_dir.vortex_dir.alg_repr_dir.initialization as alg_initialization
+import awebox.mdl.aero.induction_dir.vortex_dir.diff_repr_dir.fixing as diff_fixing
+import awebox.mdl.aero.induction_dir.vortex_dir.diff_repr_dir.initialization as diff_initialization
 
 def get_ocp_constraints(nlp_options, V, P, Xdot, Outputs, Integral_outputs, model, time_grids):
-    return alg_fixing.get_constraint(nlp_options, V, P, Xdot, Outputs, Integral_outputs, model, time_grids)
+    return diff_fixing.get_constraint(nlp_options, V, P, Xdot, Outputs, Integral_outputs, model, time_grids)
 
 def get_initialization(nlp_options, V_init_si, p_fix_num, nlp, model):
-    return alg_initialization.get_initialization(nlp_options, V_init_si, p_fix_num, nlp, model)
-
+    return diff_initialization.get_initialization(nlp_options, V_init_si, p_fix_num, nlp, model)
 
 def test(test_includes_visualization=False):
     return None

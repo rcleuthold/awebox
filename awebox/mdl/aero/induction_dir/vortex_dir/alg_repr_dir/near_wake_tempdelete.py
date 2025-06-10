@@ -58,7 +58,7 @@ def build(model_options, architecture, variables_si, parameters):
 
     if there_are_enough_wake_nodes_to_require_a_near_wake(model_options):
         for kite in architecture.kite_nodes:
-            filament_list = build_per_kite(model_options, kite, variables_si, parameters)
+            filament_list = build_per_kite(model_options, kite, variables_si, parameters, architecture)
             near_wake.append(filament_list)
 
     dict_of_expected_number_of_elements = vortex_tools.get_expected_number_of_near_wake_elements_dict(model_options, architecture)
@@ -72,14 +72,14 @@ def there_are_enough_wake_nodes_to_require_a_near_wake(model_options):
     return (wake_nodes > 1)
 
 
-def build_per_kite(model_options, kite, variables_si, parameters):
+def build_per_kite(model_options, kite, variables_si, parameters, architecture):
 
     wake_nodes = general_tools.get_option_from_possible_dicts(model_options, 'wake_nodes', 'vortex')
 
     filament_list = obj_element_list.ElementList(expected_number_of_elements= 3 * (wake_nodes-1))
 
     for ring in range(wake_nodes-1):
-        ring_filaments = build_per_kite_per_ring(model_options, kite, ring, variables_si, parameters)
+        ring_filaments = build_per_kite_per_ring(model_options, kite, ring, variables_si, parameters, architecture)
         filament_list.append(ring_filaments)
 
     filament_list.confirm_list_has_expected_dimensions()
@@ -87,7 +87,7 @@ def build_per_kite(model_options, kite, variables_si, parameters):
     return filament_list
 
 
-def build_per_kite_per_ring(options, kite, ring, variables_si, parameters):
+def build_per_kite_per_ring(options, kite, ring, variables_si, parameters, architecture):
     filament_ordering = vortex_tools.ordering_of_filaments_in_vortex_horseshoe()
     expected_number_of_elements = len(filament_ordering.keys())
     filament_list = obj_element_list.ElementList(expected_number_of_elements=expected_number_of_elements)
@@ -96,11 +96,11 @@ def build_per_kite_per_ring(options, kite, ring, variables_si, parameters):
         local_filament_position = filament_ordering[pdx]
 
         if (local_filament_position == 'ext') or (local_filament_position == 'int'):
-            trailing_filaments = build_single_trailing_per_kite_per_ring(options, kite, ring, variables_si, parameters, local_filament_position)
+            trailing_filaments = build_single_trailing_per_kite_per_ring(options, kite, ring, variables_si, parameters, local_filament_position, architecture)
             filament_list.append(trailing_filaments)
 
         elif local_filament_position == 'closing':
-            closing_filament = build_closing_per_kite_per_ring(options, kite, ring, variables_si, parameters)
+            closing_filament = build_closing_per_kite_per_ring(options, kite, ring, variables_si, parameters, architecture)
             filament_list.append(closing_filament)
 
         else:
@@ -112,15 +112,15 @@ def build_per_kite_per_ring(options, kite, ring, variables_si, parameters):
     return filament_list
 
 
-def build_closing_per_kite_per_ring(options, kite, ring, variables_si, parameters):
+def build_closing_per_kite_per_ring(options, kite, ring, variables_si, parameters, architecture):
 
     wake_node = ring
 
     NE_wingtip = vortex_tools.get_NE_wingtip_name()
     PE_wingtip = vortex_tools.get_PE_wingtip_name()
 
-    LENE = vortex_tools.get_wake_node_position_si(options, variables_si, kite, NE_wingtip, wake_node+1)
-    LEPE = vortex_tools.get_wake_node_position_si(options, variables_si, kite, PE_wingtip, wake_node+1)
+    LENE = vortex_tools.get_wake_node_position_si(options, variables_si, kite, NE_wingtip, wake_node+1, architecture)
+    LEPE = vortex_tools.get_wake_node_position_si(options, variables_si, kite, PE_wingtip, wake_node+1, architecture)
 
     strength = vortex_tools.get_vortex_ring_strength_si(variables_si, kite, ring+1)
     strength_prev = vortex_tools.get_vortex_ring_strength_si(variables_si, kite, ring)
@@ -137,7 +137,7 @@ def build_closing_per_kite_per_ring(options, kite, ring, variables_si, parameter
     return fil
 
 
-def build_single_trailing_per_kite_per_ring(options, kite, ring, variables_si, parameters, tip):
+def build_single_trailing_per_kite_per_ring(options, kite, ring, variables_si, parameters, tip, architecture):
 
     wake_node = ring
 
@@ -148,8 +148,8 @@ def build_single_trailing_per_kite_per_ring(options, kite, ring, variables_si, p
 
     wingtips_and_strength_directions = vortex_tools.get_wingtip_name_and_strength_direction_dict()
     tip_directionality = wingtips_and_strength_directions[tip]
-    x_start = vortex_tools.get_wake_node_position_si(options, variables_si, kite, tip, wake_node)
-    x_end = vortex_tools.get_wake_node_position_si(options, variables_si, kite, tip, wake_node + 1)
+    x_start = vortex_tools.get_wake_node_position_si(options, variables_si, kite, tip, wake_node, architecture)
+    x_end = vortex_tools.get_wake_node_position_si(options, variables_si, kite, tip, wake_node + 1, architecture)
 
     dict_info = {'x_start': x_start,
                  'x_end': x_end,

@@ -71,9 +71,9 @@ def build_per_kite(options, kite, wind, variables_si, parameters, architecture):
     far_wake_element_type = general_tools.get_option_from_possible_dicts(options, 'far_wake_element_type', 'vortex')
 
     if far_wake_element_type == 'finite_filament':
-        list = build_finite_filament_per_kite(options, kite, wind, variables_si, parameters)
+        list = build_finite_filament_per_kite(options, kite, wind, variables_si, parameters, architecture)
     elif far_wake_element_type == 'semi_infinite_filament':
-        list = build_semi_infinite_filament_per_kite(options, kite, wind, variables_si, parameters)
+        list = build_semi_infinite_filament_per_kite(options, kite, wind, variables_si, parameters, architecture)
     elif far_wake_element_type == 'semi_infinite_right_cylinder':
         list = build_semi_infinite_right_cylinders_per_kite(options, kite, wind, variables_si, architecture)
     elif far_wake_element_type == 'not_in_use':
@@ -88,7 +88,7 @@ def get_convection_direction(wind):
     l_hat = wind.get_wind_direction()
     return l_hat
 
-def build_finite_filament_per_kite(options, kite, wind, variables_si, parameters):
+def build_finite_filament_per_kite(options, kite, wind, variables_si, parameters, architecture):
 
     ring = get_far_wake_ring_number(options)
     wake_node = ring
@@ -106,7 +106,7 @@ def build_finite_filament_per_kite(options, kite, wind, variables_si, parameters
 
     wingtips_and_strength_directions = vortex_tools.get_wingtip_name_and_strength_direction_dict()
     for tip, tip_directionality in wingtips_and_strength_directions.items():
-        x_start = vortex_tools.get_wake_node_position_si(options, variables_si, kite, tip, wake_node)
+        x_start = vortex_tools.get_wake_node_position_si(options, variables_si, kite, tip, wake_node, architecture)
         vec_s = l_hat * convection_distance
         x_end = x_start + vec_s
 
@@ -123,7 +123,7 @@ def build_finite_filament_per_kite(options, kite, wind, variables_si, parameters
     return filament_list
 
 
-def build_semi_infinite_filament_per_kite(options, kite, wind, variables_si, parameters):
+def build_semi_infinite_filament_per_kite(options, kite, wind, variables_si, parameters, architecture):
     ring = get_far_wake_ring_number(options)
     wake_node = ring
 
@@ -136,7 +136,7 @@ def build_semi_infinite_filament_per_kite(options, kite, wind, variables_si, par
 
     wingtips_and_strength_directions = vortex_tools.get_wingtip_name_and_strength_direction_dict()
     for tip, tip_directionality in wingtips_and_strength_directions.items():
-        x_start = vortex_tools.get_wake_node_position_si(options, variables_si, kite, tip, wake_node)
+        x_start = vortex_tools.get_wake_node_position_si(options, variables_si, kite, tip, wake_node, architecture)
 
         dict_info = {'x_start': x_start,
                      'l_hat': l_hat,
@@ -187,7 +187,7 @@ def build_semi_infinite_right_cylinders_per_kite(model_options, kite, wind, vari
             tip = ordering[idx]
             tip_directionality = wingtips_and_strength_directions[tip]
 
-            x_start = vortex_tools.get_wake_node_position_si(model_options, variables_si, kite, tip, wake_node)
+            x_start = vortex_tools.get_wake_node_position_si(model_options, variables_si, kite, tip, wake_node, architecture)
             radius, l_start = obj_semi_infinite_right_cylinder.calculate_radius_and_l_start(x_start, x_center, l_hat)
 
             strength_tan = -1. * circulation_total / pitch * kite_motion_directionality * tip_directionality

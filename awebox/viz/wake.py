@@ -1127,12 +1127,8 @@ def plot_induction_contour_on_kmp(plot_dict, cosmetics, fig_name, fig_num=None):
             radius = kite_plane_induction_params['average_radius']
             x_center = kite_plane_induction_params['center']
 
-            variables_scaled = get_variables_scaled(plot_dict, cosmetics, idx_at_eval)
-            parameters = plot_dict['parameters_plot']
-            wake = plot_dict['wake']
-            a_fun = get_the_induction_factor_at_observer_function(plot_dict, cosmetics, idx_at_eval)
-
             ### compute the induction factors
+            a_fun = get_the_induction_factor_at_observer_function(plot_dict, cosmetics, idx_at_eval)
             plot_radius_scaled = 1.6
             plot_radius = plot_radius_scaled * radius
             sym_start_plot = -1. * plot_radius
@@ -1146,6 +1142,8 @@ def plot_induction_contour_on_kmp(plot_dict, cosmetics, fig_name, fig_num=None):
             print_op.base_print('making induction contour plot...')
             total_progress = yy.shape[0] * yy.shape[1]
             progress_index = 0
+            print_op.warn_about_temporary_functionality_alteration()
+            # todo: this currently only works for nhat = xhat orientation.
             for idx in range(yy.shape[0]):
                 for jdx in range(yy.shape[1]):
                     print_op.print_progress(progress_index, total_progress)
@@ -1166,6 +1164,8 @@ def plot_induction_contour_on_kmp(plot_dict, cosmetics, fig_name, fig_num=None):
             draw_swept_background(ax, plot_dict)
 
             ### draw the contour
+            print_op.warn_about_temporary_functionality_alteration()
+            # todo: are these levels generalizable or only for the haas plot?
             levels = [-0.05, 0., 0.2]
             linestyles = ['dashdot', 'solid', 'dashed']
             colors = ['k', 'k', 'k']
@@ -1182,26 +1182,12 @@ def plot_induction_contour_on_kmp(plot_dict, cosmetics, fig_name, fig_num=None):
             ax.clabel(cs, cs.levels, inline=True)
 
             ### draw the vortex positions
-            # # kite_index = 0
-            # if vortex_info_exists:
-            #     for elem in wake.get_substructure('bound').get_list('finite_filament').list:
-            #         # unpacked = elem.unpack_info(elem.evaluate_info(variables_scaled, parameters))
-            #         # x_start = unpacked['x_start']
-            #         # x_end = unpacked['x_end']
-            #         # data = cas.horzcat(x_start, x_end)
-            #         # local_color = cosmetics['trajectory']['colors'][kite_index]
-            #         side = get_induction_contour_side(plot_dict, idx_at_eval)
-            #         elem.draw(ax, side, variables_scaled=variables_scaled, parameters=parameters) #, cosmetics=cosmetics)
-            #         # tools.basic_draw(ax, side, data=data, color=local_color, linestyle='-')
-            #         # kite_index += 1
-
-            if vortex_info_exists:
-                variables_scaled = get_variables_scaled(plot_dict, cosmetics, idx_at_eval)
-                parameters = plot_dict['parameters_plot']
-                wake = plot_dict['wake']
-                bound_wake = wake.get_substructure('bound')
-                side = get_induction_contour_side(plot_dict, idx_at_eval)
-                bound_wake.draw(ax, side, variables_scaled=variables_scaled, parameters=parameters, cosmetics=cosmetics)
+            variables_scaled = get_variables_scaled(plot_dict, cosmetics, idx_at_eval)
+            parameters = plot_dict['parameters_plot']
+            wake = plot_dict['wake']
+            bound_wake = wake.get_substructure('bound')
+            side = get_induction_contour_side(plot_dict, idx_at_eval)
+            bound_wake.draw(ax, side, variables_scaled=variables_scaled, parameters=parameters, cosmetics=cosmetics)
 
             scaled_haas_error = compute_the_scaled_haas_error(plot_dict, cosmetics)
 
@@ -1212,7 +1198,9 @@ def plot_induction_contour_on_kmp(plot_dict, cosmetics, fig_name, fig_num=None):
             ax.set_xlabel("y/r [-]")
             ax.set_ylabel("z/r [-]")
             ax.set_aspect(1.)
-            #
+
+            print_op.warn_about_temporary_functionality_alteration()
+            # todo: this needs to be turned on automatically when we make the haas plots
             # ticks_points = [-1.6, -1.5, -1., -0.8, -0.5, 0., 0.5, 0.8, 1.0, 1.5, 1.6]
             # ax.set_xlim([-1. * plot_radius_scaled, plot_radius_scaled])
             # ax.set_ylim([-1. * plot_radius_scaled, plot_radius_scaled])
@@ -1249,18 +1237,3 @@ def draw_swept_background(ax, plot_dict):
             tools.plot_path_of_wingtip(ax, side, plot_dict, kite, zeta, color='gray', alpha=0.2)
 
     return None
-
-def add_annulus_background(ax, mu_min_by_path, mu_max_by_path):
-    n, radii = 50, [mu_min_by_path, mu_max_by_path]
-    theta = np.linspace(0, 2 * np.pi, n, endpoint=True)
-    xs = np.outer(radii, np.cos(theta))
-    ys = np.outer(radii, np.sin(theta))
-
-    # in order to have a closed area, the circles
-    # should be traversed in opposite directions
-    xs[1, :] = xs[1, ::-1]
-    ys[1, :] = ys[1, ::-1]
-
-    color = (0.83,0.83,0.83,0.5)
-
-    ax.fill(np.ravel(xs), np.ravel(ys), color=color)

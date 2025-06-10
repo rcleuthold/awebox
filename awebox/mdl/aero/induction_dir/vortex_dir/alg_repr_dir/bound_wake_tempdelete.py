@@ -49,7 +49,7 @@ def build(options, architecture, variables_si, parameters):
 
     bound_wake = obj_wake_substructure.WakeSubstructure(substructure_type='bound')
     for kite in architecture.kite_nodes:
-        filament_list = build_per_kite(options, kite, variables_si, parameters)
+        filament_list = build_per_kite(options, kite, variables_si, parameters, architecture)
         bound_wake.append(filament_list)
 
     number_of_elements_dict = {'finite_filament': architecture.number_of_kites}
@@ -58,7 +58,7 @@ def build(options, architecture, variables_si, parameters):
 
     return bound_wake
 
-def build_per_kite(options, kite, variables_si, parameters):
+def build_per_kite(options, kite, variables_si, parameters, architecture):
 
     wake_node = 0
     ring = wake_node
@@ -66,8 +66,8 @@ def build_per_kite(options, kite, variables_si, parameters):
     NE_wingtip = vortex_tools.get_NE_wingtip_name()
     PE_wingtip = vortex_tools.get_PE_wingtip_name()
 
-    LENE = vortex_tools.get_wake_node_position_si(options, variables_si, kite, NE_wingtip, wake_node)
-    LEPE = vortex_tools.get_wake_node_position_si(options, variables_si, kite, PE_wingtip, wake_node)
+    LENE = vortex_tools.get_wake_node_position_si(options, variables_si, kite, NE_wingtip, wake_node, architecture)
+    LEPE = vortex_tools.get_wake_node_position_si(options, variables_si, kite, PE_wingtip, wake_node, architecture)
 
     strength = vortex_tools.get_vortex_ring_strength_si(variables_si, kite, ring)
     strength_prev = cas.DM.zeros((1, 1))

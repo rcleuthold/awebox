@@ -485,7 +485,7 @@ def get_define_wake_types():
 
 def get_wake_node_position_var_type(model_options):
     vortex_representation = general_tools.get_option_from_possible_dicts(model_options, 'representation', 'vortex')
-    if vortex_representation == 'alg':
+    if vortex_representation in ['alg', 'diff']:
         var_type = 'z'
     elif vortex_representation == 'state':
         var_type = 'x'
@@ -494,10 +494,33 @@ def get_wake_node_position_var_type(model_options):
 
     return var_type
 
-def get_wake_node_position_si(model_options, variables_si, kite_shed, tip, wake_node, scaling=None):
-    var_name = get_wake_node_position_name(kite_shed, tip, wake_node)
-    var_type = get_wake_node_position_var_type(model_options)
-    return get_variable_si(variables_si, var_type, var_name, scaling)
+def combine_diff_and_qkite_into_wake_node_position_si(q_kite_si, diff_si):
+    return q_kite_si + diff_si
+
+def separate_position_and_qkite_into_wake_node_diff_si(q_kite_si, position_si):
+    return position_si - q_kite_si
+
+def get_wake_node_position_si(model_options, variables_si, kite_shed, tip, wake_node, architecture, scaling=None):
+
+    vortex_representation = general_tools.get_option_from_possible_dicts(model_options, 'representation', 'vortex')
+    if vortex_representation in ['alg', 'state']:
+        var_name = get_wake_node_position_name(kite_shed, tip, wake_node)
+        var_type = get_wake_node_position_var_type(model_options)
+        return get_variable_si(variables_si, var_type, var_name, scaling)
+    elif vortex_representation == 'diff':
+
+        var_name = get_wake_node_position_name(kite_shed, tip, wake_node)
+        var_type = get_wake_node_position_var_type(model_options)
+        diff_si = get_variable_si(variables_si, var_type, var_name, scaling)
+
+        parent_shed = architecture.parent_map[kite_shed]
+        q_kite_si = get_variable_si(variables_si, 'x', 'q' + str(kite_shed) + str(parent_shed), scaling)
+
+        return combine_diff_and_qkite_into_wake_node_position_si(q_kite_si, diff_si)
+
+    else:
+        log_and_raise_unknown_representation_error(vortex_representation)
+
 
 
 def get_vortex_ring_strength_si(variables, kite_shed, ring, scaling=None):
