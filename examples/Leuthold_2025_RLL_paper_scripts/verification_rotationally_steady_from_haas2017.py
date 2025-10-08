@@ -156,7 +156,7 @@ def run(inputs={}):
     options['solver.cost.xdot_regularisation.0'] = 1.e-8
     # options['solver.weights.vortex'] = 1.e-8
 
-    options = help_op.toggle_vortex_options(options)
+    options = help_op.toggle_simulation_options(options)
     
     # build trial and optimize
     trial_name = help_op.build_unique_trial_name(base_name, inputs)

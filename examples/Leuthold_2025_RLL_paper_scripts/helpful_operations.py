@@ -65,10 +65,10 @@ def get_basic_options_for_convergence_expense_and_comparison(options):
     options['solver.max_cpu_time'] = 1e10 * 60. * 60.  # set the max cpu time ridiculously high so that it won't kill the large problems
 
     options['visualization.cosmetics.induction.n_points_contour'] = 300
-    #options['visualization.cosmetics.interpolation.n_points'] = 500
+    options['visualization.cosmetics.interpolation.n_points'] = 300
     options['model.aero.actuator.geometry_overwrite'] = 'averaged' 
 
-    # these turn out not to be the best-performing scaling options (see awebox opts/default for the latest recommended scaling options), but they were the ones used when producing the convergence and expense plots, and therefore also problem A1 of the results comparison. changing the scaling to the performance-improving settings changes the results a small amount, but (so far) not the the conclusions.
+    # these turn out not to be the best-performing scaling options (see awebox opts/default for the latest recommended scaling options), but they were the ones used when producing the convergence and expense plots, and therefore also problem A1 of the results comparison. changing the scaling to the performance-improving settings changes the results a small amount, but not (as seen so far) the the conclusions.
     options['model.scaling.other.position_scaling_method'] = 'altitude_and_radius'
     options['model.scaling.other.force_scaling_method'] = 'synthesized'
     options['model.scaling.other.flight_radius_estimate'] = 'synthesized'
@@ -99,13 +99,22 @@ def toggle_baseline_options(options):
     options['solver.homotopy_method.put_fictitious_before_induction'] = True
     return options
     
-def toggle_vortex_options(options):
+def toggle_simulation_options(options):
     options['user_options.induction_model'] = 'vortex'
     #options['user_options.trajectory.lift_mode.phase_fix'] = 'simple' # notice that the -inf <= dl_t <= inf bounds, will achieve this, without upsetting the warmstart.
     options['visualization.cosmetics.plot_ref'] = True # the 'reference' here is the baseline problem
     options['solver.hippo_strategy'] = False # save memory by only requring one casadi solver
     options['solver.linear_solver'] = 'ma86' # the parallelized but non-repeatable option
-    options['solver.homotopy_method.put_fictitious_before_induction'] = False # we need the fictitious forces to still be enabled, so that we can fly the simulation/reference trajectory with different aerodynamics
+    options['solver.homotopy_method.put_fictitious_before_induction'] = False # we need the fictitious forces to still be enabled, so that we can perfectly fly the simulation/reference trajectory with different aerodynamics. The fictitious forces and moments are not passed to the constraints that determine the circulation.
+    return options
+    
+def toggle_tracking_options(options):
+    options['user_options.induction_model'] = 'vortex'
+    #options['user_options.trajectory.lift_mode.phase_fix'] = 'simple' # notice that the -inf <= dl_t <= inf bounds, will achieve this, without upsetting the warmstart.
+    options['visualization.cosmetics.plot_ref'] = True # the 'reference' here is the baseline problem
+    options['solver.hippo_strategy'] = False # save memory by only requring one casadi solver
+    options['solver.linear_solver'] = 'ma86' # the parallelized but non-repeatable option
+    options['solver.homotopy_method.put_fictitious_before_induction'] = True # in the tracking problem, we want a 'physical' trajectory, meaning: no fictitious forces.
     return options
 
 def get_list_of_plots():
@@ -160,16 +169,17 @@ def turn_off_inequalities_except_time(options):
     options['model.model_bounds.rotation.include'] = False
     
     return options
+
+
     
-def adjust_weights_for_tracking(trial_baseline, options):
+def adjust_weights_for_tracking(trial_baseline, options, ratio_power_to_position_weights=1e-6):
 
     options['solver.cost.beta.0'] = 0.
     options['nlp.cost.beta'] = False
 
     options['solver.weights.vortex'] = 0.
-    options['solver.cost.fictitious.0'] = 1.e-10
-    options['solver.cost.fictitious.1'] = 1.e-10
 
+    really_really_extra_more_important = 1e4
     extra_much_more_important = 1e3
     much_more_important = 1e2
     more_important = 1e1
@@ -178,8 +188,47 @@ def adjust_weights_for_tracking(trial_baseline, options):
     would_be_zero_except_sosc = 1e-4
     baseline_options = trial_baseline.options
         
-    #options['solver.cost.tracking.0'] = 1e-2 * baseline_options['solver']['cost']['tracking'][0]
+    unit_importance = 1e0
+        
+    options['solver.weights.q'] = unit_importance
+    options['solver.weights.dq'] = would_be_zero_except_sosc
+    options['solver.weights.r'] = unit_importance
+    options['solver.weights.omega'] = would_be_zero_except_sosc
     
+    options['solver.weights.coeff'] = unit_importance
+    options['solver.weights.delta'] = unit_importance
+    options['solver.weights.ddelta'] = would_be_zero_except_sosc
+
+    options['solver.weights.l_t'] = would_be_zero_except_sosc
+    options['solver.weights.dl_t'] = unit_importance * ratio_power_to_position_weights
+    options['solver.weights.lambda'] = unit_importance * ratio_power_to_position_weights
+
+    options['solver.cost.t_f.0'] = unit_importance # also penalizes switching time
+    options['solver.cost.u_regularisation.0'] = would_be_zero_except_sosc
+    options['solver.cost.tracking.0'] = unit_importance
+
+    return options
+
+
+    
+def adjust_weights_for_simulation(trial_baseline, options):
+
+    options['solver.cost.beta.0'] = 0.
+    options['nlp.cost.beta'] = False
+
+    options['solver.weights.vortex'] = 0.
+    options['solver.cost.fictitious.0'] = 1.e-10
+    options['solver.cost.fictitious.1'] = 1.e-10
+
+    really_really_extra_more_important = 1e4
+    extra_much_more_important = 1e3
+    much_more_important = 1e2
+    more_important = 1e1
+    less_important = 1e-1
+    much_less_important = 1e-2
+    would_be_zero_except_sosc = 1e-4
+    baseline_options = trial_baseline.options
+        
     options['solver.weights.q'] = extra_much_more_important * baseline_options['solver']['weights']['q']
     options['solver.weights.dq'] = more_important * baseline_options['solver']['weights']['dq']
     options['solver.weights.r'] = more_important * baseline_options['solver']['weights']['r']
@@ -190,78 +239,13 @@ def adjust_weights_for_tracking(trial_baseline, options):
     options['solver.weights.ddelta'] = extra_much_more_important * baseline_options['solver']['weights']['ddelta']
 
     options['solver.weights.l_t'] = more_important * baseline_options['solver']['weights']['l_t']
-    options['solver.weights.dl_t'] = more_important * baseline_options['solver']['weights']['dl_t']
-    options['solver.weights.lambda'] = much_more_important * baseline_options['solver']['weights']['lambda']
+    options['solver.weights.dl_t'] = really_really_extra_more_important * baseline_options['solver']['weights']['dl_t']
+    options['solver.weights.lambda'] = really_really_extra_more_important * baseline_options['solver']['weights']['lambda']
 
     options['solver.cost.t_f.0'] = less_important * baseline_options['solver']['cost']['theta_regularisation'][0] # penalizes switching time
     options['solver.cost.u_regularisation.0'] = more_important * baseline_options['solver']['cost']['u_regularisation'][
         0]
     options['solver.cost.tracking.0'] = more_important * baseline_options['solver']['cost']['tracking'][0]
-
-
-    #options['solver.cost.theta_regularisation.0'] = much_more_important * baseline_options['solver']['cost']['theta_regularisation'][0]
-    
-    # from august 6th
-    #options['solver.weights.q'] = 1e2
-    #options['solver.weights.dq'] = 1e2
-    #options['solver.weights.r'] = 1e2
-    #options['solver.weights.omega'] = 1e2
-    #options['solver.cost.tracking.0'] = 1e2 #1
-    #options['solver.cost.fictitious.0'] = 1.e-6
-    #options['solver.cost.beta.0'] = 1.e-6
-    #options['solver.cost.u_regularisation.0'] = 1.e-6
-    #options['solver.cost.xdot_regularisation.0'] = 1.e-6
-    #options['solver.weights.vortex'] = 1.e-10
-
-    
-    
-    # # from haas 2019
-    # options['solver.cost.tracking.0'] = 1e1
-    # options['solver.cost.fictitious.0'] = 1.e-10
-    # options['solver.cost.u_regularisation.0'] = 1.e1
-    # options['solver.cost.xdot_regularisation.0'] = 1.e-2
-    # options['solver.weights.vortex'] = 0.
-    # options['solver.weights.q'] = 1e4
-    # options['solver.weights.dq'] = 1e3
-    # options['solver.weights.r'] = 1e2
-    # options['solver.weights.omega'] = 1e3
-    # options['solver.weights.coeff'] = 1e1
-    # options['solver.weights.delta'] = 1e2
-    #
-    
-    
-    # from reattempt
-    #options['solver.weights.q'] = 1e3
-    #options['solver.weights.dq'] = 1e2
-    #options['solver.weights.r'] = 1e1
-    #options['solver.weights.omega'] = 1e2
-    #options['solver.weights.l_t'] = 1e4
-    #options['solver.weights.dl_t'] = 1e3
-    #options['solver.weights.delta'] = 1e2
-    #options['solver.weights.coeff'] = 1e2
-    
-    #options['solver.weights.ddelta'] = 1e-3
-    #options['solver.weights.ddl_t'] = 1e2
-    
-    #options['solver.cost.tracking.0'] = 1e-1 #1e-1
-    #options['solver.cost.u_regularisation.0'] = 1e2 #1e-6
-    ###options['solver.cost.xdot_regularisation.0'] = 1e-8
-    ###options['solver.cost.theta_regularisation.0'] = 1e0
-    ##options['solver.cost.t_f.0'] = 1e4
-    #options['solver.cost.fictitious.0'] = 1e-8
-    
-    #options['solver.cost.t_f.0'] = options['solver.cost.theta_regularisation.0'] # because this is included by combined q and dq regularization
-    
-    # options['solver.cost.u_regularisation.0'] = more_important * baseline_options['solver']['cost']['u_regularisation'][0]
-    ## options['solver.cost.xdot_regularisation.0'] = less_important * baseline_options['solver']['cost']['xdot_regularisation'][0]
-    
-    #options['solver.cost.fictitious.0'] = would_be_zero_except_sosc * baseline_options['solver']['cost']['fictitious'][0]
-    #options['solver.weights.vortex'] = would_be_zero_except_sosc * baseline_options['solver']['weights']['vortex']
-
-    #options['model.scaling.other.position_scaling_method'] = 'radius'
-    #options['model.scaling.other.force_scaling_method'] = 'synthesized'
-    #options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
-    #options['model.scaling.other.tension_estimate'] = 'average_force'
 
     return options
     

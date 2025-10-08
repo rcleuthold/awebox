@@ -104,24 +104,13 @@ def run(inputs={}):
     if trial_baseline.optimization.solve_succeeded:
         ######## simulation OCP - simulate the RLL model on the reference trajectory
 
-        options = help_op.toggle_vortex_options(options)
+        options = help_op.toggle_simulation_options(options)
 
         options = help_op.turn_off_inequalities_except_time(options)
-
-        #adjust_weights_for_tracking
-        options = help_op.adjust_weights_for_tracking(trial_baseline, options)
+        
+        options = help_op.adjust_weights_for_simulation(trial_baseline, options)
         options['solver.cost.tracking.0'] = 1e0 #1
         options['solver.weights.q'] = 1e1 * options['solver.weights.q']
-
-        #options['solver.cost.tracking.0'] = 1e1 #1
-        #options['solver.cost.t_f.0'] = 1e2
-        #options['solver.cost.fictitious.0'] = 1.e-10
-        #options['solver.cost.u_regularisation.0'] = 1.e-1
-        #options['solver.cost.xdot_regularisation.0'] = 1.e-2
-        #options['solver.weights.vortex'] = 0.
-        #options['solver.weights.q'] = 1e1
-        #options['solver.weights.dq'] = 1e1
-        #options['solver.weights.coeff'] = 1e1
 
         options = help_op.fix_params_to_baseline(trial_baseline, options)
 
