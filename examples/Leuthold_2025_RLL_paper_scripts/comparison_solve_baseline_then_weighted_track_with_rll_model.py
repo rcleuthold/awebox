@@ -121,9 +121,9 @@ def run(inputs={}):
 if __name__ == "__main__":
 
     inputs = {}
-    inputs['n_k'] = 15 #30
-    inputs['periods_tracked'] = 0.2 #1.5
-    inputs['ratio_power_to_position_weights'] = 1e0
+    inputs['n_k'] = 30
+    inputs['periods_tracked'] = 1.5
+    inputs['ratio_power_to_position_weights'] = 1e3
 
     trial = run(inputs)
 

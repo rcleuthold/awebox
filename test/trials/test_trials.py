@@ -185,39 +185,39 @@ def test_segmented_tether(final_homotopy_step='final', overwrite_options={}):
 #     return None
 
 
-# def test_actuator_qaxi(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'actuator_qaxi_trial'
-#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-#     return None
-#
-# def test_actuator_qaxi_basic_health(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'actuator_qaxi_basic_health_trial'
-#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-#     return None
-#
-#
-# def test_actuator_uaxi(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'actuator_uaxi_trial'
-#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-#     return None
-#
-#
-# def test_actuator_qasym(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'actuator_qasym_trial'
-#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-#     return None
-#
-#
-# def test_actuator_uasym(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'actuator_uasym_trial'
-#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-#     return None
-#
-#
-# def test_actuator_comparison(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'actuator_comparison_trial'
-#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-#     return None
+def test_actuator_qaxi(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_qaxi_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+def test_actuator_qaxi_basic_health(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_qaxi_basic_health_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+
+def test_actuator_uaxi(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_uaxi_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+
+def test_actuator_qasym(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_qasym_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+
+def test_actuator_uasym(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_uasym_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+
+def test_actuator_comparison(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_comparison_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
 
 
 
@@ -233,14 +233,14 @@ def make_basic_health_variant(base_options):
 
     basic_health_options['solver.health_check.when'] = 'success'
     basic_health_options['nlp.collocation.name_constraints'] = True
-    basic_health_options['solver.health_check.help_with_debugging'] = False
+    basic_health_options['solver.health_check.help_with_debugging'] = True #False
 
     basic_health_options['solver.homotopy_method.advance_despite_max_iter'] = False
     basic_health_options['solver.homotopy_method.advance_despite_ill_health'] = False
     basic_health_options['solver.health_check.raise_exception'] = True
     basic_health_options['solver.initialization.check_reference'] = True
     basic_health_options['solver.initialization.check_feasibility.raise_exception'] = True
-    basic_health_options['solver.max_iter'] = 300
+    # basic_health_options['solver.max_iter'] = 300
     basic_health_options['solver.ipopt.autoscale'] = False
     basic_health_options['solver.health_check.spy_matrices'] = False
     basic_health_options['quality.when'] = 'never'
@@ -332,15 +332,17 @@ def generate_options_dict():
 
     large_dual_kite_basic_health_options = make_basic_health_variant(large_dual_kite_options)
 
-    actuator_qaxi_options = copy.deepcopy(dual_kite_6_dof_options)
+    actuator_qaxi_options = copy.deepcopy(dual_kite_options)
     actuator_qaxi_options['user_options.kite_standard'] = ampyx_data.data_dict()
     actuator_qaxi_options['user_options.induction_model'] = 'actuator'
     actuator_qaxi_options['model.aero.actuator.steadyness'] = 'quasi-steady'
     actuator_qaxi_options['model.aero.actuator.symmetry'] = 'axisymmetric'
     actuator_qaxi_options['visualization.cosmetics.trajectory.actuator'] = True
     actuator_qaxi_options['visualization.cosmetics.trajectory.kite_bodies'] = True
-    actuator_qaxi_options['model.system_bounds.theta.a'] = [-0., 0.5]
-    actuator_qaxi_options['user_options.trajectory.lift_mode.windings'] = 3
+    # actuator_qaxi_options['model.system_bounds.theta.a'] = [0., 0.5]
+    # actuator_qaxi_options['user_options.trajectory.lift_mode.windings'] = 3
+
+    # actuator_qaxi_options['model.aero.actuator.normal_vector_model'] = 'xhat'
 
     actuator_qaxi_basic_health_options = make_basic_health_variant(actuator_qaxi_options)
 
@@ -476,13 +478,13 @@ if __name__ == "__main__":
 
     parallel_or_serial = 'serial'
 
-    types_of_problems = {'single_kites': True,
-                         'base_alternatives': True,
-                         'dual_kites': True,
-                         'tracking': True,
+    types_of_problems = {'single_kites': False,
+                         'base_alternatives': False,
+                         'dual_kites': False,
+                         'tracking': False,
                          'size_alternatives': False,
-                         'vortex': True,
-                         'actuator': False}
+                         'vortex': False,
+                         'actuator': True}
 
     if parallel_or_serial == 'parallel':
 
@@ -499,8 +501,8 @@ if __name__ == "__main__":
         #     list_functions += [test_small_dual_kite_basic_health, test_small_dual_kite, test_large_dual_kite_basic_health, test_large_dual_kite]
         if types_of_problems['vortex']:
             list_functions += [test_vortex_force_zero_basic_health, test_vortex_force_zero, test_vortex_basic_health, test_vortex, test_vortex_3_dof]
-        # if types_of_problems['actuator']:
-        #     list_functions += [test_actuator_qaxi_basic_health, test_actuator_qaxi, test_actuator_qasym, test_actuator_uaxi, test_actuator_uasym, test_actuator_comparison]
+        if types_of_problems['actuator']:
+            list_functions += [test_actuator_qaxi_basic_health, test_actuator_qaxi, test_actuator_qasym, test_actuator_uaxi, test_actuator_uasym, test_actuator_comparison]
 
         from concurrent.futures import ProcessPoolExecutor, wait, FIRST_EXCEPTION
         import multiprocessing
@@ -559,13 +561,13 @@ if __name__ == "__main__":
             test_vortex_force_zero()
             test_vortex_3_dof()
 
-        # if types_of_problems['actuator']:
-        #     test_actuator_qaxi_basic_health()
-        #     test_actuator_qaxi()
-        #     test_actuator_qasym()
-        #     test_actuator_uaxi()
-        #     test_actuator_uasym()
-        #     test_actuator_comparison()
+        if types_of_problems['actuator']:
+            test_actuator_qaxi_basic_health()
+            test_actuator_qaxi()
+            test_actuator_qasym()
+            test_actuator_uaxi()
+            test_actuator_uasym()
+            test_actuator_comparison()
 
 
     else:

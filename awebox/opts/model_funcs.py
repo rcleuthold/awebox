@@ -42,6 +42,7 @@ import awebox.tools.print_operations as print_op
 import awebox.tools.vector_operations as vect_op
 
 import awebox.mdl.aero.induction_dir.actuator_dir.flow as actuator_flow
+import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
 import awebox.mdl.aero.induction_dir.vortex_dir.alg_repr_dir.scaling as vortex_alg_repr_scaling
 
 import awebox.mdl.wind as wind
@@ -565,17 +566,14 @@ def build_induction_options(options, help_options, options_tree, fixed_params, a
 
     options_tree.append(
         ('solver', 'initialization', 'induction', 'dynamic_pressure', get_q_at_altitude(options, estimate_altitude(options)), ('????', None), 'x')),
+    u_at_altitude = get_u_at_altitude(options, estimate_altitude(options))
+    options_tree = actuator_system.add_scaling_of_support_variables(options, architecture, u_at_altitude, options_tree)
+    options_tree.append(
+        ('solver', 'initialization', 'induction', 'u_at_altitude', u_at_altitude, ('????', None), 'x')),
 
-    options_tree.append(('model', 'system_bounds', 'z', 'n_vec_length', [0., cas.inf], ('positive-direction parallel for actuator orientation [-]', None), 'x')),
-    options_tree.append(('model', 'system_bounds', 'z', 'u_vec_length', [0., cas.inf], ('positive-direction parallel for actuator orientation [-]', None), 'x')),
-    options_tree.append(('model', 'system_bounds', 'z', 'z_vec_length', [0., cas.inf], ('positive-direction parallel for actuator orientation [-]', None), 'x')),
-    options_tree.append(('model', 'system_bounds', 'z', 'g_vec_length', [0., cas.inf], ('positive-direction parallel for actuator orientation [-]', None), 'x')),
 
-    options_tree.append(('model', 'scaling', 'z', 'act_dcm', 1., ('descript', None), 'x'))
-    options_tree.append(('model', 'scaling', 'z', 'wind_dcm', 1., ('descript', None), 'x'))
+    options_tree = actuator_system.add_system_bounds_of_support_variables(options, help_options, options_tree)
 
-    u_vec_length_ref = get_u_at_altitude(options, estimate_altitude(options))
-    options_tree.append(('model', 'scaling', 'z', 'u_vec_length', u_vec_length_ref, ('descript', None), 'x'))
 
     if options['model']['aero']['actuator']['support_only']:
         if (user_options['induction_model'] == 'actuator') and (not options['model']['aero']['induction']['force_zero']):
@@ -586,41 +584,8 @@ def build_induction_options(options, help_options, options_tree, fixed_params, a
             options['model']['aero']['induction']['force_zero'] = True
 
     normal_vector_model = options['model']['aero']['actuator']['normal_vector_model']
-    number_of_kites = architecture.number_of_kites
-    if normal_vector_model == 'least_squares':
-        length = options['solver']['initialization']['theta']['l_s']
-        n_vec_length_ref = length**2.
-    elif normal_vector_model == 'binormal':
-        length = options['solver']['initialization']['l_t']
-        n_vec_length_ref = number_of_kites * length**2.
-    elif normal_vector_model == 'tether_parallel':
-        n_vec_length_ref = 1.
-    else:  # normal_vector_model == 'xhat':
-        n_vec_length_ref = 1.
-    options_tree.append(('model', 'scaling', 'z', 'n_vec_length', n_vec_length_ref, ('descript', None), 'x'))
-    options_tree.append(
-        ('solver', 'initialization', 'induction', 'n_vec_length', n_vec_length_ref, ('descript', None), 'x'))
-
     options_tree.append(
         ('solver', 'initialization', 'induction', 'normal_vector_model', normal_vector_model, ('descript', None), 'x'))
-
-
-    g_vec_length_ref = get_u_ref(user_options)
-    options_tree.append(('model', 'scaling', 'z', 'g_vec_length', g_vec_length_ref, ('descript', None), 'x'))
-    options_tree.append(
-        ('solver', 'initialization', 'induction', 'g_vec_length', g_vec_length_ref, ('descript', None), 'x'))
-
-    options_tree.append(('model', 'scaling', 'z', 'z_vec_length', 1., ('descript', None), 'x'))
-    options_tree.append(
-        ('solver', 'initialization', 'induction', 'z_vec_length', 1., ('descript', None), 'x'))
-
-    psi_scale = 2. * np.pi
-    options_tree.append(('model', 'scaling', 'z', 'psi', psi_scale, ('descript', None), 'x'))
-    options_tree.append(('model', 'scaling', 'z', 'cospsi', 0.5, ('descript', None), 'x'))
-    options_tree.append(('model', 'scaling', 'z', 'sinpsi', 0.5, ('descript', None), 'x'))
-
-    psi_epsilon = np.pi
-    options_tree.append(('model', 'system_bounds', 'z', 'psi', [0. - psi_epsilon, 2. * np.pi + psi_epsilon], ('azimuth-jumping bounds on the azimuthal angle derivative', None), 'x'))
 
     if options['model']['aero']['actuator']['geometry_overwrite'] is not None:
         geometry_type = options['model']['aero']['actuator']['geometry_overwrite']

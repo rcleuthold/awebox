@@ -35,6 +35,7 @@ python-3.5 / casadi 3.0.0
 import casadi.tools as cas
 import awebox.tools.struct_operations as struct_op
 import awebox.mdl.aero.induction_dir.vortex_dir.tools as vortex_tools
+import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
 import copy
 import awebox.tools.print_operations as print_op
 from awebox.logger.logger import Logger as awelogger
@@ -286,33 +287,7 @@ def extend_actuator_induction_factors(options, system_lifted, system_states, arc
 
 
 def extend_actuator_support(options, system_lifted, system_states, architecture):
-    for kite in architecture.kite_nodes:
-        parent = architecture.parent_map[kite]
-        system_lifted.extend([('varrho' + str(kite) + str(parent), (1, 1))])
-        system_lifted.extend([('psi' + str(kite) + str(parent), (1, 1))])
-        system_lifted.extend([('cospsi' + str(kite) + str(parent), (1, 1))])
-        system_lifted.extend([('sinpsi' + str(kite) + str(parent), (1, 1))])
-
-    for layer_node in architecture.layer_nodes:
-        system_lifted.extend([('bar_varrho' + str(layer_node), (1, 1))])
-        system_lifted.extend([('area' + str(layer_node), (1, 1))])
-
-        system_lifted.extend([('act_q' + str(layer_node), (3, 1))])
-        system_lifted.extend([('act_dq' + str(layer_node), (3, 1))])
-
-        system_lifted.extend([('gamma' + str(layer_node), (1, 1))])
-        system_lifted.extend([('g_vec_length' + str(layer_node), (1, 1))])
-        system_lifted.extend([('cosgamma' + str(layer_node), (1, 1))])
-        system_lifted.extend([('singamma' + str(layer_node), (1, 1))])
-
-        system_lifted.extend([('act_dcm' + str(layer_node), (9, 1))])
-        system_lifted.extend([('wind_dcm' + str(layer_node), (9, 1))])
-        system_lifted.extend([('n_vec_length' + str(layer_node), (1, 1))])
-        system_lifted.extend([('u_vec_length' + str(layer_node), (1, 1))])
-        system_lifted.extend([('z_vec_length' + str(layer_node), (1, 1))])
-
-        system_lifted.extend([('thrust' + str(layer_node), (1, 1))])
-
+    system_lifted, system_states = actuator_system.extend_actuator_support(options, system_lifted, system_states, architecture)
     return system_lifted, system_states
 
 

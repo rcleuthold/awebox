@@ -275,6 +275,17 @@ def upper_triangular_inclusive(matrix):
                 elements = cas.vertcat(elements, matrix_resquared[r, c])
     return elements
 
+def upper_triangular_exclusive(matrix):
+
+    matrix_resquared = resquare(matrix)
+
+    elements = []
+    for r in range(matrix_resquared.shape[0]):
+        for c in range(matrix_resquared.shape[1]):
+            if c > r:
+                elements = cas.vertcat(elements, matrix_resquared[r, c])
+    return elements
+
 def lower_triangular_exclusive(matrix):
 
     matrix_resquared = resquare(matrix)

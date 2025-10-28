@@ -30,6 +30,7 @@ _python-3.5 / casadi-3.4.5
 - author: rachel leuthold, alu-fr 2017-21
 - edit: jochem de schutter, alu-fr 2019
 '''
+import pdb
 
 import casadi as cas
 import numpy as np
@@ -39,12 +40,14 @@ import awebox.mdl.aero.induction_dir.actuator_dir.geom as actuator_geom
 import awebox.mdl.aero.induction_dir.actuator_dir.flow as actuator_flow
 import awebox.mdl.aero.induction_dir.actuator_dir.coeff as actuator_coeff
 import awebox.mdl.aero.induction_dir.actuator_dir.force as actuator_force
+import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
 
 import awebox.mdl.aero.induction_dir.general_dir.tools as general_tools
 import awebox.mdl.aero.geometry_dir.geometry as geom
 
 import awebox.tools.constraint_operations as cstr_op
 import awebox.tools.print_operations as print_op
+import awebox.tools.vector_operations as vect_op
 
 def model_is_included_in_comparison(options):
     comparison_labels = general_tools.get_option_from_possible_dicts(options, 'comparison_labels', 'actuator')
@@ -163,6 +166,9 @@ def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs,
 
     resi_unscaled = thrust - 4. * corr_val * (1. - a_var) * thrust_den
     resi = resi_unscaled / thrust_ref
+
+    print_op.warn_about_temporary_functionality_alteration()
+    resi = a_var - 0.3
 
     return resi
 
@@ -287,35 +293,52 @@ def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, 
 
     return resi
 
-def get_actuator_orientation_cstr(model_options, wind, parent, variables, parameters, architecture, scaling):
+def get_actuator_orientation_cstr(model_options, wind, parent, variables_si, parameters, architecture, scaling):
 
-    # system_lifted.extend([('act_dcm' + str(layer_node), (9, 1))])
-    # system_lifted.extend([('wind_dcm' + str(layer_node), (9, 1))])
-    # system_lifted.extend([('n_vec_length' + str(layer_node), (1, 1))])
-    # system_lifted.extend([('u_vec_length' + str(layer_node), (1, 1))])
-    # system_lifted.extend([('z_vec_length' + str(layer_node), (1, 1))])
+    # system_lifted.extend([('act_n_hat' + str(layer_node), (3, 1))])
+    # system_lifted.extend([('act_uzero_hat' + str(layer_node), (3, 1))])
+    # system_lifted.extend([('act_z_hat' + str(layer_node), (3, 1))])
+    #
     #
     # --------------------
-    # 21 variables total
+    # 6 variables total
     # --------------------
-    # 21 constraints total
+    # 6 constraints total
 
     cstr_list = cstr_op.ConstraintList()
 
-    act_dcm_cstr = actuator_geom.get_act_dcm_ortho_cstr(parent, variables)
-    cstr_list.append(act_dcm_cstr)  # 6 constraints
+    # nhat_cstr = actuator_geom.get_act_dcm_n_along_normal_cstr(model_options, parent, variables_si, architecture,
+    #                                                           scaling)
+    # cstr_list.append(nhat_cstr)
+    #
+    # # zhat_cstr = actuator_geom.get_act_dcm_z_along_wind_dcm_w_cstr(variables_si, parent, scaling)
+    # # cstr_list.append(zhat_cstr)
+    #
+    # uhat_cstr = actuator_flow.get_wind_dcm_u_along_uzero_cstr(model_options, wind, parent, variables_si, architecture, scaling)
+    # cstr_list.append(uhat_cstr)
+    # #
+    # # vhat_cstr = actuator_flow.get_act_v_hat_right_hand_rule(variables_si, parent)
+    # # cstr_list.append(vhat_cstr)
 
-    wind_dcm_cstr = actuator_flow.get_wind_dcm_ortho_cstr(parent, variables)
-    cstr_list.append(wind_dcm_cstr)  # 6 constraints
+    print_op.warn_about_temporary_functionality_alteration()
+    nhat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
+    uhat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'uzero', parent)
+    temp_angle = 5. * np.pi/ 180.
+    uhat_expr = uhat_var - (cas.cos(temp_angle) * vect_op.xhat_dm() + cas.sin(temp_angle) * vect_op.zhat_dm())
+    nhat_expr = nhat_var - vect_op.xhat_dm()
+    expr = cas.vertcat(uhat_expr, nhat_expr)
+    cstr = cstr_op.Constraint(expr=expr,
+                              name='ori' + str(parent),
+                              cstr_type='eq')
+    cstr_list.append(cstr)
 
-    nhat_cstr = actuator_geom.get_act_dcm_n_along_normal_cstr(model_options, parent, variables, architecture, scaling)
-    cstr_list.append(nhat_cstr)  # 3 constraints
 
-    uhat_cstr = actuator_flow.get_wind_dcm_u_along_uzero_cstr(model_options, wind, parent, variables, architecture, scaling)
-    cstr_list.append(uhat_cstr)  # 3 constraints
 
-    align_cstr = actuator_flow.get_act_dcm_z_along_wind_dcm_w_cstr(variables, parent, scaling)
-    cstr_list.append(align_cstr)  # 3 constraints
+    print_op.warn_about_temporary_functionality_alteration()
+    # number_constraints = cstr_list.get_expression_list('eq').shape[0]
+    # if number_constraints != 6:
+    #     message = 'there are an inappropriate number of actuator orientation constraints (' + str(number_constraints) + ')'
+    #     print_op.log_and_raise_error(message)
 
     return cstr_list
 
@@ -376,7 +399,7 @@ def collect_actuator_support_outputs(model_options, atmos, wind, variables, outp
         velocity = geom.get_center_velocity(model_options, parent, variables, architecture)
         area = actuator_geom.get_area_var(variables, parent)
         avg_radius = actuator_geom.get_average_radius(variables, parent, architecture, parameters)
-        nhat = actuator_geom.get_n_hat_var(variables, parent)
+        nhat = general_tools.get_n_hat_var(variables, parent)
         yaw_angle = actuator_flow.get_gamma_var(variables, parent)
         q_app = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
 
@@ -415,7 +438,8 @@ def sanity_check(init_options, variables_si, wind, architecture, epsilon=1e-5):
     for parent in architecture.layer_nodes:
         actuator_flow.check_that_wzero_is_parallel_to_z_rotor(variables_si, parent, epsilon)
         actuator_flow.check_that_uzero_has_positive_component_in_dominant_wind_direction(wind, variables_si, parent, epsilon)
-        actuator_flow.check_that_gamma_is_consistent(variables_si, parent, epsilon)
+        if init_options['induction']['normal_vector_model'] != 'xhat':
+            actuator_flow.check_that_gamma_is_consistent(variables_si, parent, epsilon)
         actuator_geom.check_that_actuator_center_is_above_minimum_altitude(init_options, variables_si, parent)
 
     return None

@@ -73,8 +73,10 @@ def get_basic_options_for_convergence_expense_and_comparison(options):
     options['model.scaling.other.force_scaling_method'] = 'synthesized'
     options['model.scaling.other.flight_radius_estimate'] = 'synthesized'
     options['model.scaling.other.tension_estimate'] = 'synthesized'
-    options['model.aero.vortex.position_scaling_method'] = 'average'
+    options['model.aero.vortex.position_scaling_method'] = 'convection' #'average'
     options['model.aero.vortex.wu_ind_scaling_method'] = 'ref_betz'
+
+    options['nlp.phase_fix_reelout'] = 0.55
 
     return options
 
@@ -179,13 +181,13 @@ def adjust_weights_for_tracking(trial_baseline, options, ratio_power_to_position
 
     options['solver.weights.vortex'] = 0.
 
-    really_really_extra_more_important = 1e4
+    really_really_extra_more_important = 1e5
     extra_much_more_important = 1e3
     much_more_important = 1e2
     more_important = 1e1
     less_important = 1e-1
     much_less_important = 1e-2
-    would_be_zero_except_sosc = 1e-4
+    would_be_zero_except_sosc = 1e-6
     baseline_options = trial_baseline.options
         
     unit_importance = 1e0
@@ -195,15 +197,15 @@ def adjust_weights_for_tracking(trial_baseline, options, ratio_power_to_position
     options['solver.weights.r'] = unit_importance
     options['solver.weights.omega'] = would_be_zero_except_sosc
     
-    options['solver.weights.coeff'] = unit_importance
-    options['solver.weights.delta'] = unit_importance
+    options['solver.weights.coeff'] = would_be_zero_except_sosc 
+    options['solver.weights.delta'] = would_be_zero_except_sosc
     options['solver.weights.ddelta'] = would_be_zero_except_sosc
 
     options['solver.weights.l_t'] = would_be_zero_except_sosc
     options['solver.weights.dl_t'] = unit_importance * ratio_power_to_position_weights
     options['solver.weights.lambda'] = unit_importance * ratio_power_to_position_weights
 
-    options['solver.cost.t_f.0'] = unit_importance # also penalizes switching time
+    options['solver.cost.t_f.0'] = would_be_zero_except_sosc # effectively penalizes switching time
     options['solver.cost.u_regularisation.0'] = would_be_zero_except_sosc
     options['solver.cost.tracking.0'] = unit_importance
 
@@ -242,7 +244,7 @@ def adjust_weights_for_simulation(trial_baseline, options):
     options['solver.weights.dl_t'] = really_really_extra_more_important * baseline_options['solver']['weights']['dl_t']
     options['solver.weights.lambda'] = really_really_extra_more_important * baseline_options['solver']['weights']['lambda']
 
-    options['solver.cost.t_f.0'] = less_important * baseline_options['solver']['cost']['theta_regularisation'][0] # penalizes switching time
+    options['solver.cost.t_f.0'] = less_important * baseline_options['solver']['cost']['theta_regularisation'][0] # effectively penalizes switching time
     options['solver.cost.u_regularisation.0'] = more_important * baseline_options['solver']['cost']['u_regularisation'][
         0]
     options['solver.cost.tracking.0'] = more_important * baseline_options['solver']['cost']['tracking'][0]
@@ -393,13 +395,6 @@ def save_and_print_info(trial, options):
         trial.write_to_csv()
     except:
         message = 'something went wrong with write_to_csv'
-        print(message)
-
-    # this one saves the actual pickled trial object
-    try:
-        trial.save()
-    except:
-        message = 'something went wrong with trial.save'
         print(message)
 
     # everything below saves a summary file, so that you don't have to load and re-average the full time-series datafile
