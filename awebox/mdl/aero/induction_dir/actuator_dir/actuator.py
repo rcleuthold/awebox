@@ -168,7 +168,7 @@ def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs,
     resi = resi_unscaled / thrust_ref
 
     print_op.warn_about_temporary_functionality_alteration()
-    resi = a_var - 0.3
+    resi = (thrust / thrust_den) - 4. * a_var * (1. - a_var)
 
     return resi
 
@@ -307,30 +307,30 @@ def get_actuator_orientation_cstr(model_options, wind, parent, variables_si, par
 
     cstr_list = cstr_op.ConstraintList()
 
-    # nhat_cstr = actuator_geom.get_act_dcm_n_along_normal_cstr(model_options, parent, variables_si, architecture,
-    #                                                           scaling)
-    # cstr_list.append(nhat_cstr)
-    #
+    nhat_cstr = actuator_geom.get_act_dcm_n_along_normal_cstr(model_options, parent, variables_si, architecture,
+                                                              scaling)
+    cstr_list.append(nhat_cstr)
+
     # # zhat_cstr = actuator_geom.get_act_dcm_z_along_wind_dcm_w_cstr(variables_si, parent, scaling)
     # # cstr_list.append(zhat_cstr)
     #
-    # uhat_cstr = actuator_flow.get_wind_dcm_u_along_uzero_cstr(model_options, wind, parent, variables_si, architecture, scaling)
-    # cstr_list.append(uhat_cstr)
+    uhat_cstr = actuator_flow.get_wind_dcm_u_along_uzero_cstr(model_options, wind, parent, variables_si, architecture, scaling)
+    cstr_list.append(uhat_cstr)
     # #
     # # vhat_cstr = actuator_flow.get_act_v_hat_right_hand_rule(variables_si, parent)
     # # cstr_list.append(vhat_cstr)
 
-    print_op.warn_about_temporary_functionality_alteration()
-    nhat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
-    uhat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'uzero', parent)
-    temp_angle = 5. * np.pi/ 180.
-    uhat_expr = uhat_var - (cas.cos(temp_angle) * vect_op.xhat_dm() + cas.sin(temp_angle) * vect_op.zhat_dm())
-    nhat_expr = nhat_var - vect_op.xhat_dm()
-    expr = cas.vertcat(uhat_expr, nhat_expr)
-    cstr = cstr_op.Constraint(expr=expr,
-                              name='ori' + str(parent),
-                              cstr_type='eq')
-    cstr_list.append(cstr)
+    # print_op.warn_about_temporary_functionality_alteration()
+    # nhat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
+    # uhat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'uzero', parent)
+    # temp_angle = 5. * np.pi/ 180.
+    # uhat_expr = uhat_var - (cas.cos(temp_angle) * vect_op.xhat_dm() + cas.sin(temp_angle) * vect_op.zhat_dm())
+    # nhat_expr = nhat_var - vect_op.xhat_dm()
+    # expr = cas.vertcat(uhat_expr, nhat_expr)
+    # cstr = cstr_op.Constraint(expr=expr,
+    #                           name='ori' + str(parent),
+    #                           cstr_type='eq')
+    # cstr_list.append(cstr)
 
 
 

@@ -179,10 +179,10 @@ def get_area_cstr(parent, variables_si, parameters, scaling):
 
     resi_unscaled = area_var - area_val
 
-    print_op.warn_about_temporary_functionality_alteration()
-    b_ref = 5.5
-    radius = 7. * b_ref
-    resi_unscaled = area_var - (2. * np.pi * radius * b_ref)
+    # print_op.warn_about_temporary_functionality_alteration()
+    # b_ref = 5.5
+    # radius = 7. * b_ref
+    # resi_unscaled = area_var - (2. * np.pi * radius * b_ref)
 
     resi_scaled = struct_op.var_si_to_scaled('z', 'area' + str(parent), resi_unscaled, scaling)
 
@@ -210,8 +210,8 @@ def get_bar_varrho_cstr(parent, variables, architecture, scaling):
 
     resi_si = bar_varrho_var - bar_varrho_val
 
-    print_op.warn_about_temporary_functionality_alteration()
-    resi_si = bar_varrho_var - 7.
+    # print_op.warn_about_temporary_functionality_alteration()
+    # resi_si = bar_varrho_var - 7.
 
     resi_scaled = struct_op.var_si_to_scaled('z', 'bar_varrho' + str(parent), resi_si, scaling)
 
@@ -263,8 +263,8 @@ def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architec
 
     resi_combi = cas.vertcat(f_cos, f_sin, f_cos_proj, f_sin_proj)
 
-    print_op.warn_about_temporary_functionality_alteration()
-    resi_combi = cas.vertcat(psi_var, cospsi_var - 1, sinpsi_var, varrho_var - 7.)
+    # print_op.warn_about_temporary_functionality_alteration()
+    # resi_combi = cas.vertcat(psi_var, cospsi_var - 1, sinpsi_var, varrho_var - 7.)
 
     name = 'actuator_varrho_and_psi_' + str(kite)
     cstr = cstr_op.Constraint(expr=resi_combi,

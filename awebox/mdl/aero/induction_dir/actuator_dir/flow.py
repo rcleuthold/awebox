@@ -183,8 +183,8 @@ def get_gamma_cstr(parent, variables, scaling):
 
     resi = cas.vertcat(f_cos, f_sin, f_cosproj, f_sinproj)
 
-    print_op.warn_about_temporary_functionality_alteration()
-    resi = cas.vertcat(gamma_var, cosgamma_var - 1., singamma_var, g_vec_length_var - 1.)
+    # print_op.warn_about_temporary_functionality_alteration()
+    # resi = cas.vertcat(gamma_var, cosgamma_var - 1., singamma_var, g_vec_length_var - 1.)
 
     name = 'actuator_gamma_' + str(parent)
     cstr = cstr_op.Constraint(expr=resi,
@@ -501,6 +501,8 @@ def get_label(model_options):
 def get_corr_val_axisym(model_options, variables, parent, label):
     a_var = get_a_var(variables, parent, label)
     corr_val = (1. - a_var)
+    print_op.warn_about_temporary_functionality_alteration()
+    # double check this, so far it looks like CT = 4 (1-a)^2 ...
     return corr_val
 
 def get_corr_val_glauert(model_options, variables, parent, label):

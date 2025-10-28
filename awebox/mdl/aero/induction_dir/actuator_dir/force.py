@@ -92,8 +92,8 @@ def get_thrust_constraint(variables, outputs, parent, architecture, scaling):
 
     resi_si = thrust_val - thrust_var
 
-    print_op.warn_about_temporary_functionality_alteration()
-    resi_si = thrust_var - 5e3
+    # print_op.warn_about_temporary_functionality_alteration()
+    # resi_si = thrust_var - 5e3
 
     var_type = 'z'
     var_name = 'thrust' + str(parent)
