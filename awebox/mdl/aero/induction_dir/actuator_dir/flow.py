@@ -414,6 +414,9 @@ def get_kite_effective_velocity(model_options, variables, parameters, architectu
 def get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture):
 
     center = geom.get_center_position(model_options, parent, variables, architecture)
+
+    print_op.warn_about_temporary_functionality_alteration()
+    center = actuator_geom.get_actuator_position_var(variables, parent)
     rho_infty = atmos.get_density(center[2])
 
     u_vec_val = general_flow.get_vec_u_zero(model_options, wind, parent, variables, architecture)
@@ -501,8 +504,6 @@ def get_label(model_options):
 def get_corr_val_axisym(model_options, variables, parent, label):
     a_var = get_a_var(variables, parent, label)
     corr_val = (1. - a_var)
-    print_op.warn_about_temporary_functionality_alteration()
-    # double check this, so far it looks like CT = 4 (1-a)^2 ...
     return corr_val
 
 def get_corr_val_glauert(model_options, variables, parent, label):
@@ -528,6 +529,9 @@ def get_corr_val_simple(model_options, variables, parent, label):
     return corr_val
 
 def get_corr_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
+
+    # options here from Chapter 4 of Wind Energy Handbook
+    # Tony Burton, Nick Jenkins, David Sharpe, and Ervin Bossanyi
 
     actuator_skew = model_options['aero']['actuator']['actuator_skew']
 

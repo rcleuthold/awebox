@@ -112,6 +112,7 @@ def set_default_options(default_user_options, help_options):
         ('model', 'aero', 'actuator',   'a_range',      [0., 0.5],          ('allowed range for induction factors', None),'x'),
         ('model', 'aero', 'actuator',   'a_fourier_range', [-0.01, 0.01],   ('allowed range for a_cos and a_sin, coefficients in the 1st order fourier summation', None), 'x'),
         ('model', 'aero', 'actuator',   'scaling',      1.,                 ('scaling factor for the actuator-disk residual', None),'x'),
+        ('model', 'aero', 'actuator',   'thrust_scaling_method', 'synthesized', ('the method of estimating the actuator thrust for problem scaling', ['thrust_coeff', 'aero', 'tension', 'synthesized']), 'x'),
         ('model', 'aero', 'actuator',   'varrho_range', [0., cas.inf],      ('allowed range for the relative orbit radius, for normalization of the actuator disk equations', None), 'x'),
         ('model', 'aero', 'actuator',   'steadyness',   'quasi-steady',     ('selection of steady vs unsteady actuator disk model', ['quasi-steady', 'unsteady']),'x'),
         ('model', 'aero', 'actuator',   'symmetry',     'axisymmetric',     ('selection of axisymmetric vs asymmetric actuator disk model', ['axisymmetric', 'asymmetric']), 'x'),
@@ -232,14 +233,15 @@ def set_default_options(default_user_options, help_options):
         ('params',  'model_bounds', None,           'rot_angles',            np.array([80.0*np.pi/180., 80.0*np.pi/180., 160.0*np.pi/180.0]), ('[roll, pitch, yaw] - [rad]', None), 's'),
         ('params',  'model_bounds', None,           'rot_angles_cross',      np.array([80.0*np.pi/180., 80.0*np.pi/180., 85.0*np.pi/180.0]), ('[roll, pitch, yaw] - [rad]', None), 's'),
         ('params',  'model_bounds', None,           'span_angle',            45.0*np.pi/180., ('[max. angle between span and wing-tip cross-tether] - [rad]', None), 's'),
-        ('model',   'model_bounds', 'ellipsoidal_flight_region', 'include',  False,   ('include ellipsoidal flight hull', None), 't'),
-        ('params',  'model_bounds', 'ellipsoidal_flight_region', 'radius',  500.0,   ('ellipsoidal flight hull ground radius', None), 's'),
-        ('params',  'model_bounds', 'ellipsoidal_flight_region', 'alpha',  np.pi/6,   ('ellipsoidal flight hull inclination angle', None), 's'),
+        ('model',   'model_bounds', 'ellipsoidal_flight_region', 'include',  False,     ('include ellipsoidal flight hull', None), 't'),
+        ('params',  'model_bounds', 'ellipsoidal_flight_region', 'radius',  500.0,      ('ellipsoidal flight hull ground radius', None), 's'),
+        ('params',  'model_bounds', 'ellipsoidal_flight_region', 'alpha',   np.pi/6,    ('ellipsoidal flight hull inclination angle', None), 's'),
+        ('model',   'model_bounds', None, 'inequality_violation_integration_base', 10.,  ('exponential base for integration violation - if applicable', None), 's'),
 
         #### scaling
         ('model',  'scaling', 'other', 'position_scaling_method',  'radius',                 ('the method of estimating the node position states q for problem scaling', ['radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']),'x'),
-        ('model',  'scaling', 'other', 'force_scaling_method',     'synthesized',           ('the method of estimating the force in the dynamics for problem scaling', ['max_acceleration', 'tension', 'gravity', 'centripetal', 'aero', 'synthesized']), 'x'),
-        ('model',  'scaling', 'other', 'flight_radius_estimate',   'centripetal',           ('the method of estimating the trajectory radius for problem scaling', ['anticollision', 'centripetal', 'cone', 'synthesized']), 'x'),
+        ('model',  'scaling', 'other', 'force_scaling_method',     'synthesized',            ('the method of estimating the force in the dynamics for problem scaling', ['max_acceleration', 'tension', 'gravity', 'centripetal', 'aero', 'synthesized']), 'x'),
+        ('model',  'scaling', 'other', 'flight_radius_estimate',   'centripetal',            ('the method of estimating the trajectory radius for problem scaling', ['anticollision', 'centripetal', 'cone', 'synthesized']), 'x'),
         ('model',  'scaling', 'other', 'tension_estimate',         'average_force',          ('the method of estimating the main tether tension for problem scaling', ['power', 'max_stress', 'average_force', 'force_summation', 'synthesized']), 'x'),
         ('model',  'scaling', 'other', 'print_help_with_scaling',  False,                    ('print values of the above scaling method interpretations to help with tuning problem scaling', [True, False]), 'x'),
 
@@ -294,7 +296,7 @@ def set_default_options(default_user_options, help_options):
         ('nlp',  'collocation',      None, 'd',                    4,                      ('degree of lagrange polynomials inside collocation interval [int]', None),'t'),
         ('nlp',  'collocation',      None, 'scheme',               'radau',                ('collocation scheme', ['radau','legendre']),'x'),
         ('nlp',  'collocation',      None, 'u_param',              'zoh',                  ('control parameterization in collocation interval', ['poly','zoh']),'x'),
-        ('nlp',  'collocation',      None, 'ineq_constraints',     'shooting_nodes',       ('impose path constraints at collocation nodes in zoh case', ['shooting_nodes', 'collocation_nodes']),'x'),
+        ('nlp',  'collocation',      None, 'ineq_constraints',     'all_but_integrated_controls',       ('impose path constraints at collocation nodes in zoh case', ['shooting_nodes', 'collocation_nodes', 'all_but_integrated_controls']),'x'),
         ('nlp',  'collocation',      None, 'name_constraints',     False,                  ('names nlp collocation constraints according to the extended model constraint. slow, but useful when debugging licq problems with the health check', [True, False]), 't'),
 
         # average model options
@@ -330,6 +332,7 @@ def set_default_options(default_user_options, help_options):
         ('nlp',  'cost',             None, 'P_max',                False,                  ('divide power output by peak power in cost function', None), 's'),
         ('nlp',  'cost',             None, 'PDGA',                 False,                  ('divide power output by ellipsoidal flight radius in cost function', None), 's'),
         ('nlp',  'cost',             None, 'beta',                 True,                   ('side-slip angle regularization', None), 's'),
+        ('nlp',  'cost',             None, 'inequality_violation', False,                  ('penalize inequality constraint violation', None), 's'),
         ('nlp',  'cost',             None, 'adjustments_to_general_regularization_distribution', [], ('list of reassignments of generalized regularization, entries must be tuples (model var type, var name, reassigment))', None), 's'),
         ('nlp',  None,               None, 'generate_constraints', True,                   ('DO NOT TURN THIS OFF. trial.nlp should generate the constraints', [True, False]), 'x'),
         ('nlp',  None,               None, 'compile_subfunctions', False,                  ('Compile NLP subfunctions (objective, constraints)', [True, False]), 'x'),
@@ -461,6 +464,7 @@ def set_default_options(default_user_options, help_options):
         ('solver',  'cost',             'compromised_battery',  0,  0,          ('starting cost for compromised_battery', None),'s'),
         ('solver',  'cost',             'transition',       0,      0,          ('starting cost for transition', None),'s'),
         ('solver',  'cost',             'beta',             0,      1e3,        ('starting cost for beta', None),'s'),
+        ('solver',  'cost',             'inequality_violation', 0,  1e-2,       ('starting cost for inequality violation', None), 's'),
         ('solver',  'cost',             'P_max',            0,      1,          ('starting cost for P_max', None),'s'),
 
         ('solver',  'cost',             'gamma',            1,      1e2,        ('update cost for gamma', None),'s'),

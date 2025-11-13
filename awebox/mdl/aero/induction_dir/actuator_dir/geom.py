@@ -214,6 +214,8 @@ def get_bar_varrho_cstr(parent, variables, architecture, scaling):
     # resi_si = bar_varrho_var - 7.
 
     resi_scaled = struct_op.var_si_to_scaled('z', 'bar_varrho' + str(parent), resi_si, scaling)
+    print_op.warn_about_temporary_functionality_alteration()
+    resi_scaled = resi_si
 
     name = 'actuator_bar_varrho_' + str(parent)
     cstr = cstr_op.Constraint(expr=resi_scaled,
@@ -452,6 +454,7 @@ def get_act_dcm_n_along_normal_cstr(model_options, parent, variables, architectu
 
     n_vec_val = unit_normal.get_n_vec(model_options, parent, variables, architecture)
     n_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'n', parent)
+
     # n_length_var = actuator_system.get_actuator_vector_length_var(variables, 'n', parent)
 
     print_op.warn_about_temporary_functionality_alteration()

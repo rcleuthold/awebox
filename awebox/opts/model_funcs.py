@@ -28,6 +28,7 @@ _python-3.5 / casadi-3.4.5
 - author: jochem de scutter, rachel leuthold, thilo bronnenmeyer, alu-fr/kiteswarms 2017-20
 - edited: rachel leuthold, 2017-2025
 '''
+from platform import architecture
 
 import numpy as np
 import awebox as awe
@@ -226,7 +227,7 @@ def get_dependent_params(geometry, geometry_data):
     return geometry
 
 
-def get_position_scaling(options, architecture, suppress_help_statement=False):
+def get_position_scaling(options, architecture, suppress_help_statement=False, overwrite_position_scaling_method=None):
 
     position = estimate_position_of_main_tether_end(options)
     flight_radius = estimate_flight_radius(options, architecture, suppress_help_statement=True)
@@ -246,7 +247,9 @@ def get_position_scaling(options, architecture, suppress_help_statement=False):
         print_op.print_dict_as_table(position_scaling_dict, level='debug')
 
     position_scaling_method = options['model']['scaling']['other']['position_scaling_method']
-    if position_scaling_method in position_scaling_dict.keys():
+    if overwrite_position_scaling_method in position_scaling_dict.keys():
+        q_scaling = position_scaling_dict[overwrite_position_scaling_method]
+    elif position_scaling_method in position_scaling_dict.keys():
         q_scaling = position_scaling_dict[position_scaling_method]
     else:
         message = 'unexpected position scaling source (' + position_scaling_method + ')'
@@ -493,6 +496,8 @@ def build_integral_options(options, options_tree, fixed_params):
     options_tree.append(('model', 'test', None, 'check_energy_summation', check_energy_summation, ('check that no kinetic or potential energy source has gotten lost', None), 'x'))
     options_tree.append(('model', None, None, 'beta_cost', options['nlp']['cost']['beta'], ('add beta_cost to integral outputs',[True,False]),'x'))
 
+    options_tree.append(('model', 'integration', None, 'include_inequality_violation', options['nlp']['cost']['inequality_violation'], ('add inequality violations to integral outputs',[True,False]),'x'))
+
     return options_tree, fixed_params
 
 
@@ -637,9 +642,14 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
     options_tree.append(('model', 'scaling', 'z', 'area', 2. * np.pi * flight_radius * b_ref, ('descript', None), 'x'))
 
     act_q = estimate_altitude(options)
+    print_op.warn_about_temporary_functionality_alteration()
+    act_q = get_position_scaling(options, architecture, suppress_help_statement=True) #, overwrite_position_scaling_method='altitude_and_radius')
     act_dq = estimate_reelout_speed(options)
     options_tree.append(('model', 'scaling', 'z', 'act_q', act_q, ('descript', None), 'x'))
     options_tree.append(('model', 'scaling', 'z', 'act_dq', act_dq, ('descript', None), 'x'))
+    q_bounds = [np.array([-cas.inf, -cas.inf, 10.0]), np.array([cas.inf, cas.inf, cas.inf])]
+    options_tree.append(('model', 'system_bounds', 'z', 'act_q', q_bounds, ('??', None), 'x')),
+
 
     options_tree.append(('formulation', 'induction', None, 'steadyness', actuator_steadyness, ('actuator steadyness', None), 'x')),
     options_tree.append(('formulation', 'induction', None, 'symmetry',   actuator_symmetry, ('actuator symmetry', None), 'x')),
@@ -672,7 +682,7 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
 
     gamma_range = options['model']['aero']['actuator']['gamma_range']
     options_tree.append(('model', 'system_bounds', 'z', 'gamma', gamma_range, ('tilt angle bounds [rad]', None), 'x')),
-    gamma_ref = gamma_range[1] * 0.8
+    gamma_ref = gamma_range[1] * 0.5
     options_tree.append(('model', 'scaling', 'z', 'gamma', gamma_ref, ('tilt angle bounds [rad]', None), 'x')),
     options_tree.append(('model', 'scaling', 'z', 'cosgamma', 0.5, ('tilt angle bounds [rad]', None), 'x')),
     options_tree.append(('model', 'scaling', 'z', 'singamma', 0.5, ('tilt angle bounds [rad]', None), 'x')),
@@ -1052,12 +1062,7 @@ def build_fict_scaling_options(options, options_tree, fixed_params, architecture
     options_tree.append(('model', 'scaling', 'z', 'f_aero', f_scaling, ('scaling of aerodynamic forces', None),'x'))
     options_tree.append(('model', 'scaling', 'z', 'm_aero', f_scaling * moment_scaling_factor, ('scaling of aerodynamic moments', None),'x'))
 
-    radius = estimate_flight_radius(options, architecture, suppress_help_statement=True)
-    area = 2. * np.pi * radius * b_ref
-    q_infty = get_q_at_altitude(options, estimate_altitude(options))
-    a_ref = options['model']['aero']['actuator']['a_ref']
-    actuator_thrust = 4. * a_ref * (1. - a_ref) * area * q_infty
-
+    actuator_thrust = estimate_actuator_thrust(options, architecture, suppress_help_statement=False)
     options_tree.append(('model', 'scaling', 'z', 'thrust', actuator_thrust, ('scaling of aerodynamic forces', None), 'x'))
 
     CD_tether = options['params']['tether']['cd']
@@ -1068,6 +1073,48 @@ def build_fict_scaling_options(options, options_tree, fixed_params, architecture
     options_tree.append(('model', 'scaling', 'z', 'f_tether', tether_drag_force, ('scaling of tether drag forces', None),'x'))
 
     return options_tree, fixed_params
+
+def estimate_actuator_thrust(options, architecture, suppress_help_statement=False):
+
+    thing_estimated = 'actuator thrust'
+
+    b_ref = get_geometry(options)['b_ref']
+
+    radius = estimate_flight_radius(options, architecture, suppress_help_statement=True)
+    area = 2. * np.pi * radius * b_ref
+    q_infty = get_q_at_altitude(options, estimate_altitude(options))
+    a_ref = options['model']['aero']['actuator']['a_ref']
+    ct_thrust = 4. * a_ref * (1. - a_ref) * area * q_infty
+
+    aero_thrust = architecture.number_of_kites * estimate_aero_force(options)
+
+    tension_per_unit_length = estimate_main_tether_tension_per_unit_length(options, architecture, suppress_help_statement=True)
+    length = options['solver']['initialization']['l_t']
+    tension = tension_per_unit_length * length
+    tension_thrust = tension
+
+    available_estimates = [float(ct_thrust), float(aero_thrust), float(tension)]
+    synthesized = vect_op.synthesize_estimate_from_a_list_of_positive_scalar_floats(available_estimates)
+
+    estimate_dict = {'thrust_coeff': ct_thrust,
+                     'aero': aero_thrust,
+                     'tension': tension_thrust,
+                     'synthesized': synthesized
+                     }
+
+    if options['model']['scaling']['other']['print_help_with_scaling'] and not suppress_help_statement:
+        print_op.base_print('available ' + thing_estimated + ' estimates are:', level='debug')
+        print_op.print_dict_as_table(estimate_dict, level='debug')
+
+    estimate_method = options['model']['aero']['actuator']['thrust_scaling_method']
+    if estimate_method in estimate_dict.keys():
+        estimate = estimate_dict[estimate_method]
+    else:
+        message = 'unknown ' + thing_estimated + ' scaling method (' + estimate_method + ')'
+        print_op.log_and_raise_error(message)
+
+    return estimate
+
 
 def get_gravity_ref(options):
 

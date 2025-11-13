@@ -28,6 +28,7 @@ that generates the dynamics residual
 python-3.5 / casadi-3.4.5
 - authors: jochem de schutter, rachel leuthold alu-fr 2017-20
 '''
+import pdb
 
 import casadi.tools as cas
 import numpy as np
@@ -110,18 +111,6 @@ def make_dynamics(options, atmos, wind, parameters, architecture):
                                                          parameters, outputs, architecture)
         cstr_list.append(induction_cstr)
 
-    # specify the required integrations, including that
-    # the energy is the integral of the instantaneous power
-    derivative_dict = get_dictionary_of_derivatives(options, system_variables, parameters, atmos, wind, outputs,
-                                                    architecture, scaling)
-    integral_outputs, integral_outputs_fun, integral_scaling, alongside_integration_cstr = manage_alongside_integration(
-        options,
-        derivative_dict,
-        system_variables,
-        parameters)
-
-    cstr_list.append(alongside_integration_cstr)
-
     # --------------------------------------------
     # define the inequality constraints
     # --------------------------------------------
@@ -152,6 +141,21 @@ def make_dynamics(options, atmos, wind, parameters, architecture):
     outputs, ellips_cstr = ellipsoidal_flight_constraint(options, system_variables['SI'], parameters, architecture,
                                                          outputs)
     cstr_list.append(ellips_cstr)
+
+    # ----------------------------------------
+    #  manage the integration
+    # ----------------------------------------
+
+    # specify the required integrations, including that the energy is the integral of the instantaneous power
+    derivative_dict = get_dictionary_of_derivatives(options, system_variables, parameters, atmos, wind, outputs,
+                                                    architecture, scaling, cstr_list)
+    integral_outputs, integral_outputs_fun, integral_scaling, alongside_integration_cstr = manage_alongside_integration(
+        options,
+        derivative_dict,
+        system_variables,
+        parameters)
+
+    cstr_list.append(alongside_integration_cstr)
 
     # ----------------------------------------
     #  sanity checking
@@ -215,7 +219,7 @@ def check_that_all_xdot_vars_are_represented_in_dynamics(cstr_list, variables_di
 
 
 def get_dictionary_of_derivatives(model_options, system_variables, parameters, atmos, wind, outputs, architecture,
-                                  scaling):
+                                  scaling, cstr_list):
     # ensure that energy matches power integration
     power_si, _, power_si_without_fictitious = get_power(model_options, system_variables, parameters, outputs,
                                                          architecture, scaling)
@@ -246,6 +250,13 @@ def get_dictionary_of_derivatives(model_options, system_variables, parameters, a
         total_time_scaling = model_options['scaling']['x']['total_time_scaled']
         derivative_dict['total_time_scaled'] = (cas.DM(1.),
                                                 total_time_scaling)  # second value is some arbitrary large number.
+
+    if model_options['integration']['include_inequality_violation']:
+        for ineq in cstr_list.get_list('ineq'):
+            ineq_scaling = cas.DM(1.)
+            inequality_violation_integration_base = model_options['model_bounds']['inequality_violation_integration_base']
+            ineq_violation = inequality_violation_integration_base**ineq.expr
+            derivative_dict['inequality_' + ineq.name] = (ineq_violation, ineq_scaling)
 
     return derivative_dict
 

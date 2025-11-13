@@ -48,6 +48,8 @@ import awebox.mdl.aero.geometry_dir.geometry as geom
 import awebox.tools.constraint_operations as cstr_op
 import awebox.tools.print_operations as print_op
 import awebox.tools.vector_operations as vect_op
+import awebox.tools.struct_operations as struct_op
+
 
 def model_is_included_in_comparison(options):
     comparison_labels = general_tools.get_option_from_possible_dicts(options, 'comparison_labels', 'actuator')
@@ -78,7 +80,7 @@ def get_all_model_induction_factor_constraints(model_options, atmos, wind, varia
     layer_parent_map = architecture.layer_nodes
     for parent in layer_parent_map:
         for label in act_comp_labels:
-            induction_factor_cstr = get_induction_factor_cstr(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+            induction_factor_cstr = get_induction_factor_cstr(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling)
             cstr_list.append(induction_factor_cstr)
 
         children = architecture.kites_map[parent]
@@ -122,10 +124,10 @@ def get_all_model_support_constraints(model_options, wind, variables, parameters
     return cstr_list
 
 
-def get_induction_factor_cstr(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
+def get_induction_factor_cstr(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling):
 
     if label == 'qaxi':
-        resi = get_momentum_theory_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+        resi = get_momentum_theory_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling)
 
     elif label == 'qasym':
         resi = get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label)
@@ -149,7 +151,7 @@ def get_induction_factor_cstr(model_options, atmos, wind, variables, outputs, pa
 
     return cstr
 
-def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
+def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling):
 
     a_var = actuator_flow.get_a_var(variables, parent, label)
 
@@ -158,17 +160,22 @@ def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs,
     area = actuator_geom.get_area_var(variables, parent)
     qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
 
-    # thrust = 4 corr (1 - a) * thrust_den
     thrust_den = qzero * area
     thrust_ref = actuator_coeff.get_thrust_ref(model_options, atmos, wind, parameters)
+    c_t = thrust / thrust_den
 
     corr_val = actuator_flow.get_corr_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+    rhs = 4. * a_var * corr_val
 
-    resi_unscaled = thrust - 4. * corr_val * (1. - a_var) * thrust_den
-    resi = resi_unscaled / thrust_ref
+    resi_si = c_t - rhs
+    resi = resi_si
 
-    print_op.warn_about_temporary_functionality_alteration()
-    resi = (thrust / thrust_den) - 4. * a_var * (1. - a_var)
+    # print_op.warn_about_temporary_functionality_alteration()
+    # resi_si = thrust - rhs * thrust_den
+    #
+    # var_type = 'z'
+    # var_name = 'thrust' + str(parent)
+    # resi = struct_op.var_si_to_scaled(var_type, var_name, resi_si, scaling)
 
     return resi
 

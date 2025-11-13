@@ -37,6 +37,35 @@ import awebox.tools.struct_operations as struct_op
 import awebox.tools.vector_operations as vect_op
 import awebox.tools.print_operations as print_op
 
+def extend_actuator_induction_factors(options, system_lifted, system_states, architecture):
+
+    comparison_labels = options['aero']['induction']['comparison_labels']
+
+    actuator_comp_labels = []
+    for label in comparison_labels:
+        if label[:3] == 'act':
+            actuator_comp_labels += [label[4:]]
+
+    for kite in architecture.kite_nodes:
+        parent = architecture.parent_map[kite]
+        system_lifted.extend([('local_a' + str(kite) + str(parent), (1, 1))])
+
+    for layer_node in architecture.layer_nodes:
+        for label in actuator_comp_labels:
+            if label[0] == 'q':
+                system_lifted.extend([('a_' + label + str(layer_node), (1, 1))])
+            elif label[0] == 'u':
+                system_states.extend([('a_' + label + str(layer_node), (1, 1))])
+
+            if label == 'qasym':
+                system_lifted.extend([('acos_' + label + str(layer_node), (1, 1))])
+                system_lifted.extend([('asin_' + label + str(layer_node), (1, 1))])
+
+            if label == 'uasym':
+                system_states.extend([('acos_' + label + str(layer_node), (1, 1))])
+                system_states.extend([('asin_' + label + str(layer_node), (1, 1))])
+    return system_lifted, system_states
+
 def extend_actuator_support(options, system_lifted, system_states, architecture):
     for kite in architecture.kite_nodes:
         parent = architecture.parent_map[kite]

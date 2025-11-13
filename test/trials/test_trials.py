@@ -11,6 +11,8 @@ import collections
 import copy
 import logging
 
+from Cython.Compiler.Parsing import inequality_relations
+
 import awebox as awe
 
 import awebox.opts.kite_data.ampyx_data as ampyx_data
@@ -64,6 +66,11 @@ def test_single_kite_6_dof(final_homotopy_step='final', overwrite_options={}):
 # 5
 def test_poly(final_homotopy_step='final', overwrite_options={}):
     trial_name = 'poly_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+def test_poly_basic_health(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'poly_trial_basic_health'
     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
     return None
 
@@ -163,6 +170,10 @@ def test_segmented_tether(final_homotopy_step='final', overwrite_options={}):
     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
     return None
 
+def test_inequality_violation_cost(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'inequality_violation_cost_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
 
 # def test_small_dual_kite(final_homotopy_step='final', overwrite_options={}):
 #     trial_name = 'small_dual_kite_trial'
@@ -185,39 +196,39 @@ def test_segmented_tether(final_homotopy_step='final', overwrite_options={}):
 #     return None
 
 
-def test_actuator_qaxi(final_homotopy_step='final', overwrite_options={}):
-    trial_name = 'actuator_qaxi_trial'
-    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-    return None
-
-def test_actuator_qaxi_basic_health(final_homotopy_step='final', overwrite_options={}):
-    trial_name = 'actuator_qaxi_basic_health_trial'
-    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-    return None
-
-
-def test_actuator_uaxi(final_homotopy_step='final', overwrite_options={}):
-    trial_name = 'actuator_uaxi_trial'
-    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-    return None
-
-
-def test_actuator_qasym(final_homotopy_step='final', overwrite_options={}):
-    trial_name = 'actuator_qasym_trial'
-    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-    return None
-
-
-def test_actuator_uasym(final_homotopy_step='final', overwrite_options={}):
-    trial_name = 'actuator_uasym_trial'
-    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-    return None
-
-
-def test_actuator_comparison(final_homotopy_step='final', overwrite_options={}):
-    trial_name = 'actuator_comparison_trial'
-    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-    return None
+# def test_actuator_qaxi(final_homotopy_step='final', overwrite_options={}):
+#     trial_name = 'actuator_qaxi_trial'
+#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+#     return None
+#
+# def test_actuator_qaxi_basic_health(final_homotopy_step='final', overwrite_options={}):
+#     trial_name = 'actuator_qaxi_basic_health_trial'
+#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+#     return None
+#
+#
+# def test_actuator_uaxi(final_homotopy_step='final', overwrite_options={}):
+#     trial_name = 'actuator_uaxi_trial'
+#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+#     return None
+#
+#
+# def test_actuator_qasym(final_homotopy_step='final', overwrite_options={}):
+#     trial_name = 'actuator_qasym_trial'
+#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+#     return None
+#
+#
+# def test_actuator_uasym(final_homotopy_step='final', overwrite_options={}):
+#     trial_name = 'actuator_uasym_trial'
+#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+#     return None
+#
+#
+# def test_actuator_comparison(final_homotopy_step='final', overwrite_options={}):
+#     trial_name = 'actuator_comparison_trial'
+#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+#     return None
 
 
 
@@ -234,6 +245,7 @@ def make_basic_health_variant(base_options):
     basic_health_options['solver.health_check.when'] = 'success'
     basic_health_options['nlp.collocation.name_constraints'] = True
     basic_health_options['solver.health_check.help_with_debugging'] = True #False
+    basic_health_options['model.scaling.other.print_help_with_scaling'] = True
 
     basic_health_options['solver.homotopy_method.advance_despite_max_iter'] = False
     basic_health_options['solver.homotopy_method.advance_despite_ill_health'] = False
@@ -280,12 +292,17 @@ def generate_options_dict():
 
     single_kite_6_dof_basic_health_options = make_basic_health_variant(single_kite_6_dof_options)
 
+    inequality_cost_options = copy.deepcopy(single_kite_options)
+    inequality_cost_options['nlp.cost.inequality_violation'] = True
+
     segmented_tether_options = copy.deepcopy(single_kite_options)
     segmented_tether_options['user_options.system_model.architecture'] = {1: 0, 2:1, 3:2, 4:3}
 
     poly_options = copy.deepcopy(single_kite_options)
     poly_options['nlp.collocation.u_param'] = 'poly'
-    poly_options['solver.cost_factor.power'] = 1e1  # 1e4
+    # poly_options['solver.cost_factor.power'] = 1e1  # 1e4
+
+    poly_basic_health_options = make_basic_health_variant(poly_options)
 
     drag_mode_options = copy.deepcopy(single_kite_options)
     drag_mode_options['user_options.trajectory.system_type'] = 'drag_mode'
@@ -339,10 +356,10 @@ def generate_options_dict():
     actuator_qaxi_options['model.aero.actuator.symmetry'] = 'axisymmetric'
     actuator_qaxi_options['visualization.cosmetics.trajectory.actuator'] = True
     actuator_qaxi_options['visualization.cosmetics.trajectory.kite_bodies'] = True
-    # actuator_qaxi_options['model.system_bounds.theta.a'] = [0., 0.5]
-    # actuator_qaxi_options['user_options.trajectory.lift_mode.windings'] = 3
+    actuator_qaxi_options['user_options.trajectory.lift_mode.windings'] = 1
 
-    # actuator_qaxi_options['model.aero.actuator.normal_vector_model'] = 'xhat'
+    # rela remove me
+    actuator_qaxi_options['model.aero.actuator.thrust_scaling_method'] = 'tension'
 
     actuator_qaxi_basic_health_options = make_basic_health_variant(actuator_qaxi_options)
 
@@ -412,7 +429,9 @@ def generate_options_dict():
     options_dict['single_kite_6_dof_trial'] = single_kite_6_dof_options
     options_dict['single_kite_6_dof_basic_health_trial'] = single_kite_6_dof_basic_health_options
     options_dict['segmented_tether_trial'] = segmented_tether_options
+    options_dict['inequality_violation_cost_trial'] = inequality_cost_options
     options_dict['poly_trial'] = poly_options
+    options_dict['poly_trial_basic_health'] = poly_basic_health_options
     options_dict['drag_mode_trial'] = drag_mode_options
     options_dict['save_trial'] = save_trial_options
     options_dict['dual_kite_trial'] = dual_kite_options
@@ -479,12 +498,12 @@ if __name__ == "__main__":
     parallel_or_serial = 'serial'
 
     types_of_problems = {'single_kites': False,
-                         'base_alternatives': False,
+                         'base_alternatives': True,
                          'dual_kites': False,
                          'tracking': False,
                          'size_alternatives': False,
                          'vortex': False,
-                         'actuator': True}
+                         'actuator': False}
 
     if parallel_or_serial == 'parallel':
 
@@ -492,7 +511,7 @@ if __name__ == "__main__":
         if types_of_problems['single_kites']:
             list_functions += [test_single_kite_basic_health, test_single_kite, test_single_kite_6_dof_basic_health, test_single_kite_6_dof]
         if types_of_problems['base_alternatives']:
-            list_functions += [test_segmented_tether, test_poly, test_drag_mode, test_save_trial]
+            list_functions += [test_poly_basic_health, test_poly, test_segmented_tether, test_drag_mode, test_save_trial, test_inequality_violation_cost]
         if types_of_problems['dual_kites']:
             list_functions += [test_dual_kite_basic_health, test_dual_kite, test_dual_kite_6_dof_basic_health, test_dual_kite_6_dof]
         if types_of_problems['tracking']:
@@ -501,8 +520,8 @@ if __name__ == "__main__":
         #     list_functions += [test_small_dual_kite_basic_health, test_small_dual_kite, test_large_dual_kite_basic_health, test_large_dual_kite]
         if types_of_problems['vortex']:
             list_functions += [test_vortex_force_zero_basic_health, test_vortex_force_zero, test_vortex_basic_health, test_vortex, test_vortex_3_dof]
-        if types_of_problems['actuator']:
-            list_functions += [test_actuator_qaxi_basic_health, test_actuator_qaxi, test_actuator_qasym, test_actuator_uaxi, test_actuator_uasym, test_actuator_comparison]
+        # if types_of_problems['actuator']:
+        #     list_functions += [test_actuator_qaxi_basic_health, test_actuator_qaxi, test_actuator_qasym, test_actuator_uaxi, test_actuator_uasym, test_actuator_comparison]
 
         from concurrent.futures import ProcessPoolExecutor, wait, FIRST_EXCEPTION
         import multiprocessing
@@ -533,10 +552,12 @@ if __name__ == "__main__":
             test_single_kite_6_dof()
 
         if types_of_problems['base_alternatives']:
-            test_segmented_tether()
+            test_poly_basic_health()
             test_poly()
+            test_segmented_tether()
             test_drag_mode()
             test_save_trial()
+            test_inequality_violation_cost()
 
         if types_of_problems['dual_kites']:
             test_dual_kite_basic_health()
@@ -561,13 +582,13 @@ if __name__ == "__main__":
             test_vortex_force_zero()
             test_vortex_3_dof()
 
-        if types_of_problems['actuator']:
-            test_actuator_qaxi_basic_health()
-            test_actuator_qaxi()
-            test_actuator_qasym()
-            test_actuator_uaxi()
-            test_actuator_uasym()
-            test_actuator_comparison()
+        # if types_of_problems['actuator']:
+        #     test_actuator_qaxi_basic_health()
+        #     test_actuator_qaxi()
+        #     test_actuator_qasym()
+        #     test_actuator_uaxi()
+        #     test_actuator_uasym()
+        #     test_actuator_comparison()
 
 
     else:
