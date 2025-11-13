@@ -11,8 +11,6 @@ import collections
 import copy
 import logging
 
-from Cython.Compiler.Parsing import inequality_relations
-
 import awebox as awe
 
 import awebox.opts.kite_data.ampyx_data as ampyx_data
@@ -66,11 +64,6 @@ def test_single_kite_6_dof(final_homotopy_step='final', overwrite_options={}):
 # 5
 def test_poly(final_homotopy_step='final', overwrite_options={}):
     trial_name = 'poly_trial'
-    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-    return None
-
-def test_poly_basic_health(final_homotopy_step='final', overwrite_options={}):
-    trial_name = 'poly_trial_basic_health'
     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
     return None
 
@@ -297,12 +290,11 @@ def generate_options_dict():
 
     segmented_tether_options = copy.deepcopy(single_kite_options)
     segmented_tether_options['user_options.system_model.architecture'] = {1: 0, 2:1, 3:2, 4:3}
+    segmented_tether_options['solver.cost_factor.power'] = 1e1
 
     poly_options = copy.deepcopy(single_kite_options)
     poly_options['nlp.collocation.u_param'] = 'poly'
-    # poly_options['solver.cost_factor.power'] = 1e1  # 1e4
-
-    poly_basic_health_options = make_basic_health_variant(poly_options)
+    poly_options['solver.cost_factor.power'] = 1e1
 
     drag_mode_options = copy.deepcopy(single_kite_options)
     drag_mode_options['user_options.trajectory.system_type'] = 'drag_mode'
@@ -431,7 +423,6 @@ def generate_options_dict():
     options_dict['segmented_tether_trial'] = segmented_tether_options
     options_dict['inequality_violation_cost_trial'] = inequality_cost_options
     options_dict['poly_trial'] = poly_options
-    options_dict['poly_trial_basic_health'] = poly_basic_health_options
     options_dict['drag_mode_trial'] = drag_mode_options
     options_dict['save_trial'] = save_trial_options
     options_dict['dual_kite_trial'] = dual_kite_options
@@ -511,7 +502,7 @@ if __name__ == "__main__":
         if types_of_problems['single_kites']:
             list_functions += [test_single_kite_basic_health, test_single_kite, test_single_kite_6_dof_basic_health, test_single_kite_6_dof]
         if types_of_problems['base_alternatives']:
-            list_functions += [test_poly_basic_health, test_poly, test_segmented_tether, test_drag_mode, test_save_trial, test_inequality_violation_cost]
+            list_functions += [test_segmented_tether, test_poly, test_drag_mode, test_save_trial, test_inequality_violation_cost]
         if types_of_problems['dual_kites']:
             list_functions += [test_dual_kite_basic_health, test_dual_kite, test_dual_kite_6_dof_basic_health, test_dual_kite_6_dof]
         if types_of_problems['tracking']:
@@ -552,9 +543,8 @@ if __name__ == "__main__":
             test_single_kite_6_dof()
 
         if types_of_problems['base_alternatives']:
-            test_poly_basic_health()
-            test_poly()
             test_segmented_tether()
+            test_poly()
             test_drag_mode()
             test_save_trial()
             test_inequality_violation_cost()

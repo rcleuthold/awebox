@@ -36,6 +36,7 @@ def get_integration_test_inputs():
     base_options['nlp.collocation.u_param'] = 'zoh'
     base_options['nlp.collocation.scheme'] = 'radau'
     base_options['nlp.collocation.d'] = 4
+    base_options['nlp.collocation.ineq_constraints'] = 'shooting_nodes'
 
     # homotopy tuning
     base_options['solver.linear_solver'] = 'ma57'

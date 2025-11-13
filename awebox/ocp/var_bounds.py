@@ -29,6 +29,7 @@ python-3.5 / casadi-3.4.5
 - refactored from awebox code (elena malz, chalmers; jochem de schutter, alu-fr; rachel leuthold, alu-fr), 2018
 - edited: rachel leuthold, jochem de schutter alu-fr 2020
 '''
+import pdb
 
 import casadi.tools as cas
 
@@ -117,7 +118,7 @@ def get_scaled_variable_bounds(nlp_options, V, model):
             vars_lb[var_type, name] = model.parameter_bounds[name]['lb']
             vars_ub[var_type, name] = model.parameter_bounds[name]['ub']
 
-    if (nlp_options['discretization'] == 'direct_collocation') and u_zoh:
+    if (nlp_options['discretization'] == 'direct_collocation') and u_zoh and ('coll_var' in V.keys()):
         fast_sanity_check_that_first_integral_of_control_is_treated_reasonably(nlp_options, model, vars_lb, vars_ub)
 
     return [vars_lb, vars_ub]
@@ -132,58 +133,61 @@ class PhaseOptions:
 
 def fast_sanity_check_that_first_integral_of_control_is_treated_reasonably(nlp_options, model, vars_lb, vars_ub):
 
-    vars_bounds = {'ub': vars_ub, 'lb': vars_lb}
-
     test_control = model.options['tether']['control_var']
-    test_first_int = test_control[1:]
-    test_second_int = test_control[2:]
+    if test_control in model.variables_dict['u'].keys():
 
-    def has_defined_bound(test_point):
-        return vect_op.is_numeric_scalar(test_point[0])
+        vars_bounds = {'ub': vars_ub, 'lb': vars_lb}
 
-    comparison_dict = {1: test_first_int}
-    bound_expected_on = {1:'shooting'}
+        test_first_int = test_control[1:]
+        test_second_int = test_control[2:]
 
-    solutions = {1:{'correct_on_collocation': False, 'correct_on_shooting': False}}
+        def has_defined_bound(test_point):
+            return vect_op.is_numeric_scalar(test_point[0])
 
-    if test_second_int != 'dl_t':
-        comparison_dict[2] = test_second_int
-        bound_expected_on[2] = 'collocation'
-        solutions[2] = {'correct_on_collocation': False, 'correct_on_shooting': False}
+        comparison_dict = {1: test_first_int}
+        bound_expected_on = {1:'shooting'}
 
-    for cdx, comp_var_name in comparison_dict.items():
+        solutions = {1:{'correct_on_collocation': False, 'correct_on_shooting': False}}
 
-        if vect_op.is_numeric_scalar(model.variable_bounds['x'][comp_var_name]['lb']):
-            comparison_bound = 'lb'
-        elif vect_op.is_numeric_scalar(model.variable_bounds['x'][comp_var_name]['ub']):
-            comparison_bound = 'lb'
-        else:
-            return None
+        if (test_second_int != 'dl_t') and (test_second_int in model.variable_bounds['x'].keys()):
+            comparison_dict[2] = test_second_int
+            bound_expected_on[2] = 'collocation'
+            solutions[2] = {'correct_on_collocation': False, 'correct_on_shooting': False}
 
-        comparison_vars = vars_bounds[comparison_bound]
+        for cdx, comp_var_name in comparison_dict.items():
 
-        shooting_test_point = comparison_vars['x', 1, comp_var_name]
-        collocation_test_point = comparison_vars['coll_var', 1, 1, 'x', comp_var_name]
-        if nlp_options['collocation']['ineq_constraints'] == 'collocation_nodes':
-            solutions[cdx]['correct_on_shooting'] = not has_defined_bound(shooting_test_point)
-            solutions[cdx]['correct_on_collocation'] = has_defined_bound(collocation_test_point)
+            if vect_op.is_numeric_scalar(model.variable_bounds['x'][comp_var_name]['lb']):
+                comparison_bound = 'lb'
+            elif vect_op.is_numeric_scalar(model.variable_bounds['x'][comp_var_name]['ub']):
+                comparison_bound = 'lb'
+            else:
+                return None
 
-        elif nlp_options['collocation']['ineq_constraints'] == 'shooting_nodes':
-            solutions[cdx]['correct_on_shooting'] = has_defined_bound(shooting_test_point)
-            solutions[cdx]['correct_on_collocation'] = not has_defined_bound(collocation_test_point)
+            comparison_vars = vars_bounds[comparison_bound]
 
-        elif nlp_options['collocation']['ineq_constraints'] == 'all_but_integrated_controls':
-            solutions[cdx]['correct_on_shooting'] = (bound_expected_on[cdx] == 'shooting' and has_defined_bound(shooting_test_point)) or (bound_expected_on[cdx] != 'shooting' and not has_defined_bound(shooting_test_point))
-            solutions[cdx]['correct_on_collocation'] = (bound_expected_on[cdx] == 'collocation' and has_defined_bound(collocation_test_point)) or (bound_expected_on[cdx] != 'collocation' and not has_defined_bound(collocation_test_point))
+            shooting_test_point = comparison_vars['x', 1, comp_var_name]
+            collocation_test_point = comparison_vars['coll_var', 1, 1, 'x', comp_var_name]
+            if nlp_options['collocation']['ineq_constraints'] == 'collocation_nodes':
+                solutions[cdx]['correct_on_shooting'] = not has_defined_bound(shooting_test_point)
+                solutions[cdx]['correct_on_collocation'] = has_defined_bound(collocation_test_point)
 
-    criteria = True
-    for cdx, local_solutions_dict in solutions.items():
-        for local_sol in local_solutions_dict.values():
-            criteria = criteria and local_sol
+            elif nlp_options['collocation']['ineq_constraints'] == 'shooting_nodes':
+                solutions[cdx]['correct_on_shooting'] = has_defined_bound(shooting_test_point)
+                solutions[cdx]['correct_on_collocation'] = not has_defined_bound(collocation_test_point)
 
-    if not criteria:
-        message = 'something went wrong when assigning bounds to ' + test_first_int
-        print_op.log_and_raise_error(message)
+            elif nlp_options['collocation']['ineq_constraints'] == 'all_but_integrated_controls':
+                solutions[cdx]['correct_on_shooting'] = (bound_expected_on[cdx] == 'shooting' and has_defined_bound(shooting_test_point)) or (bound_expected_on[cdx] != 'shooting' and not has_defined_bound(shooting_test_point))
+                solutions[cdx]['correct_on_collocation'] = (bound_expected_on[cdx] == 'collocation' and has_defined_bound(collocation_test_point)) or (bound_expected_on[cdx] != 'collocation' and not has_defined_bound(collocation_test_point))
+
+        criteria = True
+        for cdx, local_solutions_dict in solutions.items():
+            for local_sol in local_solutions_dict.values():
+                criteria = criteria and local_sol
+
+        if not criteria:
+            message = 'something went wrong when assigning bounds to ' + test_first_int
+            print_op.log_and_raise_error(message)
+
     return None
 
 

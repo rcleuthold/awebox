@@ -130,7 +130,7 @@ def get_constraints(nlp_options, V, P, Xdot, model, dae, formulation, Integral_c
 
     if (nlp_options['system_type'] == 'lift_mode') and (nlp_options['phase_fix'] == 'single_reelout'):
         t_f_cstr_list = get_t_f_bounds_contraints(nlp_options, V, model)
-        shape = t_f_cstr_list.get_expression_list('all').shape
+        shape = t_f_cstr_list.get_expression_list('ineq').shape
         ocp_cstr_list.append(t_f_cstr_list)
         ocp_cstr_entry_list.append(cas.entry('t_f_bounds', shape=shape))
     else:
@@ -153,33 +153,22 @@ def get_t_f_bounds_contraints(nlp_options, V, model):
 
     cstr_list = cstr_op.OcpConstraintList()
     t_f = ocp_outputs.find_time_period(nlp_options, V)
-
     upper_bound = model.variable_bounds['theta']['t_f']['ub']
     lower_bound = model.variable_bounds['theta']['t_f']['lb']
 
     scale = phase_fix_reelout
 
-    if 't_f' in model.options['system_bounds_other']['fixed_params'].keys():
-        upper_bound = model.variable_bounds['theta']['t_f']['ub']
-        t_f_pin = (t_f - upper_bound) / scale
-        t_f_pin_cstr = cstr_op.Constraint(expr=t_f_pin,
-                                          name='t_f_pin',
-                                          cstr_type='eq')
-        cstr_list.append(t_f_pin_cstr)
+    t_f_max = (t_f - upper_bound) / scale
+    t_f_min = (lower_bound - t_f) / scale
 
-    else:
-
-        t_f_max = (t_f - upper_bound) / scale
-        t_f_min = (lower_bound - t_f) / scale
-
-        t_f_max_cstr = cstr_op.Constraint(expr=t_f_max,
-                                          name='t_f_max',
-                                          cstr_type='ineq')
-        cstr_list.append(t_f_max_cstr)
-        t_f_min_cstr = cstr_op.Constraint(expr=t_f_min,
-                                          name='t_f_min',
-                                          cstr_type='ineq')
-        cstr_list.append(t_f_min_cstr)
+    t_f_max_cstr = cstr_op.Constraint(expr=t_f_max,
+                                      name='t_f_max',
+                                      cstr_type='ineq')
+    cstr_list.append(t_f_max_cstr)
+    t_f_min_cstr = cstr_op.Constraint(expr=t_f_min,
+                                      name='t_f_min',
+                                      cstr_type='ineq')
+    cstr_list.append(t_f_min_cstr)
     return cstr_list
 
 def get_subset_of_shooting_node_equalities_that_wont_cause_licq_errors(model):
@@ -212,6 +201,9 @@ def get_subset_of_shooting_node_equalities_that_wont_cause_licq_errors(model):
 
 def expand_with_collocation(nlp_options, P, V, Xdot, model, Collocation):
 
+    cstr_list = cstr_op.OcpConstraintList()
+    entry_tuple = ()     # entry tuple for nested constraints
+
     n_k = nlp_options['n_k']
     d = nlp_options['collocation']['d']
 
@@ -220,24 +212,17 @@ def expand_with_collocation(nlp_options, P, V, Xdot, model, Collocation):
     model_constraints_list = model.constraints_list
 
     # todo: sort out influence of periodicity. currently: assume periodic trajectory
-    n_shooting_cstr = model_constraints_list.get_expression_list('eq').shape[0]
 
-    # create maps of relevant functions
     u_poly = (nlp_options['collocation']['u_param'] == 'poly')
     u_zoh = (nlp_options['collocation']['u_param'] == 'zoh')
-    inequalities_at_collocation_or_shooting = 'undetermined'
-    if u_poly:
-        inequalities_at_collocation_or_shooting = 'collocation'
-    elif u_zoh and (nlp_options['collocation']['ineq_constraints'] == 'shooting_nodes'):
-        inequalities_at_collocation_or_shooting = 'shooting'
-    elif u_zoh and (nlp_options['collocation']['ineq_constraints'] == 'collocation_nodes'):
-        inequalities_at_collocation_or_shooting = 'collocation'
-    elif u_zoh and (nlp_options['collocation']['ineq_constraints'] == 'all_but_integrated_controls'):
-        inequalities_at_collocation_or_shooting = 'collocation'
-    else:
-        message = 'applied combination of the nlp.collocation.u_param and nlp.collocation.ineq_constraints is not expected'
-        print_op.log_and_raise_error(message)
+    zoh_ineq_constraints_location = nlp_options['collocation']['ineq_constraints']
+    u_zoh_ineq_shoot = u_zoh and (zoh_ineq_constraints_location == 'shooting_nodes')
+    u_zoh_ineq_coll = u_zoh and (zoh_ineq_constraints_location == 'collocation_nodes')
+    u_zoh_ineq_all_coll_except_first_integral = u_zoh and (zoh_ineq_constraints_location == 'all_but_integrated_controls')
+    inequalities_at_shooting_nodes = u_zoh_ineq_shoot
+    inequalities_at_collocation_nodes = u_poly or u_zoh_ineq_coll or u_zoh_ineq_all_coll_except_first_integral
 
+    # create maps of relevant functions
     mdl_ineq_fun = model_constraints_list.get_function(nlp_options, model_variables, model_parameters, 'ineq')
     if nlp_options['compile_subfunctions']:
         mdl_ineq_fun = cf.CachedFunction(nlp_options['compilation_file_name']+'_mdl_ineq', mdl_ineq_fun, do_compile=nlp_options['compile_subfunctions'])
@@ -247,74 +232,70 @@ def expand_with_collocation(nlp_options, P, V, Xdot, model, Collocation):
         mdl_eq_fun = cf.CachedFunction(nlp_options['compilation_file_name']+'_mdl_eq', mdl_eq_fun, do_compile=nlp_options['compile_subfunctions'])
 
     # evaluate constraint functions
-    ocp_ineqs_expr, ocp_eqs_shooting_expr, ocp_eqs_expr = get_collocation_constraint_expressions(nlp_options, model, mdl_ineq_fun, mdl_eq_fun, V, P, Xdot, inequalities_at_collocation_or_shooting)
+    ocp_ineqs_expr, ocp_eqs_shooting_expr, ocp_eqs_expr = get_collocation_constraint_expressions(nlp_options, model, mdl_ineq_fun, mdl_eq_fun, V, P, Xdot, inequalities_at_shooting_nodes, inequalities_at_collocation_nodes)
 
     # sort constraints to obtain desired sparsity structure
-    cstr_list = cstr_op.OcpConstraintList()
     for kdx in range(n_k):
-        # dynamics on shooting nodes
-        cstr_list = distribute_single_collocation_constraint_expr_for_structure(nlp_options, cstr_list,
-                                                                                model_constraints_list,
-                                                                                'eq',
-                                                                                ocp_eqs_shooting_expr,
-                                                                                kdx, ddx=None)
-        # path constraints on shooting nodes
-        if (ocp_ineqs_expr.shape != (0, 0)) and inequalities_at_collocation_or_shooting == 'shooting':
-            cstr_list = distribute_single_collocation_constraint_expr_for_structure(nlp_options, cstr_list,
-                                                                                    model_constraints_list,
-                                                                                    'ineq',
-                                                                                    ocp_ineqs_expr,
-                                                                                    kdx, ddx=None)
-        # collocation constraints
-        for ddx in range(d):
-            # dynamics on collocation nodes
+
+        if nlp_options['collocation']['u_param'] == 'zoh':
+            # dynamics on shooting nodes
             cstr_list = distribute_single_collocation_constraint_expr_for_structure(nlp_options, cstr_list,
                                                                                     model_constraints_list,
                                                                                     'eq',
-                                                                                    ocp_eqs_expr,
-                                                                                    kdx, ddx=ddx)
-            # inequality constraints on collocation nodes
-            if (ocp_ineqs_expr.shape != (0, 0)) and inequalities_at_collocation_or_shooting == 'collocation':
+                                                                                    ocp_eqs_shooting_expr,
+                                                                                    kdx, ddx=None)
+            # path constraints on shooting nodes
+            if (ocp_ineqs_expr.shape != (0, 0)) and inequalities_at_shooting_nodes:
+                cstr_list = distribute_single_collocation_constraint_expr_for_structure(nlp_options, cstr_list,
+                                                                                        model_constraints_list,
+                                                                                        'ineq',
+                                                                                        ocp_ineqs_expr,
+                                                                                        kdx, ddx=None)
+
+        # collocation constraints
+        for ddx in range(d):
+            if (ocp_ineqs_expr.shape != (0, 0)) and inequalities_at_collocation_nodes:
                 cstr_list = distribute_single_collocation_constraint_expr_for_structure(nlp_options, cstr_list,
                                                                                         model_constraints_list,
                                                                                         'ineq',
                                                                                         ocp_ineqs_expr,
                                                                                         kdx, ddx=ddx)
+
+            cstr_list = distribute_single_collocation_constraint_expr_for_structure(nlp_options, cstr_list,
+                                                                                    model_constraints_list,
+                                                                                    'eq',
+                                                                                    ocp_eqs_expr,
+                                                                                    kdx, ddx=ddx)
+
         # continuity constraints
         cstr_list.append(Collocation.get_continuity_constraint(V, kdx))
 
-    # make structure corresponding to above sorting of constraints
     mdl_path_constraints = model.constraints_dict['inequality']
     mdl_dyn_constraints = model.constraints_dict['equality']
 
-    entry_tuple = ()     # entry tuple for nested constraints, see above constraints generation and distribution!
+    if u_zoh_ineq_shoot:
+        entry_tuple += (
+            cas.entry('shooting',       repeat = [n_k],     struct = mdl_dyn_constraints),
+            cas.entry('path',           repeat = [n_k],     struct = mdl_path_constraints),
+        )
 
-    entry_tuple += (cas.entry('shooting',       repeat = [n_k],     struct = mdl_dyn_constraints),)
-    if inequalities_at_collocation_or_shooting == 'shooting':
-        entry_tuple += (cas.entry('path',           repeat = [n_k],     struct = mdl_path_constraints),)
-    elif (inequalities_at_collocation_or_shooting == 'collocation') or u_poly:  # this should already include u_poly
-        entry_tuple += (cas.entry('path',           repeat = [n_k, d],  struct = mdl_path_constraints),)
+    elif u_zoh_ineq_coll or u_zoh_ineq_all_coll_except_first_integral:
+        entry_tuple += (
+            cas.entry('shooting',       repeat = [n_k],       struct = mdl_dyn_constraints),
+            cas.entry('path',           repeat = [n_k,d],     struct = mdl_path_constraints),
+        )
+
+    elif u_poly:
+        entry_tuple += (
+            cas.entry('path',           repeat = [n_k, d],     struct = mdl_path_constraints),
+        )
+
     entry_tuple += (
         cas.entry('collocation',    repeat = [n_k, d],  struct = mdl_dyn_constraints),
         cas.entry('continuity',     repeat = [n_k],     struct = model.variables_dict['x']),
     )
 
-    check_that_collocation_entry_tuple_has_a_consistent_number_of_constraints(cstr_list, entry_tuple)
-
     return cstr_list, entry_tuple
-
-def check_that_collocation_entry_tuple_has_a_consistent_number_of_constraints(cstr_list, entry_tuple):
-    ocp_cstr_entry_list = []
-    ocp_cstr_entry_list.append(entry_tuple)
-    ocp_cstr_struct = cas.struct_symMX(ocp_cstr_entry_list)
-    len_tuple = ocp_cstr_struct.shape[0]
-    len_cstr_list = cstr_list.get_expression_list('all').shape[0]
-    if not len_tuple == len_cstr_list:
-        message = 'something went wrong with the number of collocation constraints; len(entry_list) [' + str(len_tuple)
-        message += '] != len(cstr_list) [' + str(len_cstr_list) + ']'
-        print_op.log_and_raise_error(message)
-
-    return None
 
 def distribute_single_collocation_constraint_expr_for_structure(nlp_options, ocp_cstr_list, mdl_cstr_list, cstr_type, expr_list, kdx, ddx=None):
 
@@ -357,8 +338,7 @@ def distribute_single_collocation_constraint_expr_for_structure(nlp_options, ocp
 
     return ocp_cstr_list
 
-
-def get_collocation_constraint_expressions(nlp_options, model, mdl_ineq_fun, mdl_eq_fun, V, P, Xdot, inequalities_at_collocation_or_shooting):
+def get_collocation_constraint_expressions(nlp_options, model, mdl_ineq_fun, mdl_eq_fun, V, P, Xdot, inequalities_at_shooting_nodes, inequalities_at_collocation_nodes):
 
     parallellization = nlp_options['parallelization']['type']
 
@@ -378,13 +358,13 @@ def get_collocation_constraint_expressions(nlp_options, model, mdl_ineq_fun, mdl
     # evaluate constraint functions
     if nlp_options['parallelization']['type'] == 'for-loop':
 
-        if inequalities_at_collocation_or_shooting == 'collocation':
+        if inequalities_at_collocation_nodes:
             ocp_ineqs_list = []
             for k in range(coll_vars.shape[1]):
                 ocp_ineqs_list.append(mdl_ineq_fun(coll_vars[:,k], coll_params[:,k]))
             ocp_ineqs_expr = cas.horzcat(*ocp_ineqs_list)
 
-        elif inequalities_at_collocation_or_shooting == 'shooting':
+        elif inequalities_at_shooting_nodes:
             ocp_ineqs_list = []
             for k in range(shooting_vars.shape[1]):
                 ocp_ineqs_list.append(mdl_ineq_fun(shooting_vars[:,k], shooting_params[:,k]))
@@ -402,10 +382,10 @@ def get_collocation_constraint_expressions(nlp_options, model, mdl_ineq_fun, mdl
 
     elif nlp_options['parallelization']['type'] in ['openmp', 'thread', 'serial', 'map']:
 
-        if inequalities_at_collocation_or_shooting == 'shooting':
+        if inequalities_at_shooting_nodes:
             mdl_ineq_map = mdl_ineq_fun.map('mdl_ineq_map', parallellization, shooting_nodes, [], [])
             ocp_ineqs_expr = mdl_ineq_map(shooting_vars, shooting_params)
-        elif inequalities_at_collocation_or_shooting == 'collocation':
+        elif inequalities_at_collocation_nodes:
             mdl_ineq_map = mdl_ineq_fun.map('mdl_ineq_map', parallellization, coll_nodes, [], [])
             ocp_ineqs_expr = mdl_ineq_map(coll_vars, coll_params)
 
