@@ -210,7 +210,6 @@ def define_bounds_to_update(model, bounds_schedule, formulation):
 
     power_updates[1] = ['psi']
 
-
     relax_power_reelout_updates = {}
     relax_power_reelout_updates[0] = ['dl_t']
 

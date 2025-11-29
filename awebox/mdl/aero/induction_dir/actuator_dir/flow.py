@@ -30,7 +30,6 @@ _python-3.5 / casadi-3.4.5
 - author: rachel leuthold, alu-fr 2017-21
 - edit: jochem de schutter, alu-fr 2019
 """
-import pdb
 
 import casadi.tools as cas
 import numpy as np
@@ -147,14 +146,20 @@ def get_gamma_var(variables, parent):
 def get_cosgamma_var(variables, parent):
     var_type = 'z'
     var_name = 'cosgamma' + str(parent)
-    var = struct_op.get_variable_from_model_or_reconstruction(variables, var_type, var_name)
+    # var = struct_op.get_variable_from_model_or_reconstruction(variables, var_type, var_name)
+
+    gamma = get_gamma_var(variables, parent)
+    var = cas.cos(gamma)
     return var
 
 
 def get_singamma_var(variables, parent):
     var_type = 'z'
     var_name = 'singamma' + str(parent)
-    var = struct_op.get_variable_from_model_or_reconstruction(variables, var_type, var_name)
+    # var = struct_op.get_variable_from_model_or_reconstruction(variables, var_type, var_name)
+
+    gamma = get_gamma_var(variables, parent)
+    var = cas.sin(gamma)
     return var
 
 
@@ -162,6 +167,10 @@ def get_singamma_var(variables, parent):
 ## residuals
 
 def get_gamma_cstr(parent, variables, scaling):
+    # cos = u / hypotenuse
+    # sin = v / hypotenuse
+    # tan = sin / cos = v / u
+
     wind_dcm = get_wind_dcm_var(variables, parent)
     uzero_hat_var = wind_dcm[:, 0]
     vzero_hat_var = wind_dcm[:, 1]
@@ -171,18 +180,22 @@ def get_gamma_cstr(parent, variables, scaling):
     v_comp = cas.mtimes(n_hat_var.T, vzero_hat_var)
 
     gamma_var = get_gamma_var(variables, parent)
-    cosgamma_var = get_cosgamma_var(variables, parent)
-    singamma_var = get_singamma_var(variables, parent)
-    g_vec_length_var = actuator_system.get_actuator_vector_length_var(variables, 'g', parent)
 
-    f_cosproj = g_vec_length_var * cosgamma_var - u_comp
-    f_sinproj = g_vec_length_var * singamma_var - v_comp
+    print_op.warn_about_temporary_functionality_alteration()
+    resi = u_comp * cas.sin(gamma_var) - v_comp * cas.cos(gamma_var)
 
-    f_cos = cas.cos(gamma_var) - cosgamma_var
-    f_sin = cas.sin(gamma_var) - singamma_var
-
-    resi = cas.vertcat(f_cos, f_sin, f_cosproj, f_sinproj)
-
+    # cosgamma_var = get_cosgamma_var(variables, parent)
+    # singamma_var = get_singamma_var(variables, parent)
+    # g_vec_length_var = actuator_system.get_actuator_vector_length_var(variables, 'g', parent)
+    #
+    # f_cosproj = g_vec_length_var * cosgamma_var - u_comp
+    # f_sinproj = g_vec_length_var * singamma_var - v_comp
+    #
+    # f_cos = cas.cos(gamma_var) - cosgamma_var
+    # f_sin = cas.sin(gamma_var) - singamma_var
+    #
+    # resi = cas.vertcat(f_cos, f_sin, f_cosproj, f_sinproj)
+    #
     # print_op.warn_about_temporary_functionality_alteration()
     # resi = cas.vertcat(gamma_var, cosgamma_var - 1., singamma_var, g_vec_length_var - 1.)
 
@@ -384,14 +397,14 @@ def get_local_induction_factor(model_options, variables, kite, parent, label):
 def get_local_induced_velocity(model_options, variables, parameters, architecture, wind, kite, parent, label):
 
     print_op.warn_about_temporary_functionality_alteration()
-    u_vec_val = general_flow.get_vec_u_zero(model_options, wind, parent, variables, architecture)
-    u_vec_norm = vect_op.norm(u_vec_val)
+    vec_u_zero_val = general_flow.get_vec_u_zero(model_options, wind, parent, variables, architecture)
+    u_zero = vect_op.norm(vec_u_zero_val)
 
     # u_vec_norm = actuator_system.get_actuator_vector_length_var(variables, 'uzero', parent)
     n_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'n', parent)
 
     a_val = get_local_induction_factor(model_options, variables, kite, parent, label)
-    u_ind = -1. * a_val * u_vec_norm * n_hat_var
+    u_ind = -1. * a_val * u_zero * n_hat_var
 
     return u_ind
 

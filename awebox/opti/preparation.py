@@ -27,7 +27,7 @@
 python-3.5 / casadi-3.4.5
 - authors: rachel leuthold, thilo bronnenmeyer, alu-fr 2018
 '''
-
+from sympy.physics.units import steradian
 
 from . initialization_dir import modular as initialization_modular, initialization
 
@@ -214,7 +214,6 @@ def set_initial_bounds(nlp, model, formulation, options, V_init_si, schedule):
             V_bounds['lb']['phi', homotopy_variable_name] = 0.
 
     return V_bounds, g_bounds
-
 
 def generate_default_solver_options(options):
 
@@ -415,9 +414,11 @@ def generate_nonhippo_strategy_solvers(awebox_callback, nlp, options):
     return solvers
 
 
-def generate_solvers(awebox_callback, nlp, options):
+def generate_solvers(awebox_callback, nlp, options, trial_name):
 
     use_hippo_strategy = options['hippo_strategy']
+
+    prepare_for_recording_ipopt_logfile_if_appropriate(options, trial_name)
 
     if use_hippo_strategy and (options['nlp_solver'] == 'ipopt'):
         solvers = generate_hippo_strategy_solvers(awebox_callback, nlp, options)
@@ -425,6 +426,17 @@ def generate_solvers(awebox_callback, nlp, options):
         solvers = generate_nonhippo_strategy_solvers(awebox_callback, nlp, options)
 
     return solvers
+
+def prepare_for_recording_ipopt_logfile_if_appropriate(solver_options, trial_name):
+    from pathlib import Path
+    path = Path("ipopt.opt")
+    if solver_options['record_ipopt_log']:
+        path.write_text("file_print_level 5 \noutput_file ipopt.log")
+    else:
+        path.write_text("")
+
+    return None
+
 
 def fix_q_and_r_values_if_necessary(solver_options, nlp, model, V_bounds, V_init):
 

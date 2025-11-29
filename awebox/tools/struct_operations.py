@@ -1163,7 +1163,7 @@ def generate_nested_dict_struct(v):
             entry_list.append(cas.entry(k1,struct= substruct))
 
         else:
-            if isinstance(v1,float) or isinstance(v1,int):
+            if vect_op.is_numeric_scalar(v1):
                 shape = (1,1)
             else:
                 shape = v1.shape

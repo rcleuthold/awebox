@@ -107,7 +107,6 @@ def get_costs_struct(V):
         cas.entry("fictitious_cost"),
         cas.entry("theta_regularisation_cost"),
         cas.entry("beta_cost"),
-        cas.entry("inequality_violation_cost"),
         ] +
        [cas.entry(name + '_cost') for name in struct_op.subkeys(V, 'phi')] +
        [cas.entry("time_cost"),
@@ -387,9 +386,8 @@ def find_general_problem_cost(component_costs):
     beta_cost = component_costs['beta_cost']
     time_cost = component_costs['time_cost']
     fictitious_cost = component_costs['fictitious_cost']
-    inequality_violation_cost = component_costs['inequality_violation_cost']
 
-    general_problem_cost = (fictitious_cost + u_regularisation_cost + xdot_regularisation_cost + theta_regularisation_cost + beta_cost + time_cost + inequality_violation_cost)
+    general_problem_cost = (fictitious_cost + u_regularisation_cost + xdot_regularisation_cost + theta_regularisation_cost + beta_cost + time_cost)
 
     return general_problem_cost
 
@@ -419,29 +417,6 @@ def find_beta_cost(nlp_options, model, Integral_outputs, P):
     # todo: divide by number of kites
 
     return beta_cost
-
-
-def find_inequality_violation_cost(nlp_options, model, Integral_outputs, V, P):
-
-    if not nlp_options['cost']['inequality_violation']:
-       return cas.DM(0.)
-    else:
-        if not nlp_options['cost']['output_quadrature']:
-            message = 'awebox not currently set up for inequality violation penalty integration by state variable. this cost is returned as zero.'
-            print_op.base_print(message, level='warning')
-            return cas.DM(0.)
-        else:
-            integrated_ineq_violation = cas.DM(0.)
-            cstr_list = model.constraints_list.get_list('ineq')
-            for ineq in cstr_list:
-                local_name = 'inequality_' + ineq.name
-                integrated_ineq_violation += vect_op.sum(Integral_outputs['int_out', -1, local_name])
-
-            time_period = ocp_outputs.find_time_period(nlp_options, V)
-            number_of_inequalities = model.constraints_list.get_expression_list('ineq').shape[0]
-            integrated_ineq_violation_scaled = integrated_ineq_violation / time_period / number_of_inequalities
-            cost_factor = P['cost', 'inequality_violation']
-            return integrated_ineq_violation_scaled * cost_factor
 
 
 ###### assemble the objective!
@@ -500,7 +475,6 @@ def get_component_cost_dictionary(nlp_options, V, P, variables, xdot, model, Int
     component_costs['nominal_landing_cost'] = find_nominal_landing_problem_cost(nlp_options, V, P, variables)
     component_costs['transition_cost'] = find_transition_problem_cost(component_costs, P)
     component_costs['beta_cost'] = find_beta_cost(nlp_options, model, Integral_outputs, P)
-    component_costs['inequality_violation_cost'] = find_inequality_violation_cost(nlp_options, model, Integral_outputs, V, P)
     component_costs['tracking_problem_cost'] = find_tracking_problem_cost(component_costs)
     component_costs['power_problem_cost'] = find_power_problem_cost(component_costs)
     component_costs['general_problem_cost'] = find_general_problem_cost(component_costs)

@@ -28,7 +28,6 @@ that generates the dynamics residual
 python-3.5 / casadi-3.4.5
 - authors: jochem de schutter, rachel leuthold alu-fr 2017-20
 '''
-import pdb
 
 import casadi.tools as cas
 import numpy as np
@@ -250,13 +249,6 @@ def get_dictionary_of_derivatives(model_options, system_variables, parameters, a
         total_time_scaling = model_options['scaling']['x']['total_time_scaled']
         derivative_dict['total_time_scaled'] = (cas.DM(1.),
                                                 total_time_scaling)  # second value is some arbitrary large number.
-
-    if model_options['integration']['include_inequality_violation']:
-        for ineq in cstr_list.get_list('ineq'):
-            ineq_scaling = cas.DM(1.)
-            inequality_violation_integration_base = model_options['model_bounds']['inequality_violation_integration_base']
-            ineq_violation = inequality_violation_integration_base**ineq.expr
-            derivative_dict['inequality_' + ineq.name] = (ineq_violation, ineq_scaling)
 
     return derivative_dict
 

@@ -71,8 +71,8 @@ def extend_actuator_support(options, system_lifted, system_states, architecture)
         parent = architecture.parent_map[kite]
         system_lifted.extend([('varrho' + str(kite) + str(parent), (1, 1))])
         system_lifted.extend([('psi' + str(kite) + str(parent), (1, 1))])
-        system_lifted.extend([('cospsi' + str(kite) + str(parent), (1, 1))])
-        system_lifted.extend([('sinpsi' + str(kite) + str(parent), (1, 1))])
+        # system_lifted.extend([('cospsi' + str(kite) + str(parent), (1, 1))])
+        # system_lifted.extend([('sinpsi' + str(kite) + str(parent), (1, 1))])
 
     for layer_node in architecture.layer_nodes:
         system_lifted.extend([('bar_varrho' + str(layer_node), (1, 1))])
@@ -82,9 +82,9 @@ def extend_actuator_support(options, system_lifted, system_states, architecture)
         system_lifted.extend([('act_dq' + str(layer_node), (3, 1))])
 
         system_lifted.extend([('gamma' + str(layer_node), (1, 1))])
-        system_lifted.extend([(get_actuator_vector_length_name('g', layer_node), (1, 1))])
-        system_lifted.extend([('cosgamma' + str(layer_node), (1, 1))])
-        system_lifted.extend([('singamma' + str(layer_node), (1, 1))])
+        # system_lifted.extend([(get_actuator_vector_length_name('g', layer_node), (1, 1))])
+        # system_lifted.extend([('cosgamma' + str(layer_node), (1, 1))])
+        # system_lifted.extend([('singamma' + str(layer_node), (1, 1))])
 
         for dir in get_list_of_directions():
             system_lifted.extend([(get_actuator_vector_unit_name(dir, layer_node), (3, 1))])

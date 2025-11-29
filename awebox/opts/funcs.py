@@ -297,6 +297,8 @@ def build_solver_options(options, help_options, user_options, options_tree, arch
     options_tree.append(('solver', 'initialization', 'model', 'architecture', user_options['system_model']['architecture'],('secondary  tether natural diameter [m]', None),'x'))
     options_tree.append(('solver', 'initialization', None, 'min_altitude', options['model']['system_bounds']['x']['q'][0][2], ('?????', None),'x'))
 
+    if options['solver']['homotopy_method']['consider_restoration_as_failure']:
+        options['solver']['record_ipopt_log'] = True
 
     ## cross-tether
     options_tree.append(('solver', 'initialization', None, 'cross_tether', user_options['system_model']['cross_tether'], ('enable cross-tether',[True,False]),'x'))

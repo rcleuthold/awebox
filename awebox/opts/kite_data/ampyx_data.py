@@ -237,5 +237,7 @@ def aero():
     aero_validity['beta_max_deg'] = 20.
     aero_validity['beta_min_deg'] = -20.
 
+    aero_validity['airspeed_max'] = 32. # todo: figure out where these values came from
+    aero_validity['airspeed_min'] = 13.
 
     return stab_derivs, aero_validity

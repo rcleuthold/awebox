@@ -42,24 +42,24 @@ import awebox.tools.print_operations as print_op
 
 
 
-def append_scaling_to_options_tree(options, geometry, options_tree, architecture, q_scaling, u_altitude, CL, varrho_ref, winding_period):
-    inputs = get_scaling_inputs(options, geometry, architecture, u_altitude, CL, varrho_ref, winding_period)
+def append_scaling_to_options_tree(options, geometry, options_tree, architecture, q_scaling, u_altitude, CL, varrho_ref, winding_period, airspeed):
+    inputs = get_scaling_inputs(options, geometry, architecture, u_altitude, CL, varrho_ref, winding_period, airspeed)
 
     options_tree = append_geometric_scaling(options, geometry, options_tree, architecture, inputs, q_scaling, varrho_ref, winding_period)
     options_tree = append_induced_velocity_scaling(options, geometry, options_tree, architecture, inputs, u_altitude)
     return options_tree
 
 
-def get_filament_strength(options, geometry, u_altitude, CL, varrho_ref, winding_period):
+def get_filament_strength(options, geometry, u_altitude, CL, varrho_ref, winding_period, airspeed):
     c_ref = geometry['c_ref']
     b_ref = geometry['b_ref']
 
-    a_ref = options['model']['aero']['actuator']['a_ref']
-
-    flight_radius = varrho_ref * b_ref
-    rotational_speed = 2. * np.pi * flight_radius / winding_period
-    axial_speed = u_altitude * (1 - a_ref)
-    airspeed = (rotational_speed**2. + axial_speed**2.)**0.5
+    # a_ref = options['model']['aero']['actuator']['a_ref']
+    #
+    # flight_radius = varrho_ref * b_ref
+    # # rotational_speed = 2. * np.pi * flight_radius / winding_period
+    # axial_speed = u_altitude * (1 - a_ref)
+    # airspeed = (rotational_speed**2. + axial_speed**2.)**0.5
 
     if not (options['model']['aero']['overwrite']['f_aero_rot'] is None):
         # L/b = rho v gamma
@@ -159,11 +159,11 @@ def append_geometric_scaling(options, geometry, options_tree, architecture, inpu
     return options_tree
 
 
-def get_scaling_inputs(options, geometry, architecture, u_altitude, CL, varrho_ref, winding_period):
+def get_scaling_inputs(options, geometry, architecture, u_altitude, CL, varrho_ref, winding_period, airspeed):
     u_ref = options['user_options']['wind']['u_ref']
     a_ref = options['model']['aero']['actuator']['a_ref']
     wake_nodes = options['model']['aero']['vortex']['wake_nodes']
-    filament_strength = get_filament_strength(options, geometry, u_altitude, CL, varrho_ref, winding_period)
+    filament_strength = get_filament_strength(options, geometry, u_altitude, CL, varrho_ref, winding_period, airspeed)
 
     inputs = {
         'u_ref': u_ref * a_ref,

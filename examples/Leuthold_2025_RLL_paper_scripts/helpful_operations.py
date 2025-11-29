@@ -406,10 +406,24 @@ def save_and_print_info(trial, options):
 
     report['count'] = 0
     report['n_k'] = options['nlp.n_k']
+    report['d'] = options['nlp.collocation.d']
     try:
-        report['p_t'] = float(options['model.aero.vortex.wake_nodes'] - 1.) / options['nlp.n_k']
+        n_k = report['n_k']
+        p_t = float(options['model.aero.vortex.wake_nodes'] - 1.) / n_k
+        report['p_t'] = p_t
+        
+        number_of_kites = trial.architecture.number_of_kites
+        at_slice = 3 * number_of_kites * options['model.aero.vortex.wake_nodes']
+        report['vortex_elements_at_slice'] = at_slice
+        report['vortex_elements_all_time'] = at_slice * (n_k + 1 + n_k * report['d'])
     except:
         pass
+
+    phase_fix_reelout = options['nlp']['phase_fix_reelout']
+    n_k_reelout = round(n_k * phase_fix_reelout)
+    t_f = trial.optimization.V_final_si['theta', 't_f']
+    t_switch = float(t_f[0] * n_k_reelout / n_k)
+    report['t_switch'] = t_switch
 
     report['solve'] = trial.optimization.solve_succeeded
     if report['solve']:

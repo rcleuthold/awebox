@@ -47,9 +47,6 @@ import awebox.mdl.aero.induction_dir.general_dir.tools as general_tools
 import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
 
 import awebox.viz.tools as viz_tools
-import mpl_toolkits.mplot3d.art3d as art3d
-# from matplotlib.patches import Annulus
-from matplotlib.patches import Circle, PathPatch
 
 # switches
 
@@ -101,14 +98,24 @@ def get_psi_var(variables_si, kite, parent):
 def get_cospsi_var(variables_si, kite, parent):
     var_type = 'z'
     var_name = 'cospsi' + str(kite) + str(parent)
-    var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
+    # var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
+
+    print_op.warn_about_temporary_functionality_alteration()
+    psi = get_psi_var(variables_si, kite, parent)
+    var = cas.cos(psi)
+
     return var
 
 
 def get_sinpsi_var(variables_si, kite, parent):
     var_type = 'z'
     var_name = 'sinpsi' + str(kite) + str(parent)
-    var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
+    # var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
+
+    print_op.warn_about_temporary_functionality_alteration()
+    psi = get_psi_var(variables_si, kite, parent)
+    var = cas.sin(psi)
+
     return var
 
 
@@ -214,8 +221,8 @@ def get_bar_varrho_cstr(parent, variables, architecture, scaling):
     # resi_si = bar_varrho_var - 7.
 
     resi_scaled = struct_op.var_si_to_scaled('z', 'bar_varrho' + str(parent), resi_si, scaling)
-    print_op.warn_about_temporary_functionality_alteration()
-    resi_scaled = resi_si
+    # print_op.warn_about_temporary_functionality_alteration()
+    # resi_scaled = resi_si
 
     name = 'actuator_bar_varrho_' + str(parent)
     cstr = cstr_op.Constraint(expr=resi_scaled,
@@ -233,6 +240,10 @@ def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architec
     # dot(rvec, zhat') = radius * cos(psi)
     # dot(rvec, yhat') = - radius * sin(psi)
 
+    # q_kite - q_center = radius rhat = radius * (zhat cos(psi) - yhat sin(psi))
+    # resi_vec = (q_kite - q_center) - radius * (zhat cos(psi) - yhat sin(psi))
+    # resi_zhat = zhat^T (q_kite - q_center) - radius * cos(psi)
+
     parent = architecture.parent_map[kite]
     b_ref = parameters['theta0', 'geometry', 'b_ref']
 
@@ -244,26 +255,41 @@ def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architec
     y_rotor_hat_var = act_dcm[:, 1]
     z_rotor_hat_var = act_dcm[:, 2]
 
-    y_rotor_comp = cas.mtimes(vec_from_center_to_kite.T, y_rotor_hat_var)
-    z_rotor_comp = cas.mtimes(vec_from_center_to_kite.T, z_rotor_hat_var)
-
     psi_var = get_psi_var(variables, kite, parent)
-    cospsi_var = get_cospsi_var(variables, kite, parent)
-    sinpsi_var = get_sinpsi_var(variables, kite, parent)
-
-    f_sin = cas.sin(psi_var) - sinpsi_var
-    f_cos = cas.cos(psi_var) - cospsi_var
-
     varrho_var = get_varrho_var(variables, kite, parent)
     radius = varrho_var * b_ref
+    radial_vector = radius * (z_rotor_hat_var * cas.cos(psi_var) - y_rotor_hat_var * cas.sin(psi_var))
+
+    resi_vec = vec_from_center_to_kite - radial_vector
+    resi_y = cas.mtimes(resi_vec.T, y_rotor_hat_var)
+    resi_z = cas.mtimes(resi_vec.T, z_rotor_hat_var)
+
+    resi_si = cas.vertcat(resi_y, resi_z)
 
     varrho_ref = get_varrho_ref(model_options)
     radius_ref = b_ref * varrho_ref
+    resi_combi = resi_si / radius_ref
 
-    f_cos_proj = (radius * cospsi_var - z_rotor_comp) / radius_ref
-    f_sin_proj = (radius * sinpsi_var + y_rotor_comp) / radius_ref
-
-    resi_combi = cas.vertcat(f_cos, f_sin, f_cos_proj, f_sin_proj)
+    # y_rotor_comp = cas.mtimes(vec_from_center_to_kite.T, y_rotor_hat_var)
+    # z_rotor_comp = cas.mtimes(vec_from_center_to_kite.T, z_rotor_hat_var)
+    #
+    # psi_var = get_psi_var(variables, kite, parent)
+    # cospsi_var = get_cospsi_var(variables, kite, parent)
+    # sinpsi_var = get_sinpsi_var(variables, kite, parent)
+    #
+    # f_sin = cas.sin(psi_var) - sinpsi_var
+    # f_cos = cas.cos(psi_var) - cospsi_var
+    #
+    # varrho_var = get_varrho_var(variables, kite, parent)
+    # radius = varrho_var * b_ref
+    #
+    # varrho_ref = get_varrho_ref(model_options)
+    # radius_ref = b_ref * varrho_ref
+    #
+    # f_cos_proj = (radius * cospsi_var - z_rotor_comp) / radius_ref
+    # f_sin_proj = (radius * sinpsi_var + y_rotor_comp) / radius_ref
+    #
+    # resi_combi = cas.vertcat(f_cos, f_sin, f_cos_proj, f_sin_proj)
 
     # print_op.warn_about_temporary_functionality_alteration()
     # resi_combi = cas.vertcat(psi_var, cospsi_var - 1, sinpsi_var, varrho_var - 7.)

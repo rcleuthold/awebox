@@ -30,7 +30,6 @@ _python-3.5 / casadi-3.4.5
 - author: rachel leuthold, alu-fr 2017-21
 - edit: jochem de schutter, alu-fr 2019
 '''
-import pdb
 
 import casadi as cas
 import numpy as np
@@ -170,12 +169,11 @@ def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs,
     resi_si = c_t - rhs
     resi = resi_si
 
-    # print_op.warn_about_temporary_functionality_alteration()
-    # resi_si = thrust - rhs * thrust_den
-    #
-    # var_type = 'z'
-    # var_name = 'thrust' + str(parent)
-    # resi = struct_op.var_si_to_scaled(var_type, var_name, resi_si, scaling)
+    print_op.warn_about_temporary_functionality_alteration()
+    resi_si = thrust - rhs * thrust_den
+    var_type = 'z'
+    var_name = 'thrust' + str(parent)
+    resi = struct_op.var_si_to_scaled(var_type, var_name, resi_si, scaling)
 
     return resi
 
