@@ -10,8 +10,7 @@
 import collections
 import copy
 import logging
-
-import casadi.tools as cas
+import gc
 
 import awebox as awe
 
@@ -159,76 +158,79 @@ def test_vortex_3_dof(final_homotopy_step='final', overwrite_options={}):
     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
     return None
 
+#19
 def test_vortex_dual_basic_health(final_homotopy_step='final', overwrite_options={}):
     trial_name = 'vortex_dual_basic_health_trial'
     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
     return None
 
+#20
 def test_vortex_dual(final_homotopy_step='final', overwrite_options={}):
     trial_name = 'vortex_dual_trial'
     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
     return None
 
-# 19
+# 21
 def test_segmented_tether(final_homotopy_step='final', overwrite_options={}):
     trial_name = 'segmented_tether_trial'
     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
     return None
 
-# def test_small_kite(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'small_kite_trial'
+
+# def test_small_dual_kite(final_homotopy_step='final', overwrite_options={}):
+#     trial_name = 'small_dual_kite_trial'
 #     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
 #     return None
 #
-# def test_small_kite_basic_health(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'small_kite_basic_health_trial'
+# def test_small_dual_kite_basic_health(final_homotopy_step='final', overwrite_options={}):
+#     trial_name = 'small_dual_kite_basic_health_trial'
 #     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
 #     return None
 #
-# def test_large_kite(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'large_kite_trial'
+# def test_large_dual_kite(final_homotopy_step='final', overwrite_options={}):
+#     trial_name = 'large_dual_kite_trial'
 #     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
 #     return None
 #
-# def test_large_kite_basic_health(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'large_kite_basic_health_trial'
+# def test_large_dual_kite_basic_health(final_homotopy_step='final', overwrite_options={}):
+#     trial_name = 'large_dual_kite_basic_health_trial'
 #     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
 #     return None
 
 
-# def test_actuator_qaxi(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'actuator_qaxi_trial'
-#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-#     return None
-#
-# def test_actuator_qaxi_basic_health(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'actuator_qaxi_basic_health_trial'
-#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-#     return None
-#
-#
-# def test_actuator_uaxi(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'actuator_uaxi_trial'
-#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-#     return None
-#
-#
-# def test_actuator_qasym(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'actuator_qasym_trial'
-#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-#     return None
-#
-#
-# def test_actuator_uasym(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'actuator_uasym_trial'
-#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-#     return None
-# 
-#
-# def test_actuator_comparison(final_homotopy_step='final', overwrite_options={}):
-#     trial_name = 'actuator_comparison_trial'
-#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-#     return None
+def test_actuator_qaxi(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_qaxi_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+def test_actuator_qaxi_basic_health(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_qaxi_basic_health_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+
+def test_actuator_uaxi(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_uaxi_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+
+def test_actuator_qasym(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_qasym_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+
+def test_actuator_uasym(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_uasym_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+
+def test_actuator_comparison(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_comparison_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
 
 
 
@@ -283,14 +285,37 @@ def generate_options_dict():
     single_kite_options['nlp.collocation.u_param'] = 'zoh'
     single_kite_options['nlp.n_k'] = 20
     single_kite_options['quality.raise_exception'] = True
-    single_kite_options['solver.generation_method'] = 'multiprocessing_pool'
 
+    # rela!!!!!
+    single_kite_options['solver.ipopt.alpha_for_y'] = 'safer-min-dual-infeas'
+    single_kite_options['solver.cost_factor.power'] = 1e1
+
+    # # todo:
     # # homotopy paths (like IPOPT) are only guaranteed to be unique-and-continuous if the
-    # # KKT matrix is strictly definite, aka if LICQ and SOSC hold. therefore, solution paths that would trigger the
-    # # restoration mode would likely include paths with repeatability problems - and if we ever sort out
-    # # the repeatability problem, we should include the below lines.
-    # single_kite_options['solver.homotopy_method.advance_despite_max_iter'] = False
+    # # KKT matrix is strictly definite. therefore, solution paths that would trigger the
+    # # restoration mode would likely include paths with repeatability problems - so I think
+    # # we should aim to eventually include in here the lines:
+    single_kite_options['solver.homotopy_method.advance_despite_max_iter'] = False
     # single_kite_options['solver.homotopy_method.consider_restoration_as_failure'] = True
+
+    # single_kite_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
+    # # single_kite_options['model.scaling.other.period_estimate'] = 'synthesized'
+    # single_kite_options['model.scaling.other.position_scaling_method'] = 'radius'
+    # # single_kite_options['model.scaling.other.force_scaling_method'] = 'tension'
+    # single_kite_options['model.scaling.other.tension_estimate'] = 'force_summation'
+    # single_kite_options['model.scaling.other.power_estimate'] = 'synthesized'
+    # single_kite_options['model.scaling.other.print_help_with_scaling'] = True
+
+
+    # single_kite_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
+    # single_kite_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
+    # single_kite_options['model.scaling.other.position_scaling_method'] = 'radius'
+    # single_kite_options['model.scaling.other.force_scaling_method'] = 'tension'
+    # single_kite_options['model.scaling.other.tension_estimate'] = 'force_summation'
+    # single_kite_options['model.scaling.other.power_estimate'] = 'synthesized'
+    # single_kite_options['model.scaling.other.print_help_with_scaling'] = True
+
+
 
     single_kite_basic_health_options = make_basic_health_variant(single_kite_options)
 
@@ -302,11 +327,19 @@ def generate_options_dict():
 
     segmented_tether_options = copy.deepcopy(single_kite_options)
     segmented_tether_options['user_options.system_model.architecture'] = {1: 0, 2: 1, 3: 2, 4: 3}
-    # segmented_tether_options['solver.cost_factor.power'] = 1e-1
+    segmented_tether_options['quality.test_param.power_balance_thresh'] = 2.
 
     poly_options = copy.deepcopy(single_kite_options)
     poly_options['nlp.collocation.u_param'] = 'poly'
-    poly_options['solver.cost_factor.power'] = 1e1
+
+    poly_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
+    poly_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
+    poly_options['model.scaling.other.position_scaling_method'] = 'radius'
+    poly_options['model.scaling.other.force_scaling_method'] = 'synthesized'
+    poly_options['model.scaling.other.tension_estimate'] = 'average_force'
+    poly_options['model.scaling.other.power_estimate'] = 'synthesized'
+    poly_options['model.scaling.other.print_help_with_scaling'] = True
+
 
     drag_mode_options = copy.deepcopy(single_kite_options)
     drag_mode_options['user_options.trajectory.system_type'] = 'drag_mode'
@@ -315,13 +348,23 @@ def generate_options_dict():
     drag_mode_options['nlp.n_k'] = 30
     # drag_mode_options['solver.cost_factor.power'] = 1e0  # 1e4
 
+
     save_trial_options = copy.deepcopy(single_kite_options)
     save_trial_options['solver.save_trial'] = True
 
     dual_kite_options = copy.deepcopy(single_kite_options)
     dual_kite_options['user_options.system_model.architecture'] = {1: 0, 2: 1, 3: 1}
-    dual_kite_options['solver.initialization.theta.l_s'] = 100.
+    dual_kite_options['solver.initialization.theta.l_s'] = 75.
     dual_kite_options['solver.initialization.check_reference'] = True
+
+
+    dual_kite_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
+    # dual_kite_options['model.scaling.other.period_estimate'] = 'synthesized'
+    dual_kite_options['model.scaling.other.position_scaling_method'] = 'radius'
+    # dual_kite_options['model.scaling.other.force_scaling_method'] = 'tension'
+    dual_kite_options['model.scaling.other.tension_estimate'] = 'force_summation'
+    dual_kite_options['model.scaling.other.power_estimate'] = 'synthesized'
+    dual_kite_options['model.scaling.other.print_help_with_scaling'] = True
 
     dual_kite_basic_health_options = make_basic_health_variant(dual_kite_options)
 
@@ -364,7 +407,7 @@ def generate_options_dict():
     actuator_qaxi_options['user_options.trajectory.lift_mode.windings'] = 1
 
     # rela remove me
-    actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5]
+    # actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5]
     # actuator_qaxi_options['solver.cost.gamma.1'] = 1e3
     # actuator_qaxi_options['solver.cost.fictitious.0'] = 1e5
     # actuator_qaxi_options['solver.cost.fictitious.1'] = 1e5
@@ -406,6 +449,22 @@ def generate_options_dict():
     vortex_options['model.aero.vortex.wake_nodes'] = 2
     vortex_options['quality.raise_exception'] = False
 
+    # vortex_options['solver.cost_factor.power'] = 1e0
+    # vortex_options['model.scaling.other.period_estimate'] = 'max_acceleration'
+    # vortex_options['model.scaling.other.force_scaling_method'] = 'aero'
+    # vortex_options['model.scaling.other.power_estimate'] = 'loyd'
+
+
+    vortex_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
+    vortex_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
+    vortex_options['model.scaling.other.position_scaling_method'] = 'radius'
+    vortex_options['model.scaling.other.force_scaling_method'] = 'tension'
+    vortex_options['model.scaling.other.tension_estimate'] = 'force_summation'
+    vortex_options['model.scaling.other.power_estimate'] = 'synthesized'
+
+    vortex_options['solver.cost_factor.power'] = 10.
+    vortex_options['solver.cost.psi.1'] = 100.
+
     vortex_basic_health_options = make_basic_health_variant(vortex_options)
     vortex_basic_health_options['model.aero.vortex.double_check_wingtip_fixing'] = True
 
@@ -414,21 +473,20 @@ def generate_options_dict():
     vortex_force_zero_options['nlp.collocation.d'] = 4
     vortex_force_zero_options['quality.raise_exception'] = True
 
+
     vortex_force_zero_basic_health_options = make_basic_health_variant(vortex_force_zero_options)
     vortex_force_zero_basic_health_options['model.aero.vortex.double_check_wingtip_fixing'] = True
 
     vortex_3_dof_options = copy.deepcopy(vortex_options)
     vortex_3_dof_options['user_options.system_model.kite_dof'] = 3
 
-    vortex_dual_options = copy.deepcopy(dual_kite_6_dof_options)
-    vortex_dual_options['nlp.collocation.d'] = 3
-    vortex_dual_options['user_options.trajectory.lift_mode.windings'] = 1
-    vortex_dual_options['user_options.induction_model'] = 'vortex'
-    vortex_dual_options['model.aero.vortex.representation'] = 'alg'
-    vortex_dual_options['quality.test_param.vortex_truncation_error_thresh'] = 1e20
-    vortex_dual_options['model.aero.vortex.far_wake_element_type'] = 'semi_infinite_filament'
-    vortex_dual_options['model.aero.vortex.wake_nodes'] = 2
-    vortex_dual_options['quality.raise_exception'] = False
+    vortex_dual_options = copy.deepcopy(vortex_options)
+    vortex_dual_options['user_options.system_model.architecture'] = {1: 0, 2: 1, 3: 1}
+    vortex_dual_options['solver.initialization.theta.l_s'] = 75.
+    vortex_dual_options['solver.initialization.check_reference'] = True
+
+    # vortex_dual_options['solver.cost_factor.power'] = 1e2
+
 
     vortex_dual_basic_health_options = make_basic_health_variant(vortex_dual_options)
     vortex_dual_basic_health_options['model.aero.vortex.double_check_wingtip_fixing'] = True
@@ -499,6 +557,9 @@ def run_test(trial_name, final_homotopy_step='final', overwrite_options={}):
     :return: None
     """
 
+    # This is a desperate attempt to try to make the tests somewhat more repeatable.
+    gc.collect()
+
     options_dict = generate_options_dict()
     trial_options = options_dict[trial_name]
 
@@ -522,6 +583,9 @@ def run_test(trial_name, final_homotopy_step='final', overwrite_options={}):
         message = 'optimization of trial ' + trial_name + ' failed'
         raise Exception(message)
 
+    del trial
+    gc.collect()
+
     return None
 
 
@@ -533,12 +597,12 @@ if __name__ == "__main__":
 
     parallel_or_serial = 'serial'
 
-    types_of_problems = {'single_kites': False,
-                         'base_alternatives': True,
+    types_of_problems = {'single_kites': True,
+                         'base_alternatives': False,
                          'dual_kites': False,
                          'tracking': False,
                          'size_alternatives': False,
-                         'vortex': False,
+                         'vortex': True,
                          'actuator': False}
 
     if parallel_or_serial == 'parallel':
@@ -554,7 +618,7 @@ if __name__ == "__main__":
             list_functions += [test_dual_kite_tracking, test_dual_kite_tracking_winch]
         # if types_of_problems['size_alternatives']:
         #     list_functions += [test_small_kite_basic_health, test_small_kite, test_large_kite_basic_health, test_large_kite]
-        # if types_of_problems['vortex']:
+        if types_of_problems['vortex']:
             list_functions += [test_vortex_force_zero_basic_health, test_vortex_force_zero, test_vortex_basic_health, test_vortex, test_vortex_3_dof, test_vortex_dual_basic_health, test_vortex_dual]
         # if types_of_problems['actuator']:
         #     list_functions += [test_actuator_qaxi_basic_health, test_actuator_qaxi, test_actuator_qasym, test_actuator_uaxi, test_actuator_uasym, test_actuator_comparison]
@@ -610,21 +674,22 @@ if __name__ == "__main__":
         #     test_large_kite()
 
         if types_of_problems['vortex']:
+            test_vortex_dual_basic_health()
+            test_vortex_dual()
             test_vortex()
             test_vortex_basic_health()
             test_vortex_force_zero_basic_health()
             test_vortex_force_zero()
             test_vortex_3_dof()
-            test_vortex_dual_basic_health()
-            test_vortex_dual()
 
-        # if types_of_problems['actuator']:
-        #     test_actuator_qaxi_basic_health()
-        #     test_actuator_qaxi()
-        #     test_actuator_qasym()
-        #     test_actuator_uaxi()
-        #     test_actuator_uasym()
-        #     test_actuator_comparison()
+
+        if types_of_problems['actuator']:
+            test_actuator_qaxi_basic_health()
+            test_actuator_qaxi()
+            test_actuator_qasym()
+            test_actuator_uaxi()
+            test_actuator_uasym()
+            test_actuator_comparison()
 
 
     else:

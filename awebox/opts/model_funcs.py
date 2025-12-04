@@ -28,6 +28,7 @@ _python-3.5 / casadi-3.4.5
 - author: jochem de scutter, rachel leuthold, thilo bronnenmeyer, alu-fr/kiteswarms 2017-20
 - edited: rachel leuthold, 2017-2025
 '''
+import pdb
 from platform import architecture
 
 import numpy as np
@@ -1103,7 +1104,7 @@ def build_fict_scaling_options(options, options_tree, fixed_params, architecture
     aero_force = float(estimate_aero_force(options))
     synthesizing_dict['aero'] = aero_force
 
-    total_mass = estimate_total_mass(options, architecture)
+    total_mass, _ = estimate_total_mass(options, architecture)
     gravity_force = total_mass * gravity / float(architecture.number_of_kites)
     if options['params']['atmosphere']['g'] > 0.1:
         synthesizing_dict['gravity'] = gravity_force
@@ -1233,85 +1234,86 @@ def generate_lambda_scaling_tree(options, options_tree, lambda_scaling, architec
     l_t_scaling = options['solver']['initialization']['l_t']
     l_i_scaling = options['solver']['initialization']['theta']['l_i']
 
+    distribution_method = options['model']['scaling_overwrite']['lambda_tree']['distribution_method']
+    if distribution_method == 'vector_sum':
+        # this method seems to work better in the case that we use intermediate tether segments (that aren't layer
+        # nodes) to represent tether sag/lag - ie, the "segmented tether trial"
+
+        tether_vector_tree = get_tether_vector_tree(options, architecture)
+        _, tether_mass_tree = estimate_total_mass(options, architecture)
+        gravity = options['model']['scaling']['other']['g']
+
+        total_tension = lambda_scaling * l_t_scaling
+
+        tension_fraction = {}
+        for kite in architecture.kite_nodes:
+            tension_fraction[kite] = 1. / float(architecture.number_of_kites) + (tether_mass_tree[kite] * gravity / total_tension)
+
+        node_list = list(range(1, architecture.number_of_nodes))
+        if len(node_list) > 0:
+            node_list.reverse()
+            for node in node_list:
+                if node not in architecture.kite_nodes:
+                    sum_of_child_fractions = cas.DM.zeros((3, 1))
+                    for child in architecture.children_map[node]:
+                        sum_of_child_fractions += tension_fraction[child] * tether_vector_tree[child]
+                    redistributed_tension_above = cas.mtimes(tether_vector_tree[node].T, sum_of_child_fractions)
+                    gravity_contribution = (tether_mass_tree[node] * gravity / total_tension)
+                    # we add a gravity term so that lower intermediate tethers feel more tension than neighboring
+                    # upper intermediate tethers
+                    # and we add that gravity 'tension' as a scalar, to avoid having different scaling values for the
+                    # different secondary tethers, depending on the psi value during the vector-tree generation
+                    tension_fraction[node] = redistributed_tension_above + gravity_contribution
+
+        normalization = 1. / tension_fraction[1]
+        lambda_dict = {}
+
+        lambda_dict[1] = float(tension_fraction[1] * total_tension * normalization / l_t_scaling)
+        for node in range(2, architecture.number_of_nodes):
+            label = 'lambda' + str(node) + str(architecture.parent_map[node])
+            if node in architecture.kite_nodes:
+                lambda_dict[node] = tension_fraction[node] * total_tension * normalization / l_s_scaling
+            else:
+                lambda_dict[node] = tension_fraction[node] * total_tension * normalization / l_i_scaling
+            options_tree.append(('model', 'scaling', 'z', label, lambda_dict[node], description, 'x'))
 
 
+    elif distribution_method == 'linear_sum':
+        # it's tempting to put a cosine correction in here, but then using the
+        # resulting scaling values to set the initialization will lead to the
+        # max-tension-force path constraints being violated right-away. so: don't do it.
+        cone_angle_correction = 1.
 
+        #  secondary tether scaling
+        tension_main = lambda_scaling * l_t_scaling
+        tension_secondary = tension_main / architecture.number_of_kites * cone_angle_correction
+        lambda_s_scaling = tension_secondary / l_s_scaling
 
-    # tether_vector_tree = get_tether_vector_tree(options, architecture)
-    #
-    # total_tension = lambda_scaling * l_t_scaling
-    #
-    # tension_fraction = {}
-    # for kite in architecture.kite_nodes:
-    #     tension_fraction[kite] = 1. / float(architecture.number_of_kites)
-    #
-    # node_list = list(range(1, architecture.number_of_nodes))
-    # if len(node_list) > 0:
-    #     node_list.reverse()
-    #     for node in node_list:
-    #         if node not in architecture.kite_nodes:
-    #             sum_of_child_fractions = cas.DM.zeros((3, 1))
-    #             for child in architecture.children_map[node]:
-    #                 sum_of_child_fractions += tension_fraction[child] * tether_vector_tree[child]
-    #             tension_fraction[node] = cas.mtimes(tether_vector_tree[node].T, sum_of_child_fractions)
-    #
-    #
-    # sanity_check = np.abs(1. - tension_fraction[1]) < 0.2
-    # if not sanity_check:
-    #     message = 'something went wrong when distributing tether tension, ' + str(tension_fraction[1]) + ' times the total tension estimated to reach groundstation'
-    #     print_op.log_and_raise_error(message)
-    #
-    # normalization = 1. / tension_fraction[1]
-    # lambda_dict = {}
-    #
-    # lambda_dict[1] = float(tension_fraction[1] * total_tension * normalization / l_t_scaling)
-    # for node in range(2, architecture.number_of_nodes):
-    #     label = 'lambda' + str(node) + str(architecture.parent_map[node])
-    #     if node in architecture.kite_nodes:
-    #         lambda_dict[node] = tension_fraction[node] * total_tension * normalization / l_s_scaling
-    #     else:
-    #         lambda_dict[node] = tension_fraction[node] * total_tension * normalization / l_i_scaling
-    #     options_tree.append(('model', 'scaling', 'z', label, lambda_dict[node], description, 'x'))
+        # tension in the intermediate tethers is not constant
+        lambda_i_max = tension_main / l_i_scaling
+        lambda_dict = {1: lambda_scaling}
 
+        # assign scaling according to tree structure
+        layer_count = 1
+        for node in range(2,architecture.number_of_nodes):
+            label = 'lambda'+str(node)+str(architecture.parent_map[node])
 
+            if node in architecture.kite_nodes:
+                options_tree.append(('model', 'scaling', 'z', label, lambda_s_scaling, description,'x'))
+                lambda_dict[node] = lambda_s_scaling
 
+            else:
+                # if there are no kites here, we must be at an intermediate, layer node
+                # the tension should decrease as we move to higher layers, because there are fewer kites pulling on the nodes
+                linear_factor = (layers - layer_count) / (float(layers))
+                lambda_i_scaling = linear_factor * lambda_i_max
+                options_tree.append(('model', 'scaling', 'z', label, lambda_i_scaling, description,'x'))
+                lambda_dict[node] = lambda_i_scaling
 
-
-
-    print_op.warn_about_temporary_functionality_alteration()
-    # it's tempting to put a cosine correction in here, but then using the
-    # resulting scaling values to set the initialization will lead to the
-    # max-tension-force path constraints being violated right-away. so: don't do it.
-    cone_angle_correction = 1.
-
-    #  secondary tether scaling
-    tension_main = lambda_scaling * l_t_scaling
-    tension_secondary = tension_main / architecture.number_of_kites * cone_angle_correction
-    lambda_s_scaling = tension_secondary / l_s_scaling
-
-    # tension in the intermediate tethers is not constant
-    lambda_i_max = tension_main / l_i_scaling
-    lambda_dict = {1: lambda_scaling}
-
-    # assign scaling according to tree structure
-    layer_count = 1
-    for node in range(2,architecture.number_of_nodes):
-        label = 'lambda'+str(node)+str(architecture.parent_map[node])
-
-        if node in architecture.kite_nodes:
-            options_tree.append(('model', 'scaling', 'z', label, lambda_s_scaling, description,'x'))
-            lambda_dict[node] = lambda_s_scaling
-
-        else:
-            # if there are no kites here, we must be at an intermediate, layer node
-            # the tension should decrease as we move to higher layers, because there are fewer kites pulling on the nodes
-            linear_factor = (layers - layer_count) / (float(layers))
-            lambda_i_scaling = linear_factor * lambda_i_max
-            options_tree.append(('model', 'scaling', 'z', label, lambda_i_scaling, description,'x'))
-            lambda_dict[node] = lambda_i_scaling
-
-            layer_count += 1
-
+                layer_count += 1
+    else:
+        message = 'unfamiliar method of distributing main tether tension among all of the tether elements (' + distribution_method + ')'
+        print_op.log_and_raise_error(message)
 
     return options_tree
 
@@ -1511,19 +1513,21 @@ def estimate_power(options, architecture, suppress_help_statement=True):
     p_actuator = thrust * uu * (1. - a_ref)
     if not (options['user_options']['induction_model'] == 'not_in_use'):
         synthesizing_dict['actuator'] = p_actuator
+    else:
+        scaling_dict['actuator'] = p_actuator
 
     turbine_efficiency = options['params']['aero']['turbine_efficiency']
     kappa = options['model']['scaling']['x']['kappa']
     airspeed_avg = get_airspeed_average(options)
     p_drag_mode = turbine_efficiency * kappa * airspeed_avg**3. * architecture.number_of_kites
     if options['user_options']['trajectory']['system_type'] == 'drag_mode':
-        synthesizing_dict['drag'] = p_drag_mode
+        synthesizing_dict['drag_mode'] = p_drag_mode
+    else:
+        scaling_dict['drag_mode'] = p_drag_mode
 
     scaling_dict = transfer_synthesization_estimates_to_a_scaling_dictionary(scaling_dict, synthesizing_dict)
 
-    print_op.warn_about_temporary_functionality_alteration()
-    method_in_options = 'synthesized'
-    # method_in_options = options['model']['scaling']['other']['tension_estimate']
+    method_in_options = options['model']['scaling']['other']['power_estimate']
     overwrite_method = None
     selected_method = select_scaling_method(method_in_options, overwrite_method, scaling_dict, thing_estimated)
     print_help_with_scaling(options, scaling_dict, selected_method, thing_estimated, suppress_help_statement)
@@ -1721,7 +1725,7 @@ def estimate_main_tether_tension_per_unit_length(options, architecture, suppress
     print_op.warn_about_temporary_functionality_alteration()
     tether_vector_tree = get_tether_vector_tree(options, architecture)
     aero_force_per_kite = estimate_aero_force(options)
-    total_mass = estimate_total_mass(options, architecture)
+    total_mass, _ = estimate_total_mass(options, architecture)
     gravity = options['model']['scaling']['other']['g']
     total_force_vector = total_mass * gravity * (-1 * vect_op.zhat_np())
     for kite in architecture.kite_nodes:
@@ -1786,31 +1790,48 @@ def estimate_total_mass(options, architecture):
 
     mass_of_all_kites = get_geometry(options)['m_k'] * architecture.number_of_kites
 
+    tether_mass_tree = {}
+
     diam_t = options['solver']['initialization']['theta']['diam_t']
     rho_tether = options['params']['tether']['rho']
     cross_sectional_area_t = np.pi * (diam_t / 2.) ** 2.
     length = options['solver']['initialization']['l_t']
     mass_of_main_tether = cross_sectional_area_t * length * rho_tether
+    tether_mass_tree[1] = mass_of_main_tether
 
-    if architecture.number_of_kites > 1:
+    if architecture.kite_nodes != [1]:
         diam_s = options['solver']['initialization']['theta']['diam_s']
         cross_sectional_area_s = np.pi * (diam_s / 2.) ** 2.
         length_s = options['solver']['initialization']['theta']['l_s']
         mass_of_secondary_tether = cross_sectional_area_s * length_s * rho_tether * architecture.number_of_kites
+
+        for kite in set(architecture.kite_nodes) - set([1]):
+            tether_mass_tree[kite] = cross_sectional_area_s * length_s * rho_tether
+
     else:
         mass_of_secondary_tether = 0.
 
-    number_of_intermediate_tethers = architecture.number_of_nodes - 1 - architecture.number_of_kites
+    number_of_intermediate_tethers = architecture.get_number_intermediate_tethers()
     if number_of_intermediate_tethers > 0:
         diam_i = options['solver']['initialization']['theta']['diam_i']
         cross_sectional_area_i = np.pi * (diam_i / 2.) ** 2.
         length_i = options['solver']['initialization']['theta']['l_i']
         mass_of_intermediate_tether = cross_sectional_area_i * length_i * rho_tether * number_of_intermediate_tethers
+
+        for node in set(range(2, architecture.number_of_nodes)) - set(architecture.kite_nodes):
+            tether_mass_tree[node] = cross_sectional_area_i * length_i * rho_tether
+
     else:
         mass_of_intermediate_tether = 0.
 
     total_mass = mass_of_all_kites + mass_of_main_tether + mass_of_secondary_tether + mass_of_intermediate_tether
-    return total_mass
+
+    comparison = mass_of_all_kites + np.sum(np.array([val for val in tether_mass_tree.values()]))
+    if np.abs(total_mass - comparison) > 0.001:
+        message = 'something went wrong while estimating the total system mass in model_funcs'
+        print_op.log_and_raise_error(message)
+
+    return total_mass, tether_mass_tree
 
 def estimate_energy(options, architecture):
     power = estimate_power(options, architecture, suppress_help_statement=True)
@@ -1894,6 +1915,22 @@ def estimate_time_period(options, architecture, suppress_help_statement=True):
         synthesizing_dict['angular_velocity_bounds'] = period1_from_ang_velocity_bounds
     else:
         scaling_dict['angular_velocity_bounds'] = period1_from_ang_velocity_bounds
+
+    kite_standard = options['user_options']['kite_standard']
+    aero_deriv, aero_validity = load_stability_derivatives(kite_standard)
+    if options['model']['aero']['overwrite']['beta_max_deg'] is not None:
+        beta_max = options['model']['aero']['overwrite']['beta_max_deg'] * np.pi / 180.
+    elif aero_validity['beta_max_deg'] is not None:
+        beta_max = aero_validity['beta_max_deg'] * np.pi / 180.
+    else:
+        beta_max = 10. * np.pi / 180.
+    inclination_angle_rad = options['solver']['initialization']['inclination_deg'] * np.pi / 180.
+    omega_from_beta = u_altitude * np.sin(inclination_angle_rad) / (beta_max * radius)
+    period1_from_beta_max = float((2. * np.pi) / omega_from_beta)
+    if options['model']['model_bounds']['aero_validity']['include']:
+        synthesizing_dict['sideslip_max'] = period1_from_beta_max
+    else:
+        scaling_dict['sideslip_max'] = period1_from_beta_max
 
     scaling_dict = transfer_synthesization_estimates_to_a_scaling_dictionary(scaling_dict, synthesizing_dict)
 

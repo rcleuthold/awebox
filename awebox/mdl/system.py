@@ -200,7 +200,7 @@ def generate_structure(options, architecture):
 
     if (architecture.number_of_nodes - architecture.number_of_kites) > 1:
         system_parameters += [('l_s', (1, 1)), ('diam_s', (1, 1))]
-    if len(architecture.layer_nodes) > 1:
+    if architecture.get_number_intermediate_tethers() > 0:
         system_parameters += [('l_i', (1, 1)), ('diam_i', (1, 1))]
 
     if options['include_P_max']:

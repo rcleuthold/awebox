@@ -240,10 +240,12 @@ def set_default_options(default_user_options, help_options):
 
         #### scaling
         ('model',  'scaling', 'other', 'flight_radius_estimate',   'centripetal',            ('the method of estimating the trajectory flight radius for problem scaling', ['anticollision', 'centripetal', 'cone', 'roll_angle', 'load_factor', 'airspeed_limits', 'loyd_actuator', 'synthesized']), 'x'),
-        ('model',  'scaling', 'other', 'period_estimate',          'groundspeed_init',       ('the method of estimating the optimization period as building block for other scaling methods', ['t_f_bounds', 'groundspeed_init', 'groundspeed_bounds', 'angular_velocity_bounds', 'max_acceleration', 'pendulum', 'convection', 'synthesized']), 'x'),
+        ('model',  'scaling', 'other', 'period_estimate',          'groundspeed_init',       ('the method of estimating the optimization period as building block for other scaling methods', ['t_f_bounds', 'groundspeed_init', 'groundspeed_bounds', 'angular_velocity_bounds', 'max_acceleration', 'pendulum', 'convection', 'sideslip_max', 'synthesized']), 'x'),
         ('model',  'scaling', 'other', 'position_scaling_method',  'radius',                 ('the method of estimating the node position states q for problem scaling', ['radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']),'x'),
         ('model',  'scaling', 'other', 'force_scaling_method',     'synthesized',            ('the method of estimating the force in the dynamics for problem scaling', ['max_acceleration', 'tension', 'gravity', 'centripetal', 'aero', 'synthesized']), 'x'),
         ('model',  'scaling', 'other', 'tension_estimate',         'average_force',          ('the method of estimating the main tether tension for problem scaling', ['power', 'max_stress', 'average_force', 'force_summation', 'thrust_coeff', 'synthesized']), 'x'),
+        ('model',  'scaling', 'other', 'power_estimate',           'synthesized',            ('the method of estimating the total system power for problem scaling', ['loyd', 'actuator', 'drag_mode', 'synthesized']), 'x'),
+
         ('model',  'scaling', 'other', 'print_help_with_scaling',  False,                    ('print values of the above scaling method interpretations to help with tuning problem scaling', [True, False]), 'x'),
 
         ('model',  'scaling', 'z',     'a',        1.0,      ('induction factor [-]', None),'x'),
@@ -251,6 +253,7 @@ def set_default_options(default_user_options, help_options):
         ('model',  'scaling', 'x',     'kappa',    1e1,      ('generator braking parameter [m]', None), 'x'),
 
         ('model',   'scaling_overwrite',    'lambda_tree', 'include',           True,   ('specific scaling of tether tension per length', None),'t'),
+        ('model',   'scaling_overwrite',    'lambda_tree', 'distribution_method', 'vector_sum',  ('method of distributing the tether tension per length for scaling', ['vector_sum', 'linear_sum']), 't'),
         ('model',   'scaling_overwrite',    None,           'lambda_factor',    1.,     ('factor applied in the scaling of the tether tension-per-unit-length [-]', None),'t'),
         ('model',   'scaling_overwrite',    None,           'energy_factor',    1.,     ('factor applied in the scaling of the energy [-]', None),'t'),
 
@@ -361,7 +364,8 @@ def set_default_options(default_user_options, help_options):
         ('solver',  None,   None,   'mu_target',            0.,         ('target for interior point homotopy parameter in ipopt [float]', None),'x'),
         ('solver',  None,   None,   'mu_init',              1.,         ('start value for interior point homotopy parameter in ipopt [float]', None),'x'),
         ('solver',  None,   None,   'tol',                  1e-8,       ('ipopt solution tolerance [float]', None), 'x'),
-        ('solver',  'ipopt',None,   'autoscale',            True,       ('allow ipopt to autoscale the problem', [True, False]), 'x'),
+        ('solver', 'ipopt', None,   'autoscale',            True,       ('allow ipopt to autoscale the problem', [True, False]), 'x'),
+        ('solver', 'ipopt', None,   'alpha_for_y',          'primal',   ('ipopt line-search strategy. see ipopt options for details.', None), 'x'),
         ('solver',  None,   None,   'callback',             False,      ('record nlp iterations', [True, False]), 'x'),
         ('solver',  None,   None,   'record_states',        False,      ('record state trajectories in callback', [True, False]), 'x'),
         ('solver',  None,   None,   'callback_step',        10,         ('callback interval [int]', None), 'x'),
@@ -376,7 +380,7 @@ def set_default_options(default_user_options, help_options):
         ('solver',  'homotopy_method', None, 'psi',        'penalty',  ('homotopy method used', ['penalty', 'classic']), 's'),
         ('solver',  'homotopy_method', None, 'advance_despite_max_iter', True, ('should homotopy proceed to next step if the last step exceeds the maximum number of Newton steps?', [True, False]), 's'),
         ('solver',  'homotopy_method', None, 'advance_despite_ill_health', True, ('should homotopy proceed to next step if the debug health-checker says that the problem is unhealthy/ill-posed', [True, False]), 's'),
-        ('solver',  'homotopy_method', None, 'consider_restoration_as_failure', False, ('should having entered restoration mode be considered as a step failure', [True, False]), 's'),
+        ('solver',  'homotopy_method', None, 'consider_restoration_as_failure', False, ('should having entered restoration mode be considered as a step failure. Note that the method of determining whether ipopt enterred restoration mode requires each call to ipopt to be made from a unique run directory, to avoid interference.', [True, False]), 's'),
         ('solver',  'homotopy_method', None, 'put_fictitious_before_induction', True, ('do the fictitious homotopy step before the (if applicable) induction homotopy step (False is only suggested for induction model testing)', [True, False]), 's'),
         ('solver',  'homotopy_step',  None, 'gamma',        0.1,        ('classical continuation homotopy parameter step',None), 's'),
         ('solver',  'homotopy_step',  None, 'psi',          1.0,        ('classical continuation homotopy parameter step',None), 's'),

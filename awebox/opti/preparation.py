@@ -228,6 +228,8 @@ def generate_default_solver_options(options):
         opts['ipopt.mu_init'] = options['mu_init']
         opts['ipopt.tol'] = options['tol']
 
+        opts['ipopt.alpha_for_y'] = options['ipopt']['alpha_for_y']
+
         autoscale = (options['nlp_solver'] == 'ipopt') and options['ipopt']['autoscale']
         if autoscale:
             opts['ipopt.nlp_scaling_method'] = 'gradient-based'

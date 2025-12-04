@@ -189,7 +189,6 @@ def collect_tractability_indicators(trial_name, step_name, solver_options, stats
     tractability['step_name'] = step_name
 
     tractability['autoscale'] = solver_options['ipopt']['autoscale']
-    # todo: find a way to determine this from ipopt output directly, just-in-case our autoscaling-block ever changes
     for stat_name in stats.keys():
         tractability['stats: ' + stat_name] = stats[stat_name]
 

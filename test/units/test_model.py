@@ -2,7 +2,7 @@
 """Test to check model functionality
 
 @author: Jochem De Schutter,
-edit: rachel leuthold, alu-fr 2020
+edit: rachel leuthold, alu-fr 2020, 2025
 """
 import copy
 
@@ -102,8 +102,20 @@ def generate_architecture_dict():
                   'children_map': {0:[1], 1:[2,3,4,5], 5:[6,7]},
                   'kites_map': {0:[],1:[2,3,4], 5:[6,7]}}
 
-
     test_archi_dict['triple_dual_kites'] = archi_dict
+
+    # asymmetrical system
+    archi_dict = {'parent_map': {1: 0, 2: 1, 3: 2, 5: 3, 4: 3, 7: 4, 6: 4, 8: 3, 10: 8, 9: 8},
+                  'kite_nodes': [5, 6, 7, 9, 10],
+                  'layer_nodes': [8, 3, 4],
+                  'layers': 3,
+                  'siblings_map': {5: [5], 6: [7, 6], 7: [7, 6], 9: [10, 9], 10: [10, 9]},
+                  'number_of_nodes': 11,
+                  'children_map': {0: [1], 1: [2], 2: [3], 3: [5, 4, 8], 4: [7, 6], 8: [10, 9]},
+                  'kites_map': {0: [], 1: [], 2: [], 3: [5], 4: [7, 6], 8: [10, 9]}}
+
+    test_archi_dict['asymmetrical_kites'] = archi_dict
+
 
     return test_archi_dict
 
