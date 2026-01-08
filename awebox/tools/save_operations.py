@@ -324,17 +324,38 @@ def running_on_aws_ec2(timeout=0.1):
         return False
 
 def stop_this_aws_ec2_instance():
+
+    if running_on_aws_ec2():
+        import subprocess
+        res = subprocess.run(["sudo", "-n", "shutdown", "-h", "now"], capture_output=True, text=True)
+        print("returncode:", res.returncode)
+        print("stdout:", res.stdout)
+        print("stderr:", res.stderr)
+
+    import json
     import boto3
-    import requests
+    import urllib.request
 
-    # Get instance ID from EC2 metadata
-    instance_id = requests.get(
-        "http://169.254.169.254/latest/meta-data/instance-id",
-        timeout=2
-    ).text
+    def http(url, headers=None, timeout=2):
+        req = urllib.request.Request(url, headers=headers or {})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.read().decode()
 
-    ec2 = boto3.client("ec2")
+    try:
+        token = http(
+            "http://169.254.169.254/latest/api/token",
+            headers={"X-aws-ec2-metadata-token-ttl-seconds": "60"},
+        )
+        h = {"X-aws-ec2-metadata-token": token}
+        instance_id = http("http://169.254.169.254/latest/meta-data/instance-id", headers=h)
+        ident_doc = json.loads(http("http://169.254.169.254/latest/dynamic/instance-identity/document", headers=h))
+        region = ident_doc["region"]
+    except Exception as e:
+        raise RuntimeError(f"Cannot access EC2 metadata (IMDS): {e}")
+
+    ec2 = boto3.client("ec2", region_name=region)
     ec2.stop_instances(InstanceIds=[instance_id])
+
 
 def test_table_save_to_csv():
 
