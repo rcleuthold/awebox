@@ -122,10 +122,10 @@ if __name__ == "__main__":
          return pt
 
     total_memory_gb = 128
-    target_memory_gb = 0.75 * total_memory_gb
+    target_memory_gb = 0.40 * total_memory_gb
     collocation_d = 4
 
-    for n_k in [25]: #[40, 50, 20, 25, 35, 60, 45, 15, 55]: #30
+    for n_k in [50]: #[40, 50, 20, 25, 35, 60, 45, 15, 55]: #30
         pt = estimate_periods_tracked(aa, bb, n_k, collocation_d, 2, target_memory_gb)
         if pt > pt_min:
          inputs = {}

@@ -122,7 +122,7 @@ if __name__ == "__main__":
          return pt
 
     total_memory_gb = 128
-    target_memory_gb = 0.75 * total_memory_gb
+    target_memory_gb = 0.80 * total_memory_gb
     collocation_d = 4
 
     for n_k in [25]: #[40, 50, 20, 25, 35, 60, 45, 15, 55]: #30
