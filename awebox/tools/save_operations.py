@@ -358,20 +358,20 @@ def stop_this_aws_ec2_instance():
 
     # Try OS shutdown first (works if instance shutdown behavior = Stop)
     subprocess.run(["sudo", "-n", "shutdown", "-h", "now"], capture_output=True, text=True)
-
-    # If you prefer to stop via API instead, you need awscli or boto3+IAM role.
-    # With awscli installed, you can do:
-    token = _imds_v2_token()
-    instance_id = _imds_get("meta-data/instance-id", token).strip()
-    ident_doc = json.loads(_imds_get("dynamic/instance-identity/document", token))
-    region = ident_doc["region"]
-
-    # Requires AWS CLI installed + instance IAM role allowing ec2:StopInstances
-    subprocess.run(
-        ["aws", "ec2", "stop-instances", "--instance-ids", instance_id, "--region", region],
-        capture_output=True,
-        text=True,
-    )
+    #
+    # # If you prefer to stop via API instead, you need awscli or boto3+IAM role.
+    # # With awscli installed, you can do:
+    # token = _imds_v2_token()
+    # instance_id = _imds_get("meta-data/instance-id", token).strip()
+    # ident_doc = json.loads(_imds_get("dynamic/instance-identity/document", token))
+    # region = ident_doc["region"]
+    #
+    # # Requires AWS CLI installed + instance IAM role allowing ec2:StopInstances
+    # subprocess.run(
+    #     ["aws", "ec2", "stop-instances", "--instance-ids", instance_id, "--region", region],
+    #     capture_output=True,
+    #     text=True,
+    # )
 
 
 def test_table_save_to_csv():
