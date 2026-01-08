@@ -229,6 +229,8 @@ def generate_default_solver_options(options):
         opts['ipopt.tol'] = options['tol']
 
         opts['ipopt.alpha_for_y'] = options['ipopt']['alpha_for_y']
+        opts['ipopt.ma57_pivtol'] = options['ipopt']['ma57_pivtol']
+        opts['ipopt.ma57_pivtolmax'] = options['ipopt']['ma57_pivtolmax']
 
         autoscale = (options['nlp_solver'] == 'ipopt') and options['ipopt']['autoscale']
         if autoscale:

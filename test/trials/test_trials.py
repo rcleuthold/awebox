@@ -262,6 +262,7 @@ def make_basic_health_variant(base_options):
     basic_health_options['visualization.cosmetics.variables.si_or_scaled'] = 'si'
     basic_health_options['solver.health_check.save_health_indicators'] = True
     basic_health_options['solver.health_check.thresh.condition_number'] = 1e10
+    basic_health_options['solver.tol'] = 1e-8
 
     return basic_health_options
 
@@ -287,7 +288,9 @@ def generate_options_dict():
     single_kite_options['quality.raise_exception'] = True
 
     # rela!!!!!
-    single_kite_options['solver.ipopt.alpha_for_y'] = 'safer-min-dual-infeas'
+    # single_kite_options['solver.ipopt.alpha_for_y'] = 'max'
+    # single_kite_options['solver.ipopt.ma57_pivtol'] = 0.1
+    # single_kite_options['solver.ipopt.ma57_pivtolmax'] = 1.0
     single_kite_options['solver.cost_factor.power'] = 1e1
 
     # # todo:
@@ -297,6 +300,8 @@ def generate_options_dict():
     # # we should aim to eventually include in here the lines:
     single_kite_options['solver.homotopy_method.advance_despite_max_iter'] = False
     # single_kite_options['solver.homotopy_method.consider_restoration_as_failure'] = True
+
+    # single_kite_options['model.scaling.other.force_scaling_method'] = 'aero'
 
     # single_kite_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
     # # single_kite_options['model.scaling.other.period_estimate'] = 'synthesized'
@@ -355,16 +360,25 @@ def generate_options_dict():
     dual_kite_options = copy.deepcopy(single_kite_options)
     dual_kite_options['user_options.system_model.architecture'] = {1: 0, 2: 1, 3: 1}
     dual_kite_options['solver.initialization.theta.l_s'] = 75.
-    dual_kite_options['solver.initialization.check_reference'] = True
+    # dual_kite_options['solver.initialization.check_reference'] = True
 
+
+    # dual_kite_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
+    # # dual_kite_options['model.scaling.other.period_estimate'] = 'synthesized'
+    # dual_kite_options['model.scaling.other.position_scaling_method'] = 'radius'
+    # # dual_kite_options['model.scaling.other.force_scaling_method'] = 'tension'
+    # dual_kite_options['model.scaling.other.tension_estimate'] = 'force_summation'
+    # dual_kite_options['model.scaling.other.power_estimate'] = 'synthesized'
+    # dual_kite_options['model.scaling.other.print_help_with_scaling'] = True
 
     dual_kite_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
-    # dual_kite_options['model.scaling.other.period_estimate'] = 'synthesized'
+    dual_kite_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
     dual_kite_options['model.scaling.other.position_scaling_method'] = 'radius'
-    # dual_kite_options['model.scaling.other.force_scaling_method'] = 'tension'
+    dual_kite_options['model.scaling.other.force_scaling_method'] = 'tension'
     dual_kite_options['model.scaling.other.tension_estimate'] = 'force_summation'
     dual_kite_options['model.scaling.other.power_estimate'] = 'synthesized'
-    dual_kite_options['model.scaling.other.print_help_with_scaling'] = True
+    # dual_kite_options['solver.cost_factor.power'] = 100.
+    # dual_kite_options['solver.cost.psi.1'] = 100.
 
     dual_kite_basic_health_options = make_basic_health_variant(dual_kite_options)
 
@@ -448,22 +462,21 @@ def generate_options_dict():
     vortex_options['model.aero.vortex.far_wake_element_type'] = 'semi_infinite_filament'
     vortex_options['model.aero.vortex.wake_nodes'] = 2
     vortex_options['quality.raise_exception'] = False
+    vortex_options['solver.tol'] = 1e-5
 
-    # vortex_options['solver.cost_factor.power'] = 1e0
+    vortex_options['solver.cost_factor.power'] = 1e0
     # vortex_options['model.scaling.other.period_estimate'] = 'max_acceleration'
     # vortex_options['model.scaling.other.force_scaling_method'] = 'aero'
     # vortex_options['model.scaling.other.power_estimate'] = 'loyd'
 
+    # vortex_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
+    # vortex_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
+    # vortex_options['model.scaling.other.position_scaling_method'] = 'radius'
+    # vortex_options['model.scaling.other.force_scaling_method'] = 'tension'
+    # vortex_options['model.scaling.other.tension_estimate'] = 'force_summation'
+    # vortex_options['model.scaling.other.power_estimate'] = 'synthesized'
 
-    vortex_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
-    vortex_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
-    vortex_options['model.scaling.other.position_scaling_method'] = 'radius'
-    vortex_options['model.scaling.other.force_scaling_method'] = 'tension'
-    vortex_options['model.scaling.other.tension_estimate'] = 'force_summation'
-    vortex_options['model.scaling.other.power_estimate'] = 'synthesized'
 
-    vortex_options['solver.cost_factor.power'] = 10.
-    vortex_options['solver.cost.psi.1'] = 100.
 
     vortex_basic_health_options = make_basic_health_variant(vortex_options)
     vortex_basic_health_options['model.aero.vortex.double_check_wingtip_fixing'] = True
@@ -483,7 +496,16 @@ def generate_options_dict():
     vortex_dual_options = copy.deepcopy(vortex_options)
     vortex_dual_options['user_options.system_model.architecture'] = {1: 0, 2: 1, 3: 1}
     vortex_dual_options['solver.initialization.theta.l_s'] = 75.
-    vortex_dual_options['solver.initialization.check_reference'] = True
+    # vortex_dual_options['solver.initialization.check_reference'] = True
+
+    vortex_dual_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
+    vortex_dual_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
+    vortex_dual_options['model.scaling.other.position_scaling_method'] = 'radius'
+    vortex_dual_options['model.scaling.other.force_scaling_method'] = 'tension'
+    vortex_dual_options['model.scaling.other.tension_estimate'] = 'force_summation'
+    vortex_dual_options['model.scaling.other.power_estimate'] = 'synthesized'
+    vortex_dual_options['solver.cost_factor.power'] = 10.
+    vortex_dual_options['solver.cost.psi.1'] = 100.
 
     # vortex_dual_options['solver.cost_factor.power'] = 1e2
 
@@ -597,7 +619,7 @@ if __name__ == "__main__":
 
     parallel_or_serial = 'serial'
 
-    types_of_problems = {'single_kites': True,
+    types_of_problems = {'single_kites': False,
                          'base_alternatives': False,
                          'dual_kites': False,
                          'tracking': False,

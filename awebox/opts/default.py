@@ -366,6 +366,8 @@ def set_default_options(default_user_options, help_options):
         ('solver',  None,   None,   'tol',                  1e-8,       ('ipopt solution tolerance [float]', None), 'x'),
         ('solver', 'ipopt', None,   'autoscale',            True,       ('allow ipopt to autoscale the problem', [True, False]), 'x'),
         ('solver', 'ipopt', None,   'alpha_for_y',          'primal',   ('ipopt line-search strategy. see ipopt options for details.', None), 'x'),
+        ('solver', 'ipopt', None,   'ma57_pivtol',          1e-8,       ('ipopt pivot tolerance for ma57. see ipopt options for details.', None), 'x'),
+        ('solver', 'ipopt', None,   'ma57_pivtolmax',       0.0001,     ('ipopt maximum pivot tolerance for max57. see ipopt options for details.', None), 'x'),
         ('solver',  None,   None,   'callback',             False,      ('record nlp iterations', [True, False]), 'x'),
         ('solver',  None,   None,   'record_states',        False,      ('record state trajectories in callback', [True, False]), 'x'),
         ('solver',  None,   None,   'callback_step',        10,         ('callback interval [int]', None), 'x'),
