@@ -50,8 +50,6 @@ def run(inputs={}):
     options = {}
     options = help_op.get_basic_options_for_convergence_expense_and_comparison(options)
 
-    options['user_options.induction_model'] = 'not_in_use'
-
     # allow a reduction of the problem for testing purposed
     options['nlp.n_k'] = n_k
     options['model.aero.vortex.wake_nodes'] = wake_nodes
