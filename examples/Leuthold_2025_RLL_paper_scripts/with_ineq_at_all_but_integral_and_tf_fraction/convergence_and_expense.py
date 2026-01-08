@@ -50,6 +50,8 @@ def run(inputs={}):
     options = {}
     options = help_op.get_basic_options_for_convergence_expense_and_comparison(options)
 
+    options['user_options.induction_model'] = 'not_in_use'
+
     # allow a reduction of the problem for testing purposed
     options['nlp.n_k'] = n_k
     options['model.aero.vortex.wake_nodes'] = wake_nodes
@@ -95,7 +97,7 @@ if __name__ == "__main__":
 
     tol = 1e-8
     pt_min = 1e-3
-    
+
     #n_k = 15
     #pt = 1.5 #.75
     #
@@ -107,40 +109,39 @@ if __name__ == "__main__":
 
     import gc
     from glob import glob
-    
+
     # curve fit for memory [GB]: 3.56715 + 0.00121953 V
     aa = 5.79095
     bb = 0.0010823
     # # run: 0.3 * [20]
     # 0.8 * [30]
-    
-    
+
+
     def estimate_periods_tracked(aa, bb, n_k, d, kites, mem_gb):
          p1 = -aa - 3. * bb * (1. + n_k + d * n_k) * kites + mem_gb
          p2 = 3. * bb * n_k * (1. + n_k + d * n_k) * kites
          pt = p1/p2
          return pt
-    
+
     total_memory_gb = 128
     target_memory_gb = 0.01 * total_memory_gb
     collocation_d = 4
-    
-    for n_k in [25]: #[40, 50, 20, 25, 35, 60, 45, 15, 55]: #30
-         pt = estimate_periods_tracked(aa, bb, n_k, collocation_d, 2, target_memory_gb)
-         if pt > pt_min:
-             inputs = {}
-             inputs['n_k'] = n_k
-             inputs['periods_tracked'] = pt
-             inputs['tol'] = tol
 
-             trial_name = ''
-             for name, val in inputs.items():
-                 trial_name += '_' + name + '_' + str(val)
-             if not glob('*' + trial_name + '*'):
-                 trial = run(inputs)
-                 del trial
-             gc.collect()
+    for n_k in [25]: #[40, 50, 20, 25, 35, 60, 45, 15, 55]: #30
+        pt = estimate_periods_tracked(aa, bb, n_k, collocation_d, 2, target_memory_gb)
+        if pt > pt_min:
+         inputs = {}
+         inputs['n_k'] = n_k
+         inputs['periods_tracked'] = pt
+         inputs['tol'] = tol
+
+         trial_name = ''
+         for name, val in inputs.items():
+             trial_name += '_' + name + '_' + str(val)
+         if not glob('*' + trial_name + '*'):
+             trial = run(inputs)
+             del trial
+         gc.collect()
 
     if save_op.running_on_aws_ec2():
         save_op.stop_this_aws_ec2_instance()
-        # os.system("sudo shutdown -h now")

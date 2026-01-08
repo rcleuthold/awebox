@@ -141,12 +141,9 @@ def make_comparison(trial):
 
 if __name__ == "__main__":
 
-    save_op.stop_this_aws_ec2_instance()
-
     trial = run()
-
-    if save_op.running_on_aws_ec2():
-        save_op.stop_this_aws_ec2_instance()
-        # os.system("sudo shutdown -h now")
+    #
+    # if save_op.running_on_aws_ec2():
+    #     save_op.stop_this_aws_ec2_instance()
 
 

@@ -351,10 +351,11 @@ def running_on_aws_ec2(timeout=0.2) -> bool:
 
 def stop_this_aws_ec2_instance():
     if running_on_aws_ec2():
+        print_op.base_print('Shutting down aws ec2 instance...', level='warning')
         subprocess.run(["sudo", "-n", "shutdown", "-h", "now"], capture_output=True, text=True)
     else:
         return
-    
+
 def test_table_save_to_csv():
 
     filename = 'save_op_test.csv'
