@@ -69,12 +69,22 @@ def get_basic_options_for_convergence_expense_and_comparison(options):
     options['model.aero.actuator.geometry_overwrite'] = 'averaged' 
 
     # these turn out not to be the best-performing scaling options (see awebox opts/default for the latest recommended scaling options), but they were the ones used when producing the convergence and expense plots, and therefore also problem A1 of the results comparison. changing the scaling to the performance-improving settings changes the results a small amount, but not (as seen so far) the the conclusions.
-    options['model.scaling.other.position_scaling_method'] = 'altitude_and_radius'
-    options['model.scaling.other.force_scaling_method'] = 'synthesized'
-    options['model.scaling.other.flight_radius_estimate'] = 'synthesized'
-    options['model.scaling.other.tension_estimate'] = 'synthesized'
-    options['model.aero.vortex.position_scaling_method'] = 'convection' #'average'
-    options['model.aero.vortex.wu_ind_scaling_method'] = 'ref_betz'
+    #options['model.scaling.other.position_scaling_method'] = 'altitude_and_radius'
+    #options['model.scaling.other.force_scaling_method'] = 'synthesized'
+    #options['model.scaling.other.flight_radius_estimate'] = 'synthesized'
+    #options['model.scaling.other.tension_estimate'] = 'synthesized'
+    #options['model.aero.vortex.position_scaling_method'] = 'convection' #'average'
+    #options['model.aero.vortex.wu_ind_scaling_method'] = 'ref_betz'
+
+    options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
+    options['model.scaling.other.period_estimate'] = 'groundspeed_init'
+    options['model.scaling.other.position_scaling_method'] = 'radius'
+    options['model.scaling.other.force_scaling_method'] = 'tension'
+    options['model.scaling.other.tension_estimate'] = 'force_summation'
+    options['model.scaling.other.power_estimate'] = 'synthesized'
+
+    options['solver.cost_factor.power'] = 10.
+    options['solver.cost.psi.1'] = 100.
 
     options['nlp.phase_fix_reelout'] = 0.55
 
@@ -406,24 +416,28 @@ def save_and_print_info(trial, options):
 
     report['count'] = 0
     report['n_k'] = options['nlp.n_k']
-    report['d'] = options['nlp.collocation.d']
+    report['d'] = trial.options['nlp']['collocation']['d']
     try:
         n_k = report['n_k']
-        p_t = float(options['model.aero.vortex.wake_nodes'] - 1.) / n_k
+        wake_nodes = trial.options['model']['aero']['vortex']['wake_nodes']
+        p_t = float(wake_nodes - 1.) / n_k
         report['p_t'] = p_t
-        
-        number_of_kites = trial.architecture.number_of_kites
-        at_slice = 3 * number_of_kites * options['model.aero.vortex.wake_nodes']
+        report['tol'] = trial.options['solver']['tol']
+        number_of_kites = trial.model.architecture.number_of_kites
+        at_slice = 3 * number_of_kites * wake_nodes
         report['vortex_elements_at_slice'] = at_slice
         report['vortex_elements_all_time'] = at_slice * (n_k + 1 + n_k * report['d'])
     except:
         pass
 
-    phase_fix_reelout = options['nlp']['phase_fix_reelout']
+    phase_fix_reelout = trial.options['nlp']['phase_fix_reelout']
     n_k_reelout = round(n_k * phase_fix_reelout)
     t_f = trial.optimization.V_final_si['theta', 't_f']
     t_switch = float(t_f[0] * n_k_reelout / n_k)
     report['t_switch'] = t_switch
+    
+    time_period = trial.optimization.global_outputs_opt['time_period'].full()[0][0]
+    report['phi_switch'] = t_switch/time_period
 
     report['solve'] = trial.optimization.solve_succeeded
     if report['solve']:
@@ -492,7 +506,7 @@ def save_and_print_info(trial, options):
                     for interest_key in ['avg', 'stdev', 'min', 'max']:
                         report[interesting_output + '_' + local_name + '_' + interest_key] = local_interest[interest_key]
 
-    time_period = trial.optimization.global_outputs_opt['time_period'].full()[0][0]
+
     avg_power_watts = trial.optimization.global_outputs_opt['avg_power_watts'].full()[0][0]
     e_final_joules = trial.optimization.global_outputs_opt['e_final_joules'].full()[0][0]
     if include_val(e_final_joules):

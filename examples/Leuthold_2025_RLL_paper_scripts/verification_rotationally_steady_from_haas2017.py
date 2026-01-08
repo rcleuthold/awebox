@@ -2,7 +2,7 @@
 from platform import architecture
 
 import matplotlib
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 
 import awebox as awe
 
