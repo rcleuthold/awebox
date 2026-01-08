@@ -15,7 +15,6 @@ import awebox as awe
 import awebox.opts.kite_data.ampyx_ap2_settings as ampyx_ap2_settings
 import matplotlib.pyplot as plt
 import numpy as np
-import awebox.tools.print_operations as print_op
 import awebox.tools.save_operations as save_op
 
 def run(plot_show_block=True, overwrite_options={}):
