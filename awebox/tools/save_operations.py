@@ -323,40 +323,55 @@ def running_on_aws_ec2(timeout=0.1):
     except Exception:
         return False
 
-def stop_this_aws_ec2_instance():
+import json
+import subprocess
+import urllib.request
+import urllib.error
 
-    on_aws = running_on_aws_ec2()
-    print(on_aws)
-    if on_aws:
-        import subprocess
-        res = subprocess.run(["sudo", "-n", "shutdown", "-h", "now"], capture_output=True, text=True)
-        print("returncode:", res.returncode)
-        print("stdout:", res.stdout)
-        print("stderr:", res.stderr)
+def _imds_v2_token(timeout=2) -> str:
+    req = urllib.request.Request(
+        "http://169.254.169.254/latest/api/token",
+        method="PUT",
+        headers={"X-aws-ec2-metadata-token-ttl-seconds": "60"},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read().decode()
 
-    import json
-    import boto3
-    import urllib.request
+def _imds_get(path: str, token: str, timeout=2) -> str:
+    url = f"http://169.254.169.254/latest/{path.lstrip('/')}"
+    req = urllib.request.Request(url, headers={"X-aws-ec2-metadata-token": token})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read().decode()
 
-    def http(url, headers=None, timeout=2):
-        req = urllib.request.Request(url, headers=headers or {})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return r.read().decode()
-
+def running_on_aws_ec2(timeout=0.2) -> bool:
     try:
-        token = http(
-            "http://169.254.169.254/latest/api/token",
-            headers={"X-aws-ec2-metadata-token-ttl-seconds": "60"},
-        )
-        h = {"X-aws-ec2-metadata-token": token}
-        instance_id = http("http://169.254.169.254/latest/meta-data/instance-id", headers=h)
-        ident_doc = json.loads(http("http://169.254.169.254/latest/dynamic/instance-identity/document", headers=h))
-        region = ident_doc["region"]
-    except Exception as e:
-        raise RuntimeError(f"Cannot access EC2 metadata (IMDS): {e}")
+        token = _imds_v2_token(timeout=timeout)
+        _ = _imds_get("meta-data/instance-id", token, timeout=timeout)
+        return True
+    except Exception:
+        return False
 
-    ec2 = boto3.client("ec2", region_name=region)
-    ec2.stop_instances(InstanceIds=[instance_id])
+def stop_this_aws_ec2_instance():
+    if not running_on_aws_ec2():
+        print("Not on EC2 (or IMDS unavailable); not stopping.")
+        return
+
+    # Try OS shutdown first (works if instance shutdown behavior = Stop)
+    subprocess.run(["sudo", "-n", "shutdown", "-h", "now"], capture_output=True, text=True)
+
+    # If you prefer to stop via API instead, you need awscli or boto3+IAM role.
+    # With awscli installed, you can do:
+    token = _imds_v2_token()
+    instance_id = _imds_get("meta-data/instance-id", token).strip()
+    ident_doc = json.loads(_imds_get("dynamic/instance-identity/document", token))
+    region = ident_doc["region"]
+
+    # Requires AWS CLI installed + instance IAM role allowing ec2:StopInstances
+    subprocess.run(
+        ["aws", "ec2", "stop-instances", "--instance-ids", instance_id, "--region", region],
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_table_save_to_csv():
