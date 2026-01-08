@@ -127,22 +127,20 @@ if __name__ == "__main__":
     
     for n_k in [25]: #[40, 50, 20, 25, 35, 60, 45, 15, 55]: #30
          pt = estimate_periods_tracked(aa, bb, n_k, collocation_d, 2, target_memory_gb)
-         if pt < pt_min:
-             pt = pt_min
-         print(pt)
-  
-         inputs = {}
-         inputs['n_k'] = n_k
-         inputs['periods_tracked'] = pt
-         inputs['tol'] = tol
+         if pt > pt_min:
+             inputs = {}
+             inputs['n_k'] = n_k
+             inputs['periods_tracked'] = pt
+             inputs['tol'] = tol
 
-         trial_name = ''
-         for name, val in inputs.items():
-             trial_name += '_' + name + '_' + str(val)
-         if not glob('*' + trial_name + '*'):
-             trial = run(inputs)
-             del trial
-         gc.collect()
+             trial_name = ''
+             for name, val in inputs.items():
+                 trial_name += '_' + name + '_' + str(val)
+             if not glob('*' + trial_name + '*'):
+                 trial = run(inputs)
+                 del trial
+             gc.collect()
 
     if save_op.running_on_aws_ec2():
-        os.system("sudo shutdown -h now")
+        save_op.stop_this_aws_ec2_instance()
+        # os.system("sudo shutdown -h now")

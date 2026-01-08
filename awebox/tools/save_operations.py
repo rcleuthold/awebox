@@ -323,6 +323,19 @@ def running_on_aws_ec2(timeout=0.1):
     except Exception:
         return False
 
+def stop_this_aws_ec2_instance():
+    import boto3
+    import requests
+
+    # Get instance ID from EC2 metadata
+    instance_id = requests.get(
+        "http://169.254.169.254/latest/meta-data/instance-id",
+        timeout=2
+    ).text
+
+    ec2 = boto3.client("ec2")
+    ec2.stop_instances(InstanceIds=[instance_id])
+
 def test_table_save_to_csv():
 
     filename = 'save_op_test.csv'
