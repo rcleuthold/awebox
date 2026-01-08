@@ -325,7 +325,9 @@ def running_on_aws_ec2(timeout=0.1):
 
 def stop_this_aws_ec2_instance():
 
-    if running_on_aws_ec2():
+    on_aws = running_on_aws_ec2()
+    print(on_aws)
+    if on_aws:
         import subprocess
         res = subprocess.run(["sudo", "-n", "shutdown", "-h", "now"], capture_output=True, text=True)
         print("returncode:", res.returncode)
