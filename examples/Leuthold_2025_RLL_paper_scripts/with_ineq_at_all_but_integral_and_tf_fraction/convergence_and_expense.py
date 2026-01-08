@@ -136,7 +136,6 @@ if __name__ == "__main__":
          inputs['periods_tracked'] = pt
          inputs['tol'] = tol
 
-
          trial_name = ''
          for name, val in inputs.items():
              trial_name += '_' + name + '_' + str(val)
