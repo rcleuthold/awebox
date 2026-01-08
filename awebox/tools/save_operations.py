@@ -312,6 +312,16 @@ def write_data_row(pcdw, data_dict, write_csv_dict, tgrid_ip, k, rotation_repres
 
     return None
 
+def running_on_aws_ec2(timeout=0.1):
+    try:
+        import requests
+        r = requests.get(
+            "http://169.254.169.254/latest/meta-data/",
+            timeout=timeout
+        )
+        return r.status_code == 200
+    except Exception:
+        return False
 
 def test_table_save_to_csv():
 

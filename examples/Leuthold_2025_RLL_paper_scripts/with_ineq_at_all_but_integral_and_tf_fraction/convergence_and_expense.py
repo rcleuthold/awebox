@@ -143,3 +143,6 @@ if __name__ == "__main__":
              trial = run(inputs)
              del trial
          gc.collect()
+
+    if save_op.running_on_aws_ec2():
+        os.system("sudo shutdown -h now")
