@@ -35,7 +35,7 @@ MINIFORGE_MODULE="devel/miniforge"
 CONDA_ENV_NAME="ocp"
 
 # A) nk options
-NK_LIST=(20 30 40)
+NK_LIST=(30 40 20)
 
 # B) planned memory targets (GB) based on fractions of 128GB
 #    (rounded up where needed to integer GB)
