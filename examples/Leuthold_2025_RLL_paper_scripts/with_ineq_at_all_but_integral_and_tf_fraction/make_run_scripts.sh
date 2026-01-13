@@ -53,7 +53,7 @@ gen_one() {
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 
-echo "testing! job=\${SLURM_JOB_NAME} id=\${SLURM_JOB_ID} host=\$(hostname)"
+echo "running! job=\${SLURM_JOB_NAME} id=\${SLURM_JOB_ID} host=\$(hostname)"
 set -euo pipefail
 
 # Headless-safe plotting on compute nodes
@@ -67,6 +67,9 @@ source "\$(conda info --base)/etc/profile.d/conda.sh"
 conda activate ${CONDA_ENV_NAME}
 
 python -c "import casadi, numpy as np; print('casadi', casadi.__version__, 'numpy', np.__version__)"
+
+SCRIPT_DIR="$(dirname "$MODULE_PY")"
+export PYTHONPATH="${SCRIPT_DIR}:$(dirname "$SCRIPT_DIR"):${PYTHONPATH:-}"
 
 python - <<'PY'
 import importlib.util
