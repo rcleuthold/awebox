@@ -1400,9 +1400,9 @@ def estimate_flight_radius(options, architecture, suppress_help_statement=False)
     aircraft_6dof_radius = airspeed / (q ** 2. + (r * cos - p * sin) ** 2.) ** 0.5
 
     kite_dof = get_kite_dof(options['user_options'])
-    if int(kite_dof) == 6:
+    if int(kite_dof) == 6 and vect_op.is_numeric_scalar(aircraft_6dof_radius):
         synthesizing_dict['aircraft'] = aircraft_6dof_radius
-    elif int(kite_dof) == 3:
+    elif int(kite_dof) == 3 and vect_op.is_numeric_scalar(aircraft_3dof_radius):
         synthesizing_dict['aircraft'] = aircraft_3dof_radius
 
     b_ref = get_geometry(options)['b_ref']
