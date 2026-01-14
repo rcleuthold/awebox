@@ -10,6 +10,7 @@
 #SBATCH --error=veri_rot_main.err
 
 echo "veri rot main!"
+export PYTHONPATH="$HOME/awebox:${PYTHONPATH:-}"
 
 set -euo pipefail
 
@@ -19,9 +20,6 @@ module load devel/miniforge   # bwHPC module :contentReference[oaicite:1]{index=
 # Make "conda activate" available in this non-interactive shell:
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate ocp
-
-python -c "import casadi, numpy as np; print('casadi', casadi.__version__, 'numpy', np.__version__)"
-
 
 python /pfs/data6/home/fr/fr_fr/fr_rl1038/awebox/examples/Leuthold_2025_RLL_paper_scripts/with_ineq_at_all_but_integral_and_tf_fraction/verification_rotationally_steady_from_haas2017.py
 
