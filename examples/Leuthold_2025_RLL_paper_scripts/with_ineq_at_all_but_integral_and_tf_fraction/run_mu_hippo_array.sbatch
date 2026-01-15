@@ -18,39 +18,35 @@ echo "==== Slurm ===="
 echo "JobID:        ${SLURM_JOB_ID}"
 echo "Node:         $(hostname)"
 echo "CPUs/task:    ${SLURM_CPUS_PER_TASK}"
-echo "Mem:          24G"
+echo "Memory:       24G"
 echo "mu_hippo:     ${MU_HIPPO}"
 echo "============="
 
-# --- Headless plotting (keep your figures!) ---
+# Headless plotting backend (keeps figures in batch)
 export MPLBACKEND=Agg
 
-# --- Threading: OpenMP uses the reserved CPUs; BLAS stays single-threaded ---
+# OpenMP uses allocated CPUs; BLAS stays single-threaded (prevents oversubscription)
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
 export OMP_PROC_BIND=spread
 export OMP_PLACES=cores
-
-# Prevent oversubscription (this was a big issue before)
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export NUMEXPR_NUM_THREADS=1
 
-# Optional: reduce malloc arena bloat (helps with many threads)
+# Helps avoid glibc malloc arena blow-up with many threads
 export MALLOC_ARENA_MAX=2
 
-# --- Environment (copied from your previous generator, but corrected) ---
+# ---- Environment setup (adjust conda env name if needed) ----
 module purge
 module load devel/miniforge
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate ocp
 
-# Ensure local helper modules (helpful_operations etc.) are importable
-MODULE_PY="/home/fr/fr_fr/fr_rl1038/awebox/examples/Leuthold_2025_RLL_paper_scripts/with_ineq_at_all_but_integral_and_tf_fraction/convergence_and_expense.py"
-SCRIPT_DIR="$(dirname "$MODULE_PY")"
-export PYTHONPATH="${SCRIPT_DIR}:$(dirname "${SCRIPT_DIR}"):${PYTHONPATH:-}"
+# Ensure we can import the local script and its local helpers
+BASE_DIR="/home/fr/fr_fr/fr_rl1038/awebox/examples/Leuthold_2025_RLL_paper_scripts/with_ineq_at_all_but_integral_and_tf_fraction"
+export PYTHONPATH="${BASE_DIR}:${PYTHONPATH:-}"
 
-# --- Run exactly one trial ---
-# Use srun + cpu binding so threads actually land on the allocated cores.
+# Run exactly one trial
 srun --cpu-bind=cores python - <<PY
 from convergence_and_expense import call_by_pt
 
