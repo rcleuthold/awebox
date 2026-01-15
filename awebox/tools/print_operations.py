@@ -575,6 +575,7 @@ def print_progress(index, total_count):
     sys.stdout.flush()
     return None
 
+
 def test():
     test_depth_function()
     test_multicolumn_table_to_string()

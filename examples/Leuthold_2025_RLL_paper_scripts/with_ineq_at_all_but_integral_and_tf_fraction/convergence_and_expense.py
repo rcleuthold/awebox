@@ -2,11 +2,11 @@
 from platform import architecture
 
 import matplotlib
-# matplotlib.use('TkAgg')
+matplotlib.use("Agg")   # ← MUST be here, before pyplot
 
 import awebox as awe
-
 import matplotlib.pyplot as plt
+
 import pickle
 import numpy as np
 import csv
@@ -42,6 +42,7 @@ def run(inputs={}):
     n_k = inputs['n_k']
     periods_tracked = inputs['periods_tracked']
     tol = inputs['tol']
+    mu_hippo = inputs['mu_hippo']
 
     base_name = 'convergence'
     wake_nodes = int(np.ceil(n_k * periods_tracked + 1))
@@ -55,6 +56,7 @@ def run(inputs={}):
     options['model.aero.vortex.wake_nodes'] = wake_nodes
 
     options['solver.tol'] = tol
+    options['solver.mu_hippo'] = mu_hippo
 
     # visualization
     options['visualization.cosmetics.save_figs'] = True
@@ -85,15 +87,37 @@ def run(inputs={}):
 
     trial_vortex.optimize(final_homotopy_step='final')
 
+    import os
+    os.environ["OMP_NUM_THREADS"] = "1"
+
+
     trial_vortex.print_cost_information()
     help_op.save_results_including_figures(trial_vortex, options)
 
     return None
 
-def call_by_memory(n_k, memory_gb, ipopt_tol=1e-8, pt_min=1e-3):
-
+    
+def call_by_pt(n_k, pt, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-2):
     import gc
     from glob import glob
+    if pt > pt_min:
+        inputs = {}
+        inputs['n_k'] = n_k
+        inputs['periods_tracked'] = pt
+        inputs['tol'] = ipopt_tol
+        inputs['mu_hippo'] = mu_hippo
+
+        trial_name = ''
+        for name, val in inputs.items():
+            trial_name += '_' + name + '_' + str(val)
+        if not glob('*' + trial_name + '*'):
+            trial = run(inputs)
+            del trial
+        gc.collect()
+    return None
+
+
+def call_by_memory(n_k, memory_gb, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-2):
 
     # curve fit for memory [GB]: 3.56715 + 0.00121953 V
     aa = 5.79095
@@ -106,22 +130,10 @@ def call_by_memory(n_k, memory_gb, ipopt_tol=1e-8, pt_min=1e-3):
 
     collocation_d = 4
 
-    # for n_k in [25]:  # [40, 50, 20, 25, 35, 60, 45, 15, 55]: #30
     pt = estimate_periods_tracked(aa, bb, n_k, collocation_d, 2, memory_gb)
-    if pt > pt_min:
-        inputs = {}
-        inputs['n_k'] = n_k
-        inputs['periods_tracked'] = pt
-        inputs['tol'] = ipopt_tol
-
-        trial_name = ''
-        for name, val in inputs.items():
-            trial_name += '_' + name + '_' + str(val)
-        if not glob('*' + trial_name + '*'):
-            trial = run(inputs)
-            del trial
-        gc.collect()
-
+    call_by_pt(n_k, pt, ipopt_tol=ipopt_tol, pt_min=pt_min, mu_hippo=mu_hippo)
+    return None
+    
 
 if __name__ == "__main__":
     total_memory_gb = 128
