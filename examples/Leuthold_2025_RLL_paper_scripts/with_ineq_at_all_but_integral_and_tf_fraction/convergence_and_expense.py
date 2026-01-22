@@ -57,6 +57,9 @@ def run(inputs={}):
 
     options['solver.tol'] = tol
     options['solver.mu_hippo'] = mu_hippo
+    if mu_hippo == False:
+        options['solver.mu_hippo'] = 1e-2
+        options['solver.hippo_strategy'] = False
 
     # visualization
     options['visualization.cosmetics.save_figs'] = True
@@ -97,7 +100,7 @@ def run(inputs={}):
     return None
 
     
-def call_by_pt(n_k, pt, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-2):
+def call_by_pt(n_k, pt, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-2, use_hippo_strategy=True):
     import gc
     from glob import glob
     if pt > pt_min:
@@ -106,6 +109,8 @@ def call_by_pt(n_k, pt, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-2):
         inputs['periods_tracked'] = pt
         inputs['tol'] = ipopt_tol
         inputs['mu_hippo'] = mu_hippo
+        if not use_hippo_strategy:
+            inputs['mu_hippo'] = False
 
         trial_name = ''
         for name, val in inputs.items():

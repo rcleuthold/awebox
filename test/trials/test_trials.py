@@ -251,7 +251,7 @@ def make_basic_health_variant(base_options):
 
     basic_health_options['solver.homotopy_method.advance_despite_max_iter'] = False
     basic_health_options['solver.homotopy_method.advance_despite_ill_health'] = False
-    basic_health_options['solver.homotopy_method.consider_restoration_as_failure'] = True
+    basic_health_options['solver.homotopy_method.consider_restoration_as_failure'] = False #True
     basic_health_options['solver.health_check.raise_exception'] = True
     basic_health_options['solver.initialization.check_reference'] = True
     basic_health_options['solver.initialization.check_feasibility.raise_exception'] = True
@@ -362,7 +362,6 @@ def generate_options_dict():
     dual_kite_options['solver.initialization.theta.l_s'] = 75.
     # dual_kite_options['solver.initialization.check_reference'] = True
 
-
     # dual_kite_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
     # # dual_kite_options['model.scaling.other.period_estimate'] = 'synthesized'
     # dual_kite_options['model.scaling.other.position_scaling_method'] = 'radius'
@@ -384,6 +383,7 @@ def generate_options_dict():
 
     dual_kite_6_dof_options = copy.deepcopy(dual_kite_options)
     dual_kite_6_dof_options['user_options.system_model.kite_dof'] = 6
+
 
     dual_kite_6_dof_basic_health_options = make_basic_health_variant(dual_kite_6_dof_options)
 
@@ -621,11 +621,11 @@ if __name__ == "__main__":
 
     types_of_problems = {'single_kites': False,
                          'base_alternatives': False,
-                         'dual_kites': False,
+                         'dual_kites': True,
                          'tracking': False,
                          'size_alternatives': False,
                          'vortex': False,
-                         'actuator': True}
+                         'actuator': False}
 
     if parallel_or_serial == 'parallel':
 

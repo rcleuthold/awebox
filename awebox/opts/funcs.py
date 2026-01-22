@@ -371,6 +371,7 @@ def build_formulation_options(options, help_options, user_options, options_tree,
     options_tree.append(('formulation', None, None, 'system_type', user_options['trajectory']['system_type'], ('system_type', None),'x'))
     options_tree.append(('formulation', 'landing', None, 'xi_0_initial', user_options['trajectory']['compromised_landing']['xi_0_initial'], ('starting position on initial trajectory between 0 and 1', None),'x'))
     options_tree.append(('formulation', 'compromised_landing', None, 'emergency_scenario', user_options['trajectory']['compromised_landing']['emergency_scenario'], ('???', None),'x'))
+    options_tree.append(('formulation', 'params', 'tether', 'ld_dl_t_reelout', options['params']['tether']['lb_dl_t_reelout'], ('???', None), 'x'))
 
     if int(user_options['system_model']['kite_dof']) == 3:
         coeff_max = options['model']['system_bounds']['x']['coeff'][1]

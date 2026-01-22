@@ -69,7 +69,7 @@ class SemiInfiniteTangentialRightCylinder(obj_semi_infinite_right_cylinder.SemiI
 
         return part_1
 
-    def f(self, unpacked, r_obs, z_obs):
+    def get_regularized_biot_savart_induction_radial_component_middle_part(self, unpacked, r_obs, z_obs):
 
         r_cyl = unpacked['radius']
         epsilon_r = unpacked['epsilon_r']
@@ -303,7 +303,7 @@ def test_regularized_biot_savart_induction_radial_component_on_axis(cyl_regulari
     found, _, _ = cyl_regularized.get_regularized_biot_savart_induction_radial_component(unpacked, r_obs, z_obs, elliptic_m)
     expected = 0.
 
-    print("test_regularized_biot_savart_induction_radial_component_on_axis: " + str(expected))
+    #print("test_regularized_biot_savart_induction_radial_component_on_axis: " + str(expected))
 
     diff = found - expected
     criteria = (diff**2. < epsilon**2.)
@@ -326,7 +326,7 @@ def test_regularized_biot_savart_induction_radial_component_at_large_radius(cyl_
     found, _, _ = cyl_regularized.get_regularized_biot_savart_induction_radial_component(unpacked, r_obs, z_obs, elliptic_m)
     expected = 0.
 
-    print("test_regularized_biot_savart_induction_radial_component_at_large_radius: " + str(expected))
+    #print("test_regularized_biot_savart_induction_radial_component_at_large_radius: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -351,7 +351,7 @@ def test_biot_savart_induction_radial_component_middle_part_at_critical_point(cy
     # expected = np.sqrt(5.)/2. if regularized
     expected = 2.
 
-    print("test_biot_savart_induction_radial_component_middle_part_at_critical_point: " + str(expected))
+    #print("test_biot_savart_induction_radial_component_middle_part_at_critical_point: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -375,7 +375,7 @@ def test_regularized_biot_savart_induction_radial_component_elliptical_part_at_c
     found = cyl_regularized.get_regularized_biot_savart_induction_radial_component_elliptic_part(unpacked, elliptic_m)
     expected = 0.175833
 
-    print("test_regularized_biot_savart_induction_radial_component_elliptical_part_at_critical_point: " + str(expected))
+    #print("test_regularized_biot_savart_induction_radial_component_elliptical_part_at_critical_point: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -401,7 +401,7 @@ def test_biot_savart_induction_radial_component_middle_part_far_upstream(cyl_unr
     part_2b = r_obs
     expected = part_2a / part_2b
 
-    print("test_biot_savart_induction_radial_component_middle_part_far_upstream: " + str(expected))
+    #print("test_biot_savart_induction_radial_component_middle_part_far_upstream: " + str(expected))
 
     diff = found - expected
     criteria = ( (diff/expected) ** 2. < epsilon ** 2.)
@@ -424,7 +424,7 @@ def test_regularized_biot_savart_induction_radial_component_elliptical_part_far_
     found = cyl_regularized.get_regularized_biot_savart_induction_radial_component_elliptic_part(unpacked, elliptic_m)
     expected = 0.
 
-    print("test_regularized_biot_savart_induction_radial_component_elliptical_part_far_upstream: " + str(expected))
+    #print("test_regularized_biot_savart_induction_radial_component_elliptical_part_far_upstream: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -448,7 +448,7 @@ def test_regularized_biot_savart_induction_radial_component_far_upstream(cyl_reg
     found, _, _ = cyl_regularized.get_regularized_biot_savart_induction_radial_component(unpacked, r_obs, z_obs, elliptic_m)
     expected = 0.
 
-    print("test_regularized_biot_savart_induction_radial_component_far_upstream: " + str(expected))
+    #print("test_regularized_biot_savart_induction_radial_component_far_upstream: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -474,7 +474,7 @@ def test_biot_savart_induction_radial_component_middle_part_far_downstream(cyl_u
     part_2b = r_obs
     expected = part_2a / part_2b
 
-    print("test_biot_savart_induction_radial_component_middle_part_far_downstream: " + str(expected))
+    #print("test_biot_savart_induction_radial_component_middle_part_far_downstream: " + str(expected))
 
     diff = found - expected
     criteria = ( (diff/expected) ** 2. < epsilon ** 2.)
@@ -497,7 +497,7 @@ def test_regularized_biot_savart_induction_radial_component_elliptical_part_far_
     found = cyl_regularized.get_regularized_biot_savart_induction_radial_component_elliptic_part(unpacked, elliptic_m)
     expected = 0.
 
-    print("test_regularized_biot_savart_induction_radial_component_elliptical_part_far_downstream: " + str(expected))
+    #print("test_regularized_biot_savart_induction_radial_component_elliptical_part_far_downstream: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -521,7 +521,7 @@ def test_regularized_biot_savart_induction_radial_component_far_downstream(cyl_r
     found, _, _ = cyl_regularized.get_regularized_biot_savart_induction_radial_component(unpacked, r_obs, z_obs, elliptic_m)
     expected = 0.
 
-    print("test_regularized_biot_savart_induction_radial_component_far_downstream: " + str(expected))
+    #print("test_regularized_biot_savart_induction_radial_component_far_downstream: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -568,7 +568,7 @@ def test_biot_savart_induction_longitudinal_component_on_axis(cyl_unregularized,
 
     expected = (strength / 2.) * ( 1. + z_obs / ( (r_cyl**2. + z_obs**2.)**0.5 ) )
 
-    print("test_biot_savart_induction_longitudinal_component_on_axis: " + str(expected))
+    #print("test_biot_savart_induction_longitudinal_component_on_axis: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -596,7 +596,7 @@ def test_biot_savart_induction_longitudinal_component_inside_cylinder_at_start(c
 
     expected = strength / 2.
 
-    print("test_biot_savart_induction_longitudinal_component_inside_cylinder_at_start: " + str(expected))
+    #print("test_biot_savart_induction_longitudinal_component_inside_cylinder_at_start: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -624,7 +624,7 @@ def test_biot_savart_induction_longitudinal_component_outside_cylinder_at_start(
 
     expected = 0.
 
-    print("test_biot_savart_induction_longitudinal_component_outside_cylinder_at_start: " + str(expected))
+    #print("test_biot_savart_induction_longitudinal_component_outside_cylinder_at_start: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -652,7 +652,7 @@ def test_biot_savart_induction_longitudinal_component_inside_cylinder_far_upstre
 
     expected = 0.
 
-    print("test_biot_savart_induction_longitudinal_component_inside_cylinder_far_upstream: " + str(expected))
+    #print("test_biot_savart_induction_longitudinal_component_inside_cylinder_far_upstream: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -680,7 +680,7 @@ def test_biot_savart_induction_longitudinal_component_inside_cylinder_far_downst
 
     expected = strength
 
-    print("test_biot_savart_induction_longitudinal_component_inside_cylinder_far_downstream: " + str(expected))
+    #print("test_biot_savart_induction_longitudinal_component_inside_cylinder_far_downstream: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -719,7 +719,7 @@ def test_regularized_biot_savart_induction_longitudinal_component_outside_cylind
     part_3 = part_3a * (part_3b + part_3c)
     expected = part_1 * (part_2 + part_3)
 
-    print("test_regularized_biot_savart_induction_longitudinal_component_outside_cylinder_far_downstream: " + str(expected))
+    #print("test_regularized_biot_savart_induction_longitudinal_component_outside_cylinder_far_downstream: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -760,7 +760,7 @@ def test_regularized_biot_savart_induction_longitudinal_component_on_surface(cyl
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
 
-    print("test_regularized_biot_savart_induction_longitudinal_component_on_surface: " + str(expected))
+    #print("test_regularized_biot_savart_induction_longitudinal_component_on_surface: " + str(expected))
 
     if not criteria:
         message = 'vortex ' + cyl_regularized.element_type + ': regularized biot-savart induction, longitudinal-component, computation does not behave on cylinder surface'
@@ -789,7 +789,7 @@ def test_regularized_biot_savart_induction_longitudinal_component_at_critical_po
     part_3 = 0.
     expected = part_1 * (part_2 + part_3)
 
-    print("test_regularized_biot_savart_induction_longitudinal_component_at_critical_point: " + str(expected))
+    #print("test_regularized_biot_savart_induction_longitudinal_component_at_critical_point: " + str(expected))
 
     diff = found - expected
     criteria = (diff ** 2. < epsilon ** 2.)
@@ -852,7 +852,7 @@ def test_biot_savart_function(cyl_unregularized, epsilon=1.e-4):
 
     expected = radial_component * r_hat + longitudinal_component * l_hat
 
-    print("test_biot_savart_function: " + str(expected))
+    #print("test_biot_savart_function: " + str(expected))
 
     packed_info = cyl_unregularized.info
     biot_savart_fun = cyl_unregularized.biot_savart_fun

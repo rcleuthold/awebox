@@ -8,15 +8,11 @@ set -euo pipefail
 #   convergence_and_expense.call_by_memory(n_k, memory_gb)
 # exactly once.
 #
-# Planned memory_gb values (derived from 128GB):
-#   1/4 * 128 = 32
-#   0.5 * 128 = 64
-#   0.6 * 128 = 76.8  -> 77 (rounded up to integer GB)
-#   0.7 * 128 = 89.6  -> 90
-#   0.8 * 128 = 102.4 -> 103
-#
-# SLURM requested memory rule:
-#   #SBATCH --mem = ceil(1.3 * planned_memory_gb)G
+# IMPORTANT CPU EFFICIENCY FIXES (for 48 CPUs):
+# - Give ALL allocated CPUs to OpenMP (Ipopt/HSL MA86/MA97): OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+# - FORCE BLAS/NumExpr to 1 thread to avoid oversubscription (this was the big problem)
+# - Use srun --cpu-bind=cores so threads land on the allocated cores
+# - (Recommended) avoid hyperthreads: #SBATCH --threads-per-core=1
 
 # ---- CONFIG ----------------------------------------------------------------
 
@@ -35,11 +31,15 @@ MINIFORGE_MODULE="devel/miniforge"
 CONDA_ENV_NAME="ocp"
 
 # A) nk options
-NK_LIST=(30 40 20)
+NK_LIST=(15) # e.g. (15 20 30 40)
 
 # B) planned memory targets (GB) based on fractions of 128GB
 #    (rounded up where needed to integer GB)
-MEM_LIST=(32 64 77 90 103)
+MEM_LIST=(13) # e.g. (32 64 77 90 103)
+
+# If you want "generate only" sometimes, set SUBMIT=0 when running:
+#   SUBMIT=0 ./make_run_scripts.sh
+SUBMIT="${SUBMIT:-1}"
 
 # ---------------------------------------------------------------------------
 
@@ -69,43 +69,55 @@ gen_one() {
 #SBATCH --nodes=${NODES}
 #SBATCH --ntasks=${NTASKS}
 #SBATCH --cpus-per-task=${CPUS_PER_TASK}
+#SBATCH --threads-per-core=1
 #SBATCH --mem=${mem_req}G
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 
 # Prevent accidental login-node execution
 if [[ -z "\${SLURM_JOB_ID:-}" ]]; then
-  echo "ERROR: Run with sbatch $fname" >&2
+  echo "ERROR: Run with: sbatch $fname" >&2
   exit 1
 fi
 
-echo "starting! job=\${SLURM_JOB_NAME} id=\${SLURM_JOB_ID} host=\$(hostname)"
-echo "planned memory (GB) = ${mem}, requested memory (GB) = ${mem_req}"
-echo "cpus-per-task = ${CPUS_PER_TASK}"
 set -euo pipefail
 
-# Headless plotting
+echo "starting! job=\${SLURM_JOB_NAME} id=\${SLURM_JOB_ID} host=\$(hostname)"
+echo "planned memory (GB) = ${mem}, requested memory (GB) = ${mem_req}"
+echo "cpus-per-task = \${SLURM_CPUS_PER_TASK}"
+
+# Headless plotting (keep figures, avoid GUI backends)
 export MPLBACKEND=Agg
 
-# Threading controls
+# ---- Threading controls (CRITICAL FOR 48-CPU EFFICIENCY) ----
+# OpenMP (Ipopt/HSL MA86/MA97) uses all allocated CPUs:
 export OMP_NUM_THREADS="\${SLURM_CPUS_PER_TASK}"
-export OPENBLAS_NUM_THREADS="\${SLURM_CPUS_PER_TASK}"
-export MKL_NUM_THREADS="\${SLURM_CPUS_PER_TASK}"
-export NUMEXPR_NUM_THREADS="\${SLURM_CPUS_PER_TASK}"
+export OMP_PLACES=cores
+export OMP_PROC_BIND=spread
+
+# Force BLAS/NumExpr to single-thread to avoid OpenMP×BLAS oversubscription:
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+
+# Helps avoid glibc malloc arena bloat with many threads:
+export MALLOC_ARENA_MAX=2
 
 module purge
 module load ${MINIFORGE_MODULE}
 source "\$(conda info --base)/etc/profile.d/conda.sh"
 conda activate ${CONDA_ENV_NAME}
 
-python -c "import casadi, numpy as np; print('casadi', casadi.__version__, 'numpy', np.__version__)"
+# Optional: quick sanity print
+srun --cpu-bind=cores python -c "import casadi, numpy as np; print('casadi', casadi.__version__, 'numpy', np.__version__)"
 
 # Make local helper modules importable
 MODULE_PY="${MODULE_PY}"
 SCRIPT_DIR="\$(dirname "\$MODULE_PY")"
 export PYTHONPATH="\${SCRIPT_DIR}:\$(dirname "\${SCRIPT_DIR}"):\${PYTHONPATH:-}"
 
-python - <<'PY'
+# Run (use srun + core binding)
+srun --cpu-bind=cores python - <<'PY'
 import importlib.util
 
 module_path = r"""${MODULE_PY}"""
@@ -124,24 +136,34 @@ EOF
   echo "Wrote: $fname"
 }
 
-# ---- GENERATE + SUBMIT ALL JOBS --------------------------------------------
+# ---- GENERATE (+ OPTIONAL SUBMIT) ------------------------------------------
 
-echo "Generating and submitting jobs..."
+echo "Generating run scripts..."
+generated=0
 submitted=0
 
 for nk in "${NK_LIST[@]}"; do
   for mem in "${MEM_LIST[@]}"; do
     gen_one "$nk" "$mem"
+    generated=$((generated + 1))
+
     script="${OUTDIR}/run_nk${nk}_mem${mem}G.sh"
-    jobid=$(sbatch "$script" | awk '{print $4}')
-    echo "Submitted: nk=${nk} mem=${mem}G -> JobID ${jobid}"
-    submitted=$((submitted + 1))
+    if [[ "$SUBMIT" == "1" ]]; then
+      jobid=$(sbatch "$script" | awk '{print $4}')
+      echo "Submitted: nk=${nk} mem=${mem}G -> JobID ${jobid}"
+      submitted=$((submitted + 1))
+    else
+      echo "Generated (not submitted): $script"
+    fi
   done
 done
 
 echo
-echo "Submitted ${submitted} jobs."
-echo
-echo "Current jobs for user $USER:"
-squeue -u "$USER" -o "%.18i %.20j %.8T %.10M %.9l %R"
+echo "Generated ${generated} scripts in: ${OUTDIR}"
+if [[ "$SUBMIT" == "1" ]]; then
+  echo "Submitted ${submitted} jobs."
+  echo
+  echo "Current jobs for user $USER:"
+  squeue -u "$USER" -o "%.18i %.20j %.8T %.10M %.9l %R"
+fi
 
