@@ -1,10 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ============================================================
+# make_run_scripts.sh
+#
+# bwUniCluster3.0 robust approach:
+# 1) On LOGIN NODE: load devel/miniforge and activate env (official way)
+# 2) Discover absolute path to env python
+# 3) Generate SBATCH scripts that run that python directly
+#
+# This avoids batch-time hangs in `module load` / `module purge`
+# that you observed on compute nodes.
+# ============================================================
+
 # -------------------- PATHS --------------------
 AWEBOX_ROOT="/pfs/data6/home/fr/fr_fr/fr_rl1038/awebox"
 MODULE_PY="${AWEBOX_ROOT}/examples/Leuthold_2025_RLL_paper_scripts/with_ineq_at_all_but_integral_and_tf_fraction/convergence_and_expense.py"
-
 OUTDIR="$HOME/generated_runs"
 mkdir -p "$OUTDIR"
 
@@ -17,9 +28,11 @@ CPUS_PER_TASK=48
 THREADS_PER_CORE=1
 
 # -------------------- CONDA --------------------
+MINIFORGE_MODULE="devel/miniforge"
 CONDA_ENV_NAME="ocp"
 
 # -------------------- JOB GRID -----------------
+# Your requested test case (extend later)
 NK_LIST=(15)
 MEM_LIST=(13)
 
@@ -28,12 +41,32 @@ SUBMIT="${SUBMIT:-1}"
 
 # -------------------- CHECKS -------------------
 [[ -d "$AWEBOX_ROOT" ]] || { echo "ERROR: AWEBOX_ROOT not found: $AWEBOX_ROOT" >&2; exit 1; }
-[[ -f "$MODULE_PY" ]]   || { echo "ERROR: MODULE_PY not found: $MODULE_PY" >&2; exit 1; }
+[[ -f "$MODULE_PY"   ]] || { echo "ERROR: MODULE_PY not found: $MODULE_PY" >&2; exit 1; }
 
 ceil_13_over_10() {  # ceil(1.3*x)
   local mem="$1"
   echo $(( (13*mem + 9) / 10 ))
 }
+
+echo "[GEN] Preparing Python executable from conda env '${CONDA_ENV_NAME}' using '${MINIFORGE_MODULE}'..."
+
+# --- IMPORTANT: Do module/conda ONLY HERE on login node ---
+module purge || true
+module load "${MINIFORGE_MODULE}"
+# Make conda activate available
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate "${CONDA_ENV_NAME}"
+
+PYTHON_EXE="$(python -c 'import sys; print(sys.executable)')"
+if [[ -z "${PYTHON_EXE}" || ! -x "${PYTHON_EXE}" ]]; then
+  echo "ERROR: Could not determine executable python for env '${CONDA_ENV_NAME}'." >&2
+  echo "Got: ${PYTHON_EXE}" >&2
+  exit 2
+fi
+
+echo "[GEN] Using env python: ${PYTHON_EXE}"
+echo "[GEN] Using module file: ${MODULE_PY}"
+echo "[GEN] Writing jobs to: ${OUTDIR}"
 
 gen_one() {
   local nk="$1"
@@ -64,13 +97,14 @@ echo "[START] nk=${nk} mem=${mem}G (requested mem=${mem_req}G)"
 echo "[START] cpus-per-task=\${SLURM_CPUS_PER_TASK}"
 echo "[START] timestamp: \$(date)"
 
-# Trace to stderr (helps if anything blocks)
+# Trace to stderr (so we can always see where we are)
 export PS4='+ \$(date "+%F %T") \${BASH_SOURCE}:\${LINENO}: '
 set -x
 
 export MPLBACKEND=Agg
+export PYTHONNOUSERSITE=1
 
-# ---- Threading: allow linear algebra to use allocated CPUs ----
+# ---- Threading (use allocated CPUs) ----
 export OMP_NUM_THREADS="\${SLURM_CPUS_PER_TASK}"
 export OMP_PLACES=cores
 export OMP_PROC_BIND=spread
@@ -84,53 +118,19 @@ export MKL_DYNAMIC=FALSE
 
 export MALLOC_ARENA_MAX=2
 
-# ---- Locate Miniforge/conda WITHOUT module load (module load hangs in batch) ----
-echo "[STEP] locating conda.sh"
-CANDIDATES=(
-  "/opt/bwhpc/common/devel/miniforge"
-  "/opt/bwhpc/common/devel/miniforge3"
-  "/opt/bwhpc/common/devel/Miniforge3"
-  "/opt/bwhpc/common/devel"
-)
-
-CONDA_SH=""
-for base in "\${CANDIDATES[@]}"; do
-  # direct candidate
-  if [[ -f "\${base}/etc/profile.d/conda.sh" ]]; then
-    CONDA_SH="\${base}/etc/profile.d/conda.sh"
-    break
-  fi
-  # versioned subdirs
-  if [[ -d "\${base}" ]]; then
-    found=\$(find "\${base}" -maxdepth 3 -type f -path "*/etc/profile.d/conda.sh" 2>/dev/null | head -n 1 || true)
-    if [[ -n "\${found}" ]]; then
-      CONDA_SH="\${found}"
-      break
-    fi
-  fi
-done
-
-if [[ -z "\${CONDA_SH}" ]]; then
-  echo "ERROR: Could not find conda.sh under /opt/bwhpc/common/devel (module load devel/miniforge hangs in batch)." >&2
-  echo "Tried candidates: \${CANDIDATES[*]}" >&2
-  exit 2
-fi
-
-echo "[STEP] using conda.sh: \${CONDA_SH}"
-source "\${CONDA_SH}"
-
-echo "[STEP] conda base: \$(conda info --base)"
-conda activate ${CONDA_ENV_NAME}
-echo "[STEP] conda active; python=\$(which python)"
-
-# Make awebox importable
+# Ensure awebox import works
 export PYTHONPATH="${AWEBOX_ROOT}:\${PYTHONPATH:-}"
 
-python -u -c "import awebox, casadi, numpy as np; print('[ENV] awebox ok;', 'casadi', casadi.__version__, 'numpy', np.__version__, flush=True)"
+PYTHON="${PYTHON_EXE}"
+
+# Quick sanity
+"\${PYTHON}" -u -c "import sys; print('[ENV] python=', sys.executable, flush=True)"
+"\${PYTHON}" -u -c "import awebox, casadi, numpy as np; print('[ENV] awebox ok;', 'casadi', casadi.__version__, 'numpy', np.__version__, flush=True)"
 
 echo "[RUN] timestamp before call_by_memory: \$(date)"
 
-srun --cpu-bind=cores python -u - <<'PY'
+# Bind python to allocated cores
+srun --cpu-bind=cores "\${PYTHON}" -u - <<'PY'
 import importlib.util
 
 module_path = r"""${MODULE_PY}"""
@@ -147,17 +147,12 @@ echo "[DONE] timestamp: \$(date)"
 EOF
 
   chmod +x "$script"
-  echo "Wrote: $script"
+  echo "[GEN] Wrote: $script"
 
   if [[ "$SUBMIT" == "1" ]]; then
     sbatch "$script"
   fi
 }
-
-echo "OUTDIR=$OUTDIR"
-echo "NK_LIST=${NK_LIST[*]}"
-echo "MEM_LIST=${MEM_LIST[*]}"
-echo "SUBMIT=$SUBMIT"
 
 for nk in "${NK_LIST[@]}"; do
   for mem in "${MEM_LIST[@]}"; do
@@ -165,5 +160,5 @@ for nk in "${NK_LIST[@]}"; do
   done
 done
 
-echo "All done."
+echo "[GEN] Done."
 
