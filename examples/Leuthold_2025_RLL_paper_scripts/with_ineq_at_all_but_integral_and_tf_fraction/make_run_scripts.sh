@@ -1,20 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ============================================================
-# make_run_scripts.sh
-# Generates and submits SLURM jobs that call:
-#   convergence_and_expense.call_by_memory(nk, mem_gb)
-#
-# Key fixes:
-# - NO "module purge" (it hangs on your nodes)
-# - Load Miniforge module directly
-# - Use conda activate ocp (your known-working approach)
-# - Ensure awebox is importable via PYTHONPATH
-# - Set BLAS/OpenMP thread vars for 48 CPUs
-# - Run compute via srun --cpu-bind=cores
-# ============================================================
-
 # -------------------- PATHS --------------------
 AWEBOX_ROOT="/pfs/data6/home/fr/fr_fr/fr_rl1038/awebox"
 MODULE_PY="${AWEBOX_ROOT}/examples/Leuthold_2025_RLL_paper_scripts/with_ineq_at_all_but_integral_and_tf_fraction/convergence_and_expense.py"
@@ -43,7 +29,7 @@ SUBMIT="${SUBMIT:-1}"
 
 # -------------------- CHECKS -------------------
 [[ -d "$AWEBOX_ROOT" ]] || { echo "ERROR: AWEBOX_ROOT not found: $AWEBOX_ROOT" >&2; exit 1; }
-[[ -f "$MODULE_PY" ]] || { echo "ERROR: MODULE_PY not found: $MODULE_PY" >&2; exit 1; }
+[[ -f "$MODULE_PY" ]]   || { echo "ERROR: MODULE_PY not found: $MODULE_PY" >&2; exit 1; }
 
 ceil_13_over_10() {  # ceil(1.3*x)
   local mem="$1"
@@ -79,7 +65,7 @@ echo "[START] nk=${nk} mem=${mem}G (requested mem=${mem_req}G)"
 echo "[START] cpus-per-task=\${SLURM_CPUS_PER_TASK}"
 echo "[START] timestamp: \$(date)"
 
-# (Optional) trace to stderr; keep it because it helped diagnose the hang
+# Trace to stderr (helps pinpoint issues)
 export PS4='+ \$(date "+%F %T") \${BASH_SOURCE}:\${LINENO}: '
 set -x
 
@@ -99,23 +85,24 @@ export MKL_DYNAMIC=FALSE
 
 export MALLOC_ARENA_MAX=2
 
-echo "[STEP] loading miniforge module (no module purge)"
-# Ensure module command works (usually already set by -l, but keep robust)
-if [[ -f /etc/profile.d/modules.sh ]]; then
-  source /etc/profile.d/modules.sh
-elif [[ -f /usr/share/Modules/init/bash ]]; then
-  source /usr/share/Modules/init/bash
+echo "[STEP] ensure 'module' command exists"
+if ! command -v module >/dev/null 2>&1; then
+  # Prefer bwUniCluster's site wrapper if present
+  if [[ -f /etc/profile.d/KITE/modules.sh ]]; then
+    source /etc/profile.d/KITE/modules.sh
+  elif [[ -f /etc/profile.d/modules.sh ]]; then
+    source /etc/profile.d/modules.sh
+  fi
 fi
 
-# Load Miniforge only if not loaded yet
-module is-loaded ${MINIFORGE_MODULE} >/dev/null 2>&1 || module load ${MINIFORGE_MODULE}
-echo "[STEP] module load done"
+echo "[STEP] loading ${MINIFORGE_MODULE}"
+module load ${MINIFORGE_MODULE}
+echo "[STEP] module loaded"
 
-CONDA_BASE="\$(conda info --base)"
-source "\${CONDA_BASE}/etc/profile.d/conda.sh"
+echo "[STEP] activate conda env"
+source "\$(conda info --base)/etc/profile.d/conda.sh"
 conda activate ${CONDA_ENV_NAME}
-echo "[STEP] conda env active: ${CONDA_ENV_NAME}"
-echo "[STEP] python: \$(which python)"
+echo "[STEP] conda active; python=\$(which python)"
 
 # Make awebox importable
 export PYTHONPATH="${AWEBOX_ROOT}:\${PYTHONPATH:-}"
