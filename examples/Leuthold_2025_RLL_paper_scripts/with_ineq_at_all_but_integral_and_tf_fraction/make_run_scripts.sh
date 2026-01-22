@@ -3,18 +3,16 @@ set -euo pipefail
 
 # ============================================================
 # make_run_scripts.sh
-# Generate and submit multiple SLURM jobs for bwUniCluster3.0
-#
-# Each job will call:
+# Generates and submits SLURM jobs that call:
 #   convergence_and_expense.call_by_memory(nk, mem_gb)
 #
-# Uses known-working environment setup:
-#   module load devel/miniforge
-#   source "$(conda info --base)/etc/profile.d/conda.sh"
-#   conda activate ocp
-#
-# Also fixes "ModuleNotFoundError: awebox" by setting PYTHONPATH.
-# Adds step markers + bash tracing for debuggability.
+# Key fixes:
+# - NO "module purge" (it hangs on your nodes)
+# - Load Miniforge module directly
+# - Use conda activate ocp (your known-working approach)
+# - Ensure awebox is importable via PYTHONPATH
+# - Set BLAS/OpenMP thread vars for 48 CPUs
+# - Run compute via srun --cpu-bind=cores
 # ============================================================
 
 # -------------------- PATHS --------------------
@@ -37,7 +35,6 @@ MINIFORGE_MODULE="devel/miniforge"
 CONDA_ENV_NAME="ocp"
 
 # -------------------- JOB GRID -----------------
-# Your test case (edit to add more values)
 NK_LIST=(15)
 MEM_LIST=(13)
 
@@ -45,17 +42,10 @@ MEM_LIST=(13)
 SUBMIT="${SUBMIT:-1}"
 
 # -------------------- CHECKS -------------------
-if [[ ! -d "$AWEBOX_ROOT" ]]; then
-  echo "ERROR: AWEBOX_ROOT not found: $AWEBOX_ROOT" >&2
-  exit 1
-fi
-if [[ ! -f "$MODULE_PY" ]]; then
-  echo "ERROR: MODULE_PY not found: $MODULE_PY" >&2
-  exit 1
-fi
+[[ -d "$AWEBOX_ROOT" ]] || { echo "ERROR: AWEBOX_ROOT not found: $AWEBOX_ROOT" >&2; exit 1; }
+[[ -f "$MODULE_PY" ]] || { echo "ERROR: MODULE_PY not found: $MODULE_PY" >&2; exit 1; }
 
-# Request 30% extra memory, rounded up: ceil(1.3*mem)
-ceil_13_over_10() {
+ceil_13_over_10() {  # ceil(1.3*x)
   local mem="$1"
   echo $(( (13*mem + 9) / 10 ))
 }
@@ -89,11 +79,10 @@ echo "[START] nk=${nk} mem=${mem}G (requested mem=${mem_req}G)"
 echo "[START] cpus-per-task=\${SLURM_CPUS_PER_TASK}"
 echo "[START] timestamp: \$(date)"
 
-# Trace every command to STDERR with timestamps (so hangs are visible)
+# (Optional) trace to stderr; keep it because it helped diagnose the hang
 export PS4='+ \$(date "+%F %T") \${BASH_SOURCE}:\${LINENO}: '
 set -x
 
-# Headless plotting
 export MPLBACKEND=Agg
 
 # ---- Threading: allow linear algebra to use allocated CPUs ----
@@ -110,29 +99,31 @@ export MKL_DYNAMIC=FALSE
 
 export MALLOC_ARENA_MAX=2
 
-echo "[STEP] before modules"
-module purge
-module load ${MINIFORGE_MODULE}
-echo "[STEP] after module load"
+echo "[STEP] loading miniforge module (no module purge)"
+# Ensure module command works (usually already set by -l, but keep robust)
+if [[ -f /etc/profile.d/modules.sh ]]; then
+  source /etc/profile.d/modules.sh
+elif [[ -f /usr/share/Modules/init/bash ]]; then
+  source /usr/share/Modules/init/bash
+fi
+
+# Load Miniforge only if not loaded yet
+module is-loaded ${MINIFORGE_MODULE} >/dev/null 2>&1 || module load ${MINIFORGE_MODULE}
+echo "[STEP] module load done"
 
 CONDA_BASE="\$(conda info --base)"
-echo "[STEP] conda base: \${CONDA_BASE}"
 source "\${CONDA_BASE}/etc/profile.d/conda.sh"
-echo "[STEP] sourced conda.sh"
-
 conda activate ${CONDA_ENV_NAME}
-echo "[STEP] activated conda env: ${CONDA_ENV_NAME}"
+echo "[STEP] conda env active: ${CONDA_ENV_NAME}"
 echo "[STEP] python: \$(which python)"
 
-# Make awebox importable (fixes ModuleNotFoundError: awebox)
+# Make awebox importable
 export PYTHONPATH="${AWEBOX_ROOT}:\${PYTHONPATH:-}"
-echo "[STEP] PYTHONPATH set"
 
 python -u -c "import awebox, casadi, numpy as np; print('[ENV] awebox ok;', 'casadi', casadi.__version__, 'numpy', np.__version__, flush=True)"
 
 echo "[RUN] timestamp before call_by_memory: \$(date)"
 
-# Bind python to cores Slurm gave us
 srun --cpu-bind=cores python -u - <<'PY'
 import importlib.util
 
