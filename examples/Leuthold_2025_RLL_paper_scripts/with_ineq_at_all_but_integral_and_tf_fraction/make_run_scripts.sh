@@ -17,7 +17,6 @@ CPUS_PER_TASK=48
 THREADS_PER_CORE=1
 
 # -------------------- CONDA --------------------
-MINIFORGE_MODULE="devel/miniforge"
 CONDA_ENV_NAME="ocp"
 
 # -------------------- JOB GRID -----------------
@@ -46,7 +45,7 @@ gen_one() {
   local script="${OUTDIR}/run_${jobname}.sh"
 
   cat > "$script" <<EOF
-#!/bin/bash -l
+#!/bin/bash
 #SBATCH --partition=${PARTITION}
 #SBATCH --job-name=${jobname}
 #SBATCH --time=${TIME_LIMIT}
@@ -65,7 +64,7 @@ echo "[START] nk=${nk} mem=${mem}G (requested mem=${mem_req}G)"
 echo "[START] cpus-per-task=\${SLURM_CPUS_PER_TASK}"
 echo "[START] timestamp: \$(date)"
 
-# Trace to stderr (helps pinpoint issues)
+# Trace to stderr (helps if anything blocks)
 export PS4='+ \$(date "+%F %T") \${BASH_SOURCE}:\${LINENO}: '
 set -x
 
@@ -85,22 +84,42 @@ export MKL_DYNAMIC=FALSE
 
 export MALLOC_ARENA_MAX=2
 
-echo "[STEP] ensure 'module' command exists"
-if ! command -v module >/dev/null 2>&1; then
-  # Prefer bwUniCluster's site wrapper if present
-  if [[ -f /etc/profile.d/KITE/modules.sh ]]; then
-    source /etc/profile.d/KITE/modules.sh
-  elif [[ -f /etc/profile.d/modules.sh ]]; then
-    source /etc/profile.d/modules.sh
+# ---- Locate Miniforge/conda WITHOUT module load (module load hangs in batch) ----
+echo "[STEP] locating conda.sh"
+CANDIDATES=(
+  "/opt/bwhpc/common/devel/miniforge"
+  "/opt/bwhpc/common/devel/miniforge3"
+  "/opt/bwhpc/common/devel/Miniforge3"
+  "/opt/bwhpc/common/devel"
+)
+
+CONDA_SH=""
+for base in "\${CANDIDATES[@]}"; do
+  # direct candidate
+  if [[ -f "\${base}/etc/profile.d/conda.sh" ]]; then
+    CONDA_SH="\${base}/etc/profile.d/conda.sh"
+    break
   fi
+  # versioned subdirs
+  if [[ -d "\${base}" ]]; then
+    found=\$(find "\${base}" -maxdepth 3 -type f -path "*/etc/profile.d/conda.sh" 2>/dev/null | head -n 1 || true)
+    if [[ -n "\${found}" ]]; then
+      CONDA_SH="\${found}"
+      break
+    fi
+  fi
+done
+
+if [[ -z "\${CONDA_SH}" ]]; then
+  echo "ERROR: Could not find conda.sh under /opt/bwhpc/common/devel (module load devel/miniforge hangs in batch)." >&2
+  echo "Tried candidates: \${CANDIDATES[*]}" >&2
+  exit 2
 fi
 
-echo "[STEP] loading ${MINIFORGE_MODULE}"
-module load ${MINIFORGE_MODULE}
-echo "[STEP] module loaded"
+echo "[STEP] using conda.sh: \${CONDA_SH}"
+source "\${CONDA_SH}"
 
-echo "[STEP] activate conda env"
-source "\$(conda info --base)/etc/profile.d/conda.sh"
+echo "[STEP] conda base: \$(conda info --base)"
 conda activate ${CONDA_ENV_NAME}
 echo "[STEP] conda active; python=\$(which python)"
 
