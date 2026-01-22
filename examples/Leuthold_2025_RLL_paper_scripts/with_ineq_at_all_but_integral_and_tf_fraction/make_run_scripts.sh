@@ -1,44 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# make_run_scripts.sh (BwUniCluster3-safe, BLAS threaded)
-#
-# This is your safe version :contentReference[oaicite:2]{index=2} with ONE key change:
-# - BLAS/NumExpr are allowed to use all allocated CPUs (48) instead of being forced to 1.
-#
-# It still:
-# - Avoids module load and conda activate in the job
-# - Uses Miniforge by absolute path (auto-detect newest under /opt/bwhpc/common/devel/miniforge/*)
-# - Uses `conda run -n <env> python`
-# - Uses `srun --cpu-bind=cores`
-# - Has timestamp checkpoints
+# make_run_scripts.sh
+# Generator script (currently 1 test case: nk=15, mem=13)
 
 # ---------------- CONFIG ----------------
-BASE_DIR="/home/fr/fr_fr/fr_rl1038/awebox/examples/Leuthold_2025_RLL_paper_scripts/with_ineq_at_all_but_integral_and_tf_fraction"
-MODULE_PY="${BASE_DIR}/convergence_and_expense.py"
-
+MODULE_PY="/home/fr/fr_fr/fr_rl1038/awebox/examples/Leuthold_2025_RLL_paper_scripts/with_ineq_at_all_but_integral_and_tf_fraction/convergence_and_expense.py"
 OUTDIR="$HOME/generated_runs"
-mkdir -p "$OUTDIR"
 
 PARTITION="cpu"
 TIME_LIMIT="72:00:00"
 NODES=1
 NTASKS=1
 CPUS_PER_TASK=48
+THREADS_PER_CORE=1
 
-# Conda env name (used with: conda run -n <env> python)
+MINIFORGE_MODULE="devel/miniforge"
 CONDA_ENV_NAME="ocp"
 
-# Grid of runs (edit as needed)
+# >>> EXACT TEST VALUES (as requested) <<<
 NK_LIST=(15)
 MEM_LIST=(13)
 
-# SUBMIT=1 to submit, SUBMIT=0 to only generate
 SUBMIT="${SUBMIT:-1}"
 # --------------------------------------
 
+mkdir -p "$OUTDIR"
+
 if [[ ! -f "$MODULE_PY" ]]; then
-  echo "ERROR: Cannot find python module: $MODULE_PY" >&2
+  echo "ERROR: MODULE_PY not found: $MODULE_PY" >&2
   exit 1
 fi
 
@@ -46,11 +36,11 @@ gen_one() {
   local nk="$1"
   local mem="$2"
 
-  # Request 30% extra memory, rounded up: ceil(1.3 * mem)
+  # Request 30% extra memory, rounded up
   local mem_req=$(( (13*mem + 9) / 10 ))
 
   local jobname="nk${nk}_mem${mem}G"
-  local script="${OUTDIR}/run_${jobname}.sbatch"
+  local script="${OUTDIR}/run_${jobname}.sh"
 
   cat > "$script" <<EOF
 #!/bin/bash
@@ -60,83 +50,67 @@ gen_one() {
 #SBATCH --nodes=${NODES}
 #SBATCH --ntasks=${NTASKS}
 #SBATCH --cpus-per-task=${CPUS_PER_TASK}
-#SBATCH --threads-per-core=1
+#SBATCH --threads-per-core=${THREADS_PER_CORE}
 #SBATCH --mem=${mem_req}G
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 
 set -euo pipefail
 
+if [[ -z "\${SLURM_JOB_ID:-}" ]]; then
+  echo "ERROR: Run with: sbatch $script" >&2
+  exit 1
+fi
+
 echo "starting! job=\${SLURM_JOB_NAME} id=\${SLURM_JOB_ID} host=\$(hostname)"
 echo "planned memory (GB) = ${mem}, requested memory (GB) = ${mem_req}"
 echo "cpus-per-task = \${SLURM_CPUS_PER_TASK}"
 echo "timestamp: \$(date)"
 
-# Headless plotting (keeps your figures safe in batch)
 export MPLBACKEND=Agg
 
-# ---- Threading ----
-# If your linear algebra is in BLAS/LAPACK (NumPy/SciPy/CasADi), these must NOT be 1.
-# Use all allocated CPUs:
+# ---- Threading (same logic as your working job) ----
 export OMP_NUM_THREADS="\${SLURM_CPUS_PER_TASK}"
 export OMP_PLACES=cores
 export OMP_PROC_BIND=spread
+export OMP_DYNAMIC=FALSE
 
 export OPENBLAS_NUM_THREADS="\${SLURM_CPUS_PER_TASK}"
 export MKL_NUM_THREADS="\${SLURM_CPUS_PER_TASK}"
 export BLIS_NUM_THREADS="\${SLURM_CPUS_PER_TASK}"
 export NUMEXPR_NUM_THREADS="\${SLURM_CPUS_PER_TASK}"
-
-# Keep libraries from dynamically changing thread counts
 export MKL_DYNAMIC=FALSE
-export OMP_DYNAMIC=FALSE
 
-# Helps avoid glibc malloc arena blow-up with many threads
 export MALLOC_ARENA_MAX=2
 
-echo "timestamp before locating miniforge: \$(date)"
+module purge
+module load ${MINIFORGE_MODULE}
+source "\$(conda info --base)/etc/profile.d/conda.sh"
+conda activate ${CONDA_ENV_NAME}
 
-# ---- IMPORTANT: avoid module load and conda activate inside jobs ----
-# Find newest Miniforge installation on BwUniCluster:
-MINIFORGE_ROOT="\$(ls -d /opt/bwhpc/common/devel/miniforge/* 2>/dev/null | sort -V | tail -1 || true)"
-if [[ -z "\${MINIFORGE_ROOT}" || ! -x "\${MINIFORGE_ROOT}/bin/conda" ]]; then
-  echo "ERROR: Could not find usable miniforge under /opt/bwhpc/common/devel/miniforge/*" >&2
-  exit 2
-fi
-export PATH="\${MINIFORGE_ROOT}/bin:\${PATH}"
-echo "Using MINIFORGE_ROOT=\${MINIFORGE_ROOT}"
-echo "timestamp after locating miniforge: \$(date)"
+python -c "import casadi, numpy as np; print('casadi', casadi.__version__, 'numpy', np.__version__)"
 
-# Run python inside env WITHOUT conda activate (no shell hook)
-PYTHON="conda run -n ${CONDA_ENV_NAME} python"
-
-# Ensure local scripts are importable
-export PYTHONPATH="${BASE_DIR}:\${PYTHONPATH:-}"
-
-echo "timestamp before python smoke test: \$(date)"
-srun --cpu-bind=cores \$PYTHON -u -c "import sys; print('python:', sys.executable); import numpy; print('numpy ok')"
-echo "timestamp after python smoke test: \$(date)"
+# Make local helper modules importable
+SCRIPT_DIR="\$(dirname "${MODULE_PY}")"
+export PYTHONPATH="\${SCRIPT_DIR}:\$(dirname "\${SCRIPT_DIR}"):\${PYTHONPATH:-}"
 
 echo "timestamp before main python: \$(date)"
-srun --cpu-bind=cores \$PYTHON -u - <<'PY'
+srun --cpu-bind=cores python -u - <<'PY'
 import importlib.util
-
-print("Entered python, starting dynamic import...", flush=True)
 
 module_path = r"""${MODULE_PY}"""
 spec = importlib.util.spec_from_file_location("convergence_and_expense", module_path)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
-print("Imported convergence_and_expense. Calling call_by_memory...", flush=True)
 mod.call_by_memory(${nk}, ${mem})
-print("Finished call_by_memory.", flush=True)
 PY
 echo "timestamp after main python: \$(date)"
-echo "done!"
+
+echo "done! job=\${SLURM_JOB_NAME} id=\${SLURM_JOB_ID}"
 EOF
 
-  chmod 644 "$script"
+  chmod +x "$script"
   echo "Wrote: $script"
 
   if [[ "$SUBMIT" == "1" ]]; then
@@ -144,7 +118,9 @@ EOF
   fi
 }
 
-echo "Generating scripts into: $OUTDIR"
+echo "Generating job scripts into: $OUTDIR"
+echo "NK_LIST=${NK_LIST[*]}"
+echo "MEM_LIST=${MEM_LIST[*]}"
 echo "SUBMIT=$SUBMIT"
 
 for nk in "${NK_LIST[@]}"; do
