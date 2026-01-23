@@ -17,6 +17,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import awebox.tools.save_operations as save_op
 
+from awebox.logger.logger import Logger as awelogger
+import casadi.tools as cas
+
+awelogger.logger.setLevel(10)
+
+
 def run(plot_show_block=True, overwrite_options={}):
 
     # indicate desired system architecture
