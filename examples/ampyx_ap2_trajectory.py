@@ -58,6 +58,13 @@ def run(plot_show_block=True, overwrite_options={}):
     # note: this may result in slightly slower solution timings
     options['nlp.compile_subfunctions'] = False
 
+    options['model.scaling.other.flight_radius_estimate'] = 'anticollision'
+    options['model.scaling.other.period_estimate'] = 't_f_bounds'
+    options['model.scaling.other.position_scaling_method'] = 'radius_and_tether'
+    options['model.scaling.other.force_scaling_method'] = 'aero'
+    options['model.scaling.other.tension_estimate'] = 'power'
+    options['model.scaling.other.power_estimate'] = 'loyd'
+
     for option_name, option_val in overwrite_options.items():
         options[option_name] = option_val
 

@@ -78,6 +78,11 @@ def get_basic_options_for_convergence_expense_and_comparison(options):
 
     options['nlp.phase_fix_reelout'] = 0.55
 
+    #options['solver.initialization.theta.l_s'] = 300.
+    #options['solver.initialization.theta.diam_s'] = 1e-2
+    #options['solver']['initialization']['cone_deg'] = 75.
+    #options['model.model_bounds.anticollision.safety_factor'] = 2
+
     return options
 
 

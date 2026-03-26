@@ -121,23 +121,29 @@ class Wind:
 
     def find_u_polynomial_from_datafile(self):
         """_data description:
-        data given at 10 lowest different pressure levels (see text file) at 2928 time instants.
-        3h resolution over the year 2016 in goeteborg
+        a function to create x- and y-direction wind-speed-vs-altitude polynomials, from a datafile that gives
+        data at some number of lowest different pressure levels at multiple time instants - (eg, from 3h resolution
+        data over the year 2016 in goeteborg).
 
-        winddata:       north and east wind component
         heightsdata:    heights corresponding to the pressure levels at that time point
-        featuresdata:   north and east wind component converted to main wind direction
-                        and angle derivation. later in the code this is converter to
-                        x and y wind component. in the code x is the main wind direction.
+        featuresdata:   the wind speed and angle corresponding to the heightsdata. later in the code
+                        this will be converter to x and y wind component. in the code x is the main wind direction.
+
+        a note on input format: it seems likely (??) that this function is modeled after the implementation in Malz2019,
+        in which case the input data format would (??) be according to some MERRA-2 standard, but M2I3NVASM and
+        M2I3NPASM both seem to use x- and y- direction wind speeds (cartesian components u and v) rather
+        than the w- and a- cylindrical coordinates that this function is using, so: there is some pre-processing
+        step missing. if you use this function (successfully or unsucessfully) please contact the awebox developers, to
+        share your experiences.
         """
         options = self.__options
         heightsdata  = options['atmosphere_heightsdata']
         featuresdata = options['atmosphere_featuresdata']
 
-        # k = options['atmosphere_dataseries'] ## NOTE: What's that??? the number of pressure points?
-
         # create x and y wind component
-        k = 0 # example for time stamp 1
+        k = 0 # evaluates at the first time-stamp from the wind-data datafiles: the awebox does
+        # not presently allow time-varying wind polynomials
+
         xwind = [w * np.abs(np.cos(-a)) for w, a in featuresdata[:, k, :]]
         ywind = [w * np.sin(-a) for w, a in featuresdata[:, k, :]]
         xwind = np.array(xwind, dtype=float)

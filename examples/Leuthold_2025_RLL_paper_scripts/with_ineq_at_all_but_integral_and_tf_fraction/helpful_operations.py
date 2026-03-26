@@ -88,6 +88,7 @@ def get_basic_options_for_convergence_expense_and_comparison(options):
 
     options['nlp.phase_fix_reelout'] = 0.55
 
+    options['model.model_bounds.anticollision.safety_factor'] = 2
     return options
 
 
@@ -96,6 +97,9 @@ def build_unique_trial_name(base_name, inputs):
     trial_name_baseline = base_name    
     for name, val in inputs.items():
         trial_name_baseline += '_' + name + '_' + str(val)
+    	
+    if len(trial_name_baseline) > 200:
+        trial_name_baseline = trial_name_baseline[:195] + '_contd_'
     	
     today = date.today()
     rand = random.randint(1000000, 9000000)
@@ -365,7 +369,10 @@ def save_results_including_figures(trial, options):
         report['trial_name'] = trial.name
         report['solve'] = trial.optimization.solve_succeeded
         if report['solve']:
-            report['tests'] = trial.quality.all_tests_passed()
+            try:
+                report['tests'] = trial.quality.all_tests_passed()
+            except:
+                report['tests'] = 'na'
         save_op.write_or_append_two_column_dict_to_csv(report, filename)
 
     return None
@@ -441,7 +448,10 @@ def save_and_print_info(trial, options):
 
     report['solve'] = trial.optimization.solve_succeeded
     if report['solve']:
-        report['tests'] = trial.quality.all_tests_passed()
+        try:
+            report['tests'] = trial.quality.all_tests_passed()
+        except:
+            report['tests'] = 'na'
 
     report['model_variables'] = np.prod(trial.model.variables.shape)
     if hasattr(trial, 'model') and hasattr(trial.model, 'dimensions_dict'):

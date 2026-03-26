@@ -105,6 +105,7 @@ def set_default_options(default_user_options, help_options):
 
         ('model', 'aero', 'induction', 'comparison',     [],     ('which induction models should we include for comparison', ['act', 'vor']), 'x'),
         ('model', 'aero', 'induction', 'force_zero', False,      ('force the induced velocity to remain zero, while maintaining all other constraint structures.', [True, False]), 'x'),
+        ('model', 'aero', 'induction', 'strouhal_scaling',  2.,  ('a value to help with convection-scaling estimation method for the characteristic optimization period.', None), 'x'),
 
         ('model', 'aero', 'actuator',   'geometry_overwrite',    None,       ('which method should be used to estimate the geometry of the kite rotation', ['parent', 'averaged', 'frenet']), 'x'),
         ('model', 'aero', 'actuator',   'support_only',         False,      ('compute only the geometric reference value for the induction factors in actuator-disk model. takes values between 0. and 0.4', None), 'x'),
@@ -327,6 +328,7 @@ def set_default_options(default_user_options, help_options):
                                                           }, ('weights for some states, the rest is initialized with 1E-8 [dict]', None), 't'),
 
         ('nlp',  None,               None, 'phase_fix_reelout',    0.7,                    ('time fraction of reel-out phase', None),'x'),
+        ('nlp',  'phase_fixing',     None, 'constrain_initial_velocity_direction', False,  ('add a constraint onto the initial velocity direction, to add azimuthal preference to the trajectory', (True, False)), 'x'),
         ('nlp',  None,               None, 'pumping_range',        [None, None],           ('set predefined pumping range (only in comb. w. phase-fix)', None),'x'),
         ('nlp',  'cost',             None, 'power_der_start',      0.1,                    ('start of power derivative regularization for lift-mode reel-out phase', (True, False)),'t'),
         ('nlp',  'cost',             None, 'power_der_stop',       0.9,                    ('stop of power derivative regularization for lift-mode reel-out phase', (True, False)),'t'),

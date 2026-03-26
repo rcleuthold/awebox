@@ -240,11 +240,11 @@ def get_position_scaling(options, architecture, suppress_help_statement=False, o
     b_ref = geometry['b_ref']
 
     scaling_dict = {'radius': flight_radius * cas.DM.ones((3, 1)),
-                             'altitude': position[2] * cas.DM.ones((3, 1)),
-                             'b_ref': b_ref * cas.DM.ones((3, 1)),
-                             'radius_and_tether': cas.vertcat(position[0], flight_radius, flight_radius),
-                             'radius_and_altitude': cas.vertcat(position[0], flight_radius, position[2])
-                             }
+                 'altitude': position[2] * cas.DM.ones((3, 1)),
+                 'b_ref': b_ref * cas.DM.ones((3, 1)),
+                 'radius_and_tether': cas.vertcat(position[0], flight_radius, flight_radius),
+                 'radius_and_altitude': cas.vertcat(position[0], flight_radius, position[2])
+                 }
     scaling_dict['altitude_and_radius'] = scaling_dict['radius_and_altitude']
 
     method_in_options = options['model']['scaling']['other']['position_scaling_method']
@@ -261,7 +261,7 @@ def select_scaling_method(method_in_options, overwrite_method, scaling_dict, thi
     elif method_in_options in scaling_dict.keys():
         selected_method = method_in_options
     else:
-        message = 'unexpected ' + thing_estimated + ' scaling/estimatation method in options (' + method_in_options + ')'
+        message = 'unexpected ' + thing_estimated + ' scaling/estimation method in options (' + method_in_options + ')'
         print_op.log_and_raise_error(message)
 
     return selected_method
@@ -269,7 +269,8 @@ def select_scaling_method(method_in_options, overwrite_method, scaling_dict, thi
 def print_help_with_scaling(options, scaling_dict, selected_method, thing_estimated, suppress_help_statement):
     if options['model']['scaling']['other']['print_help_with_scaling'] and not suppress_help_statement:
         print_op.base_print('available ' + thing_estimated + ' estimates are:', level='debug')
-        print_op.print_dict_as_table(scaling_dict, level='debug')
+        sorted_scaling_dict = dict(sorted(scaling_dict.items(), key=lambda item: float(vect_op.norm(item[1]))))
+        print_op.print_dict_as_table(sorted_scaling_dict, level='debug')
         selection_message = 'currently selected ' + thing_estimated + ' scaling/estimation option: ' + selected_method
         print_op.base_print(selection_message + '\n', level='debug')
 
@@ -533,6 +534,7 @@ def build_trajectory_options(options, options_tree, fixed_params, architecture):
 
     t_f_guess = estimate_time_period(options, architecture)
     options_tree.append(('nlp', 'normalization', None, 't_f', t_f_guess, ('??', None), 'x'))
+    # todo: is this nlp.normalization.t_f option being used for anything?
 
     return options_tree, fixed_params
 
@@ -1435,6 +1437,8 @@ def estimate_flight_radius(options, architecture, suppress_help_statement=False)
     loyd_actuator_radius = (c_ref / np.pi) * loyd_factor / momentum_factor
     if not (options['user_options']['induction_model'] == 'not_in_use'):
         synthesizing_dict['loyd_actuator'] = loyd_actuator_radius
+    else:
+        scaling_dict['loyd_actuator'] = loyd_actuator_radius
 
     scaling_dict = transfer_synthesization_estimates_to_a_scaling_dictionary(scaling_dict, synthesizing_dict)
 
@@ -1510,7 +1514,7 @@ def estimate_power(options, architecture, suppress_help_statement=True):
 
     a_ref = options['model']['aero']['actuator']['a_ref']
     thrust = get_momentum_theory_thrust(options, architecture)
-    p_actuator = thrust * uu * (1. - a_ref)
+    p_actuator = thrust * uu * (1. - a_ref) * float(len(architecture.layer_nodes))
     if not (options['user_options']['induction_model'] == 'not_in_use'):
         synthesizing_dict['actuator'] = p_actuator
     else:
@@ -1710,19 +1714,6 @@ def estimate_main_tether_tension_per_unit_length(options, architecture, suppress
     synthesizing_dict['power'] = tension_estimate_via_power
     tension_acts_on['power'] = 'ground'
 
-    # aero_force_per_kite = estimate_aero_force(options)
-    # cone_angle_rad = options['solver']['initialization']['cone_deg'] * np.pi / 180.
-    # aero_force_per_kite_in_main_tether_direction = aero_force_per_kite * np.cos(cone_angle_rad)
-    # aero_force_projected_and_summed = aero_force_per_kite_in_main_tether_direction * architecture.number_of_kites
-    # total_mass = estimate_total_mass(options, architecture)
-    # gravity = options['model']['scaling']['other']['g']
-    # inclination_angle = options['solver']['initialization']['inclination_deg'] * np.pi / 180.
-    # gravity_force_projected_and_summed = total_mass * gravity * np.sin(inclination_angle)
-    # tension_estimate_via_force_summation = np.abs(float(aero_force_projected_and_summed - gravity_force_projected_and_summed))
-    # synthesizing_dict['force_summation'] = tension_estimate_via_force_summation
-    # tension_acts_on['force_summation'] = 'kite'
-
-    print_op.warn_about_temporary_functionality_alteration()
     tether_vector_tree = get_tether_vector_tree(options, architecture)
     aero_force_per_kite = estimate_aero_force(options)
     total_mass, _ = estimate_total_mass(options, architecture)
@@ -1781,7 +1772,8 @@ def estimate_main_tether_tension_per_unit_length(options, architecture, suppress
         power_estimate_dict = {}
         for name, val in scaling_dict.items():
             power_estimate_dict[name] = val * reelout_speed
-        print_op.print_dict_as_table(power_estimate_dict, level='debug')
+        sorted_scaling_dict = dict(sorted(power_estimate_dict.items(), key=lambda item: float(vect_op.norm(item[1]))))
+        print_op.print_dict_as_table(sorted_scaling_dict, level='debug')
 
     return multiplier
 
@@ -1897,8 +1889,7 @@ def estimate_time_period(options, architecture, suppress_help_statement=True):
 
     # period for convection distance in one winding to be "large" compared to (2 radius) for hawt "quasi-steady" inflow
     # u_conv * T = strouhal * "diameter"
-    strouhal_approx = 2.  # todo: decide if there's any value in not hard-coding this,
-    # and if so - where in options to put it.
+    strouhal_approx = options['model']['aero']['induction']['strouhal_scaling']
     u_altitude = get_u_at_altitude(options, estimate_altitude(options))
     period1_from_convection = float(strouhal_approx * 2. * radius / u_altitude)
     if not options['user_options']['induction_model'] == 'not_in_use':

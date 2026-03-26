@@ -98,6 +98,7 @@ def get_dynamics(options, atmos, wind, architecture, system_variables, system_gc
     # scaling
     node_mass_scaling = mass_comp.estimate_node_mass_scaling(options, system_variables['SI'], parameters, architecture, scaling)
     force_scaling = node_mass_scaling * options['scaling']['other']['g'] * 10.
+    # todo: why have we hardcoded this?
     inverse_characteristic_forces = cas.inv(cas.diag(force_scaling))
 
     dynamics_translation_si = (lagrangian_lhs_translation - lagrangian_rhs_translation)

@@ -43,6 +43,7 @@ def run(inputs={}):
     periods_tracked = inputs['periods_tracked']
     tol = inputs['tol']
     mu_hippo = inputs['mu_hippo']
+    solver = inputs['solver']
 
     base_name = 'convergence'
     wake_nodes = int(np.ceil(n_k * periods_tracked + 1))
@@ -55,6 +56,7 @@ def run(inputs={}):
     options['nlp.n_k'] = n_k
     options['model.aero.vortex.wake_nodes'] = wake_nodes
 
+    options['solver.linear_solver'] = solver
     options['solver.tol'] = tol
     options['solver.mu_hippo'] = mu_hippo
     if mu_hippo == False:
@@ -83,6 +85,9 @@ def run(inputs={}):
     options['model.aero.actuator.normal_vector_model'] = 'dual'
     
     
+    options['model.scaling.other.print_help_with_scaling'] = True
+    
+    
     # build trial and optimize
     trial_name_vortex = help_op.build_unique_trial_name(base_name, inputs)
     trial_vortex = awe_trial.Trial(options, trial_name_vortex)
@@ -100,7 +105,7 @@ def run(inputs={}):
     return None
 
     
-def call_by_pt(n_k, pt, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-2, use_hippo_strategy=True):
+def call_by_pt(n_k, pt, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-1, use_hippo_strategy=True, solver='ma86'):
     import gc
     from glob import glob
     if pt > pt_min:
@@ -111,6 +116,7 @@ def call_by_pt(n_k, pt, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-2, use_hippo_st
         inputs['mu_hippo'] = mu_hippo
         if not use_hippo_strategy:
             inputs['mu_hippo'] = False
+        inputs['solver'] = solver
 
         trial_name = ''
         for name, val in inputs.items():
@@ -122,7 +128,7 @@ def call_by_pt(n_k, pt, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-2, use_hippo_st
     return None
 
 
-def call_by_memory(n_k, memory_gb, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-2):
+def call_by_memory(n_k, memory_gb, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-1):
 
     # curve fit for memory [GB]: 3.56715 + 0.00121953 V
     aa = 5.79095

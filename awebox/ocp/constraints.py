@@ -40,11 +40,83 @@ import awebox.ocp.operation as operation
 import awebox.tools.print_operations as print_op
 import awebox.tools.struct_operations as struct_op
 import awebox.tools.constraint_operations as cstr_op
+import awebox.tools.vector_operations as vect_op
 import awebox.tools.performance_operations as perf_op
 
 import awebox.tools.cached_functions as cf
 
 from awebox.logger.logger import Logger as awelogger
+
+
+def get_azimuthal_preference(model, variables_sym, variables_ref):
+
+    # remember, you can't constrain more than one direction of velocity, because reel-out constraint fixes the length and tether length constraint fixes motion on sphere.
+    for layer in model.architecture.layer_nodes:
+        layer_children = model.architecture.children_map[layer]
+        kite_children = set(layer_children).intersection(model.architecture.kite_nodes)
+        kite = list(kite_children)[0]
+
+        parent = model.architecture.parent_map[kite]
+        velocity_sym = variables_sym['x', 'dq' + str(kite) + str(parent)]
+        velocity_ref = variables_ref['x', 'dq' + str(kite) + str(parent)]
+
+        normalized_initial = vect_op.normalize(velocity_sym)
+        normalized_ref = vect_op.normalize(velocity_ref)
+        normalized_difference = normalized_initial - normalized_ref
+
+        vec_tether = variables_sym['x', 'q10']
+        a_hat = vect_op.normed_cross(vect_op.zhat_dm(), vec_tether)
+        b_hat = vect_op.normed_cross(vec_tether, vect_op.yhat_dm())
+
+        normzd_diff_in_a = cas.mtimes(normalized_difference.T, a_hat)
+        normzd_diff_in_b = cas.mtimes(normalized_difference.T, b_hat)
+
+        vector_perpendicular = vect_op.cross(velocity_sym, velocity_ref)
+        #
+
+        # a.b = ||a|| ||b|| cos(angle_between)
+        # (a.b)^2 = ||a||^2 ||b||^2 cos^2
+        defn_dot_product = cas.mtimes(velocity_sym.T, velocity_ref)**2. - cas.mtimes(velocity_sym.T, velocity_sym) * cas.mtimes(velocity_ref.T, velocity_ref)
+        velocities_parallel = defn_dot_product #/ cas.mtimes(velocity_ref.T, velocity_ref)
+
+        # velocities_parallel = (cas.mtimes(velocity_sym.T, velocity_ref) / vect_op.norm(
+        #     velocity_ref) ** 2.) - (vect_op.norm(velocity_sym) / vect_op.norm(velocity_ref))
+        # velocities_parallel *= 1e-4
+
+        # normalized_difference_in_non_reelout_direction = normalized_difference - cas.mtimes(normalized_difference.T, ehat_tether) * ehat_tether
+        # velocities_parallel = cas.mtimes(normalized_difference_in_non_reelout_direction.T, normalized_difference_in_non_reelout_direction)
+
+        # this one does not give licq errors. - but fails on dual kite main
+        # velocities_parallel = normalized_difference[2]
+        # velocities_parallel = normalized_difference[1]
+
+        # velocities_parallel = cas.mtimes(normalized_initial.T, normalized_ref) - 1.
+
+        # velocities_parallel = cas.mtimes(vector_perpendicular.T, vector_perpendicular)
+        # velocities_parallel = vector_perpendicular[1]
+
+        # velocities_parallel = normalized_difference[0:2]
+
+        # if (kite == 1):
+        # velocities_parallel = normzd_diff_in_a
+        #     # velocities_parallel = normalized_difference[2]
+        # else:
+        #     velocities_parallel = cas.vertcat(normzd_diff_in_a, normzd_diff_in_b)
+        #     # velocities_parallel = cas.vertcat(normalized_difference[1], normalized_difference[2])
+
+        # velocities_parallel = cas.mtimes(normalized_difference.T, vect_op.zhat_dm())
+        # velocities_parallel = cas.mtimes(normalized_difference.T, b_hat)
+
+        # velocities_parallel = cas.vertcat(normalized_difference[1], normalized_difference[2])
+
+        # normalized_difference = vect_op.normalize(velocity_initial) - vect_op.normalize(velocity_ref_initial)
+        # velocities_parallel = cas.mtimes(normalized_difference.T, normalized_difference)
+
+        velocities_parallel_cstr = cstr_op.Constraint(expr=velocities_parallel,
+                                                      name='init_kite_vel_parallel' + str(kite),
+                                                      cstr_type='eq')
+        new_entry_tuple = cas.entry('init_kite_vel_parallel' + str(kite), shape=velocities_parallel.shape)
+        return velocities_parallel_cstr, new_entry_tuple
 
 
 def get_constraints(nlp_options, V, P, Xdot, model, dae, formulation, Integral_constraint_list, Collocation, Multiple_shooting, ms_z0, ms_xf, ms_vars, ms_params, Outputs_structured, Integral_outputs, time_grids):
@@ -89,6 +161,11 @@ def get_constraints(nlp_options, V, P, Xdot, model, dae, formulation, Integral_c
         ocp_cstr_list.append(terminal_cstr)
         if len(terminal_cstr.eq_list) != 0:
             ocp_cstr_entry_list.append(cas.entry('terminal', shape=terminal_cstr.get_expression_list('all').shape))
+
+        if nlp_options['phase_fixing']['constrain_initial_velocity_direction']:
+            azimuthal_pref_cstr, azimuth_pref_entry_tuple = get_azimuthal_preference(model, variables_sym=var_initial, variables_ref=var_ref_initial)
+            ocp_cstr_list.append(azimuthal_pref_cstr)
+            ocp_cstr_entry_list.append(azimuth_pref_entry_tuple)
 
         # add periodic constraints
         periodic_cstr = operation.get_periodic_constraints(nlp_options, model, var_initial, var_terminal)

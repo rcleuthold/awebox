@@ -185,6 +185,10 @@ def check_reference_feasibility(solver_options, V_ref, p_fix_num, nlp):
                     dict_is_violated[name_list[idx]] = cstr_vals[idx]
             print_op.print_dict_as_table(dict_is_violated, level='warning')
 
+            if nlp.options['collocation']['d'] < 4:
+                message = 'If inequality constraints are only violated at a temporally-discontinuous subset of points along the trajectory, it may be worth checking to see if the problem goes away when you increase the number of collocation nodes.'
+                print_op.base_print(message, level='warning')
+
             if raise_exception:
                 print_op.log_and_raise_error('initial guess violates path constraints')
 

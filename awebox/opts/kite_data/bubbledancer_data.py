@@ -149,3 +149,8 @@ def aero(geometry):
     aero_validity['airspeed_min'] = ReMin * kinematic_viscosity / geometry['c_ref']
 
     return stab_derivs, aero_validity
+
+if __name__ == "__main__":
+    stab_derivs, aero_validity = aero(geometry())
+    print(aero_validity['airspeed_max'])
+    print(aero_validity['airspeed_min'])

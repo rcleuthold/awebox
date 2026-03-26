@@ -714,7 +714,7 @@ def test_biot_savart_function(cyl_unregularized, epsilon=1.e-4):
 
     expected = tangential_component * theta_hat
 
-    print("test_biot_savart_function: " + str(expected))
+    # print("test_biot_savart_function: " + str(expected))
 
     packed_info = cyl_unregularized.info
     biot_savart_fun = cyl_unregularized.biot_savart_fun

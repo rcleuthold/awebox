@@ -40,7 +40,6 @@ def test_single_kite_basic_health(final_homotopy_step='final', overwrite_options
     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
     return None
 
-
 # 2
 def test_single_kite(final_homotopy_step='final', overwrite_options={}):
     trial_name = 'single_kite_trial'
@@ -234,6 +233,29 @@ def test_actuator_comparison(final_homotopy_step='final', overwrite_options={}):
 
 
 
+def test_initial_velocities_parallel(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'initial_velocities_parallel_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+
+def test_initial_velocities_parallel_basic_health(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'initial_velocities_parallel_basic_health_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+
+def test_dual_kite_initial_velocities_parallel(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'dual_kite_initial_velocities_parallel_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+
+def test_dual_kite_initial_velocities_parallel_basic_health(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'dual_kite_initial_velocities_parallel_basic_health_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
 
 def make_basic_health_variant(base_options):
     basic_health_options = copy.deepcopy(base_options)
@@ -246,7 +268,7 @@ def make_basic_health_variant(base_options):
 
     basic_health_options['solver.health_check.when'] = 'success'
     basic_health_options['nlp.collocation.name_constraints'] = True
-    basic_health_options['solver.health_check.help_with_debugging'] = False
+    basic_health_options['solver.health_check.help_with_debugging'] = True #False
     basic_health_options['model.scaling.other.print_help_with_scaling'] = True
 
     basic_health_options['solver.homotopy_method.advance_despite_max_iter'] = False
@@ -411,6 +433,16 @@ def generate_options_dict():
 
     # todo: include size-based tests for dual kites and not just single kites.
 
+
+    initial_velocities_parallel_options = copy.deepcopy(single_kite_options)
+    initial_velocities_parallel_options['user_options.trajectory.lift_mode.phase_fix'] = 'simple'
+    initial_velocities_parallel_options['nlp.phase_fixing.constrain_initial_velocity_direction'] = True
+    initial_velocities_parallel_basic_health_options = make_basic_health_variant(initial_velocities_parallel_options)
+
+    dual_kite_initial_velocities_parallel_options = copy.deepcopy(dual_kite_options)
+    dual_kite_initial_velocities_parallel_options['nlp.phase_fixing.constrain_initial_velocity_direction'] = True
+    dual_kite_initial_velocities_parallel_basic_health_options = make_basic_health_variant(dual_kite_initial_velocities_parallel_options)
+
     actuator_qaxi_options = copy.deepcopy(dual_kite_options)
     actuator_qaxi_options['user_options.kite_standard'] = ampyx_data.data_dict()
     actuator_qaxi_options['user_options.induction_model'] = 'actuator'
@@ -551,6 +583,10 @@ def generate_options_dict():
     options_dict['large_kite_basic_health_trial'] = large_kite_basic_health_options
     options_dict['dual_kite_6_dof_trial'] = dual_kite_6_dof_options
     options_dict['dual_kite_6_dof_basic_health_trial'] = dual_kite_6_dof_basic_health_options
+    options_dict['initial_velocities_parallel_trial'] = initial_velocities_parallel_options
+    options_dict['initial_velocities_parallel_basic_health_trial'] = initial_velocities_parallel_basic_health_options
+    options_dict['dual_kite_initial_velocities_parallel_trial'] = dual_kite_initial_velocities_parallel_options
+    options_dict['dual_kite_initial_velocities_parallel_basic_health_trial'] = dual_kite_initial_velocities_parallel_basic_health_options
     options_dict['actuator_qaxi_trial'] = actuator_qaxi_options
     options_dict['actuator_qaxi_basic_health_trial'] = actuator_qaxi_basic_health_options
     options_dict['actuator_uaxi_trial'] = actuator_uaxi_options
@@ -619,7 +655,7 @@ if __name__ == "__main__":
 
     parallel_or_serial = 'serial'
 
-    types_of_problems = {'single_kites': False,
+    types_of_problems = {'single_kites': True,
                          'base_alternatives': False,
                          'dual_kites': True,
                          'tracking': False,
@@ -631,11 +667,11 @@ if __name__ == "__main__":
 
         list_functions = [] #this_test_is_intended_to_fail]
         if types_of_problems['single_kites']:
-            list_functions += [test_single_kite_basic_health, test_single_kite, test_single_kite_6_dof_basic_health, test_single_kite_6_dof]
+            list_functions += [test_initial_velocities_parallel_basic_health, test_initial_velocities_parallel, test_single_kite_basic_health, test_single_kite, test_single_kite_6_dof_basic_health, test_single_kite_6_dof]
         if types_of_problems['base_alternatives']:
             list_functions += [test_segmented_tether, test_poly, test_drag_mode, test_save_trial]
         if types_of_problems['dual_kites']:
-            list_functions += [test_dual_kite_basic_health, test_dual_kite, test_dual_kite_6_dof_basic_health, test_dual_kite_6_dof]
+            list_functions += [test_dual_kite_initial_velocities_parallel, test_dual_kite_initial_velocities_parallel_basic_health, test_dual_kite_basic_health, test_dual_kite, test_dual_kite_6_dof_basic_health, test_dual_kite_6_dof]
         if types_of_problems['tracking']:
             list_functions += [test_dual_kite_tracking, test_dual_kite_tracking_winch]
         # if types_of_problems['size_alternatives']:
@@ -668,10 +704,12 @@ if __name__ == "__main__":
     elif parallel_or_serial == 'serial':
 
         if types_of_problems['single_kites']:
-            test_single_kite_basic_health()
-            test_single_kite()
-            test_single_kite_6_dof_basic_health()
-            test_single_kite_6_dof()
+            test_initial_velocities_parallel_basic_health()
+            test_initial_velocities_parallel()
+            # test_single_kite_basic_health()
+            # test_single_kite()
+            # test_single_kite_6_dof_basic_health()
+            # test_single_kite_6_dof()
 
         if types_of_problems['base_alternatives']:
             test_segmented_tether()
@@ -680,10 +718,12 @@ if __name__ == "__main__":
             test_save_trial()
 
         if types_of_problems['dual_kites']:
-            test_dual_kite_basic_health()
-            test_dual_kite()
-            test_dual_kite_6_dof_basic_health()
-            test_dual_kite_6_dof()
+            test_dual_kite_initial_velocities_parallel_basic_health()
+            test_dual_kite_initial_velocities_parallel()
+            # test_dual_kite_basic_health()
+            # test_dual_kite()
+            # test_dual_kite_6_dof_basic_health()
+            # test_dual_kite_6_dof()
 
         if types_of_problems['tracking']:
             test_dual_kite_tracking()
