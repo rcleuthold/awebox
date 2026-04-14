@@ -328,12 +328,22 @@ def get_inverse_equivalence_matrix(tether_length):
 
     L = tether_length
 
-    Ainv = np.matrix([[0.5, 0., 0., 0., 1. / L, 0.],
+    argument_stack = [[0.5, 0., 0., 0., 1. / L, 0.],
                       [0., 0.5, 0., 1. / L, 0., 0.],
                       [0., 0., 0.5, 0., 0., 0.5],
                       [0.5, 0., 0., 0., -1. / L, 0.],
                       [0., 0.5, 0., -1. / L, 0., 0.],
-                      [0., 0., 0.5, 0., 0., -0.5]])
+                      [0., 0., 0.5, 0., 0., -0.5]]
+    if isinstance(L, (int, float)):
+        Ainv = np.matrix(argument_stack)
+    elif isinstance(L, (cas.DM, cas.SX, cas.MX)):
+        Ainv = cas.vertcat(*[
+            cas.horzcat(*row)
+            for row in argument_stack
+        ])
+    else:
+        message = 'unfamiliar type of tether length input (' + str(type(L)) + ')'
+        print_op.log_and_raise_error(message)
 
     return Ainv
 

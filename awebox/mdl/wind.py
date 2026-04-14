@@ -32,6 +32,7 @@ import casadi.tools as cas
 import numpy as np
 from awebox.logger.logger import Logger as awelogger
 import awebox.tools.vector_operations as vect_op
+import awebox.tools.print_operations as print_op
 import awebox.tools.lagr_interpol as lagr_interpol
 import matplotlib.pyplot as plt
 
@@ -231,6 +232,10 @@ def get_speed(model, u_ref, z_ref, z0_air, exp_ref, zz):
 
     elif model == 'uniform':
         u = u_ref
+
+    elif model == 'datafile':
+        message = 'the mdl.wind external get_speed function is not currently set-up to allow wind velocity profile importing from datafile.'
+        print_op.log_and_raise_error(message)
 
     else:
         raise ValueError('unsupported atmospheric option chosen: %s', model)
