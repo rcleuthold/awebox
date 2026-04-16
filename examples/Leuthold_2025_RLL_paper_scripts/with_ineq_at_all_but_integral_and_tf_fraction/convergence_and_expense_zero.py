@@ -99,31 +99,31 @@ def run(inputs={}):
     
     
     
-    #options['user_options.trajectory.lift_mode.windings'] = 1
-    #options['nlp.n_k'] = 7 # try to decrease this.
-    #options['nlp.collocation.d'] = 2
-    options['nlp.collocation.u_param'] = 'zoh'
-    options['solver.hippo_strategy'] = False
+    ##options['user_options.trajectory.lift_mode.windings'] = 1
+    ##options['nlp.n_k'] = 7 # try to decrease this.
+    ##options['nlp.collocation.d'] = 2
+    #options['nlp.collocation.u_param'] = 'zoh'
+    #options['solver.hippo_strategy'] = False
 
-    options['solver.health_check.when'] = 'success'
-    options['nlp.collocation.name_constraints'] = True
-    options['solver.health_check.help_with_debugging'] = False
-    options['model.scaling.other.print_help_with_scaling'] = True
+    #options['solver.health_check.when'] = 'success'
+    #options['nlp.collocation.name_constraints'] = True
+    #options['solver.health_check.help_with_debugging'] = False
+    #3options['model.scaling.other.print_help_with_scaling'] = True
 
-    options['solver.homotopy_method.advance_despite_max_iter'] = False
-    options['solver.homotopy_method.advance_despite_ill_health'] = False
-    options['solver.homotopy_method.consider_restoration_as_failure'] = False #True
-    options['solver.health_check.raise_exception'] = False #True
-    options['solver.initialization.check_reference'] = True
-    options['solver.initialization.check_feasibility.raise_exception'] = False #True
-    #options['solver.max_iter'] = 500
-    options['solver.ipopt.autoscale'] = False
-    options['solver.health_check.spy_matrices'] = False
-    options['quality.when'] = 'never'
-    options['visualization.cosmetics.variables.si_or_scaled'] = 'si'
-    options['solver.health_check.save_health_indicators'] = True
-    options['solver.health_check.thresh.condition_number'] = 1e10
-    options['solver.tol'] = 1e-8
+    #options['solver.homotopy_method.advance_despite_max_iter'] = False
+    #options['solver.homotopy_method.advance_despite_ill_health'] = False
+    #options['solver.homotopy_method.consider_restoration_as_failure'] = False #True
+    #options['solver.health_check.raise_exception'] = False #True
+    #options['solver.initialization.check_reference'] = True
+    #options['solver.initialization.check_feasibility.raise_exception'] = False #True
+    ##options['solver.max_iter'] = 500
+    #options['solver.ipopt.autoscale'] = False
+    #options['solver.health_check.spy_matrices'] = False
+    #options['quality.when'] = 'never'
+    #options['visualization.cosmetics.variables.si_or_scaled'] = 'si'
+    #options['solver.health_check.save_health_indicators'] = True
+    #options['solver.health_check.thresh.condition_number'] = 1e10
+    #options['solver.tol'] = 1e-8
 
     
     
@@ -201,7 +201,6 @@ def call_by_memory(n_k, memory_gb, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-1):
     
 
 if __name__ == "__main__":
-    total_memory_gb = 128
-    target_memory_gb = 0.75 * total_memory_gb
     n_k = 25
-    call_by_memory(n_k, target_memory_gb)
+    pt = 2
+    call_by_pt(n_k, p_t)
