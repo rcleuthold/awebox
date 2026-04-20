@@ -37,31 +37,31 @@ import casadi.tools as cas
 awelogger.logger.setLevel(10)
 
 
+base_name = 'convergence'
+
 def run(inputs={}):
-
-    n_k = inputs['n_k']
-    periods_tracked = inputs['periods_tracked']
-    tol = inputs['tol']
-    mu_hippo = inputs['mu_hippo']
-    solver = inputs['solver']
-
-    base_name = 'convergence'
-    wake_nodes = int(np.ceil(n_k * periods_tracked + 1))
 
     # basic options
     options = {}
     options = help_op.get_basic_options_for_convergence_expense_and_comparison(options)
 
     # allow a reduction of the problem for testing purposed
-    options['nlp.n_k'] = n_k
+    if 'nlp.n_k' in inputs.keys():
+        n_k = inputs['nlp.n_k']
+    else:
+        n_k = options['nlp.n_k']
+    periods_tracked = inputs['periods_tracked']
+    wake_nodes = int(np.ceil(n_k * periods_tracked + 1))
     options['model.aero.vortex.wake_nodes'] = wake_nodes
 
-    options['solver.linear_solver'] = solver
-    options['solver.tol'] = tol
-    options['solver.mu_hippo'] = mu_hippo
-    if mu_hippo == False:
-        options['solver.mu_hippo'] = 1e-2
-        options['solver.hippo_strategy'] = False
+    if ('solver.mu_hippo' in inputs.keys()) and (inputs['solver.mu_hippo'] == False):
+        inputs['solver.mu_hippo'] = 1e-2
+        inputs['solver.hippo_strategy'] = False
+
+    for name, val in inputs.items():
+        if name != 'periods_tracked':
+            options[name] = inputs[name]
+
 
     # visualization
     options['visualization.cosmetics.save_figs'] = True
@@ -77,14 +77,9 @@ def run(inputs={}):
     options['visualization.cosmetics.trajectory.temporal_epigraph_length_to_span'] = 5.
     
     options['model.aero.vortex.induction_factor_normalizing_speed'] = 'u_ref'  
-    options['model.aero.actuator.normal_vector_model'] = 'xhat'
-    options['visualization.cosmetics.temporal_epigraph_locations'] = ['switch', 1.0] 
-
-    # use these options only in final comparison. the convergence plots were made with the xhat normal_vector. the only difference has to do with which projections are used in plotting (and in which projections of the induced velocity to store)
-    options['visualization.cosmetics.temporal_epigraph_locations'] = [0.32, 'switch', 1.0]
     options['model.aero.actuator.normal_vector_model'] = 'dual'
-    
-    
+    options['visualization.cosmetics.temporal_epigraph_locations'] = [0.32, 'switch', 1.0] 
+        
     options['model.scaling.other.print_help_with_scaling'] = True
     
     
@@ -105,22 +100,15 @@ def run(inputs={}):
     return None
 
     
-def call_by_pt(n_k, pt, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-1, use_hippo_strategy=True, solver='ma86'):
+def call_by_pt(n_k, pt, inputs):
     import gc
     from glob import glob
-    if pt > pt_min:
-        inputs = {}
-        inputs['n_k'] = n_k
+    if pt > 0.:
+        inputs['nlp.n_k'] = n_k
         inputs['periods_tracked'] = pt
-        inputs['tol'] = ipopt_tol
-        inputs['mu_hippo'] = mu_hippo
-        if not use_hippo_strategy:
-            inputs['mu_hippo'] = False
-        inputs['solver'] = solver
 
-        trial_name = ''
-        for name, val in inputs.items():
-            trial_name += '_' + name + '_' + str(val)
+        trail_name = helpful_op.build_unique_trial_name(base_name, inputs)
+
         if not glob('*' + trial_name + '*'):
             trial = run(inputs)
             del trial
@@ -128,8 +116,13 @@ def call_by_pt(n_k, pt, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-1, use_hippo_st
     return None
 
 
-def call_by_memory(n_k, memory_gb, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-1):
+def call_by_memory(n_k, memory_gb, inputs):
 
+    if 'nlp.collocation.d' in inputs.keys:
+        collocation_d = inputs['nlp.collocation_d']
+    else:
+        collocation_d = 4
+    
     # curve fit for memory [GB]: 3.56715 + 0.00121953 V
     aa = 5.79095
     bb = 0.0010823
@@ -139,10 +132,8 @@ def call_by_memory(n_k, memory_gb, ipopt_tol=1e-8, pt_min=1e-3, mu_hippo=1e-1):
         pt = p1 / p2
         return pt
 
-    collocation_d = 4
-
     pt = estimate_periods_tracked(aa, bb, n_k, collocation_d, 2, memory_gb)
-    call_by_pt(n_k, pt, ipopt_tol=ipopt_tol, pt_min=pt_min, mu_hippo=mu_hippo)
+    call_by_pt(n_k, pt, inputs)
     return None
     
 

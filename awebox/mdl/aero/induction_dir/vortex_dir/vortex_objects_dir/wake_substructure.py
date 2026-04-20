@@ -516,6 +516,7 @@ def test(epsilon=1.e-4):
     test_append()
     test_check_expected_dimensions()
     test_mapped_biot_savart()
-    test_mapped_biot_savart_residual(epsilon)
+    print_op.warn_about_temporary_functionality_alteration()
+    test_mapped_biot_savart_residual(epsilon) #currently having a problem with allow_free: True option. checking, if we remove this test whether we get the error in actual runtime?
 
 # test()
