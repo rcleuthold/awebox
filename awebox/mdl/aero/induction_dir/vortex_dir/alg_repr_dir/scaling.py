@@ -72,8 +72,8 @@ def get_filament_strength(options, geometry, u_altitude, CL, varrho_ref, winding
         filament_strength = 0.5 * CL * airspeed * c_ref
 
     strength_dict = {'CL': CL, 'varrho_ref': varrho_ref, 'airspeed': airspeed, 'c_ref': c_ref, 'strength': filament_strength}
-    print_op.base_print('initialization values related to filament strength are:')
-    print_op.print_dict_as_table(strength_dict)
+    table_name = 'initialization values related to filament strength are:'
+    print_op.print_dict_as_table(strength_dict, caption=table_name)
 
     return filament_strength
 
@@ -181,6 +181,7 @@ def append_induced_velocity_scaling(options, geometry, options_tree, architectur
 
     u_ref = options['user_options']['wind']['u_ref']
     a_ref = options['model']['aero']['actuator']['a_ref']
+    a_betz = 1./3.
     expected_number_of_elements_dict_for_wake_types = vortex_tools.get_expected_number_of_elements_dict_for_wake_types(
         options,
         architecture)
@@ -196,12 +197,18 @@ def append_induced_velocity_scaling(options, geometry, options_tree, architectur
     # wu_ind_induced_velocity constraints, and so will help the vortex_basic_health_trial test pass
     if scaling_method == 'ref_full':
         wu_ind_scale = u_ref
+    elif scaling_method == 'ref_ref':
+        wu_ind_scale = u_ref * 2. * a_ref
     elif scaling_method == 'ref_betz':
-        wu_ind_scale = u_ref * (1. - 2. * a_ref)
+        wu_ind_scale = u_ref * 2. * a_betz
+
     elif scaling_method == 'infty_full':
         wu_ind_scale = u_altitude
+    elif scaling_method == 'infty_ref':
+        wu_ind_scale = u_altitude * 2. * a_ref
     elif scaling_method == 'infty_betz':
-        wu_ind_scale = u_altitude * (1. - 2. * a_ref)
+        wu_ind_scale = u_altitude * 2. * a_betz
+
     else:
         message = 'unfamiliar wu_ind_scaling_method (' + scaling_method + ').'
         print_op.log_and_raise_error(message)

@@ -28,33 +28,59 @@ _python-3.5 / casadi-3.4.5
 - author: elena malz, chalmers 2016
 - edited: jochem de schutter, rachel leuthold, a_l_u-_f_r 2017
 '''
-
+from awebox.logger.logger import Logger as awelogger
 import casadi.tools as cas
+import awebox.tools.print_operations as print_op
+import awebox.tools.struct_operations as struct_op
 
 class Atmosphere:
-    def __init__(self, options, params):
+    def __init__(self, options, params, options_object=None):
         # if options['model'] == 'datafile':
             # self.find_u_polynomial_from_datafile(params)
             # self.find_p_polynomial_from_datafile(params)
         self.__options = options
         self.__params = params
 
+        self.__options_object = options_object
+        self.__applied_parameters_dict = {'model':{'description': 'atmsopheric model', 'value': options['model'], 'units':None, 'awebox option': 'user_options.atmosphere'}}
+
+
+    def add_to_applied_params_dict(self, address, value):
+        address_tuple = address.split('.')
+
+        self.__applied_parameters_dict[address_tuple[-1]] = {'awebox option': address, 'value': value}
+        if self.__options_object is not None:
+            help_dict = self.__options_object.help_dict
+            for idx in range(len(address_tuple)):
+                help_dict = help_dict[address_tuple[idx]]
+            if len(help_dict[0]) > 2:
+                self.__applied_parameters_dict[address_tuple[-1]]['description'] = help_dict[0][0]
+                self.__applied_parameters_dict[address_tuple[-1]]['units'] = help_dict[0][2]
+        return None
+
     def get_temperature(self, zz):
         params = self.__params.prefix['theta0','atmosphere']
         options = self.__options
+
+        self.add_to_applied_params_dict('params.atmosphere.t_ref', params['t_ref'])
+
         if options['model'] == 'isa':
             t = params['t_ref'] - params['gamma_air'] * zz
+            self.add_to_applied_params_dict('params.atmosphere.gamma_air', params['gamma_air'])
+
         elif options['model'] == 'windshear':
             t = params['t_ref'] - params['gamma_air'] * zz
+            self.add_to_applied_params_dict('params.atmosphere.gamma_air', params['gamma_air'])
+
         elif options['model'] == 'log_wind':
             t = params['t_ref'] * cas.DM.ones((1, 1))
         elif options['model'] == 'uniform':
             t = params['t_ref']
         elif options['model'] == 'datafile':
             t = params['t_ref'] - params['gamma_air'] * zz
+            self.add_to_applied_params_dict('params.atmosphere.gamma_air', params['gamma_air'])
         else:
             raise ValueError('failure: unsupported atmospheric option chosen: %s', options['model'])
-
         return t
 
     def get_density(self, zz):
@@ -64,24 +90,29 @@ class Atmosphere:
             t = self.get_temperature(zz)
             rho = params['rho_ref'] * (t / params['t_ref']) ** (
                 params['g'] / params['gamma_air'] / params['r'] - 1.0)
+            self.add_to_applied_params_dict('params.atmosphere.rho_ref', params['rho_ref'])
+            self.add_to_applied_params_dict('params.atmosphere.t_ref', params['t_ref'])
+            self.add_to_applied_params_dict('params.atmosphere.g', params['g'])
+            self.add_to_applied_params_dict('params.atmosphere.gamma_air', params['gamma_air'])
+            self.add_to_applied_params_dict('params.atmosphere.r', params['r'])
+
         elif options['model'] == 'log_wind':
             rho = params['rho_ref'] * cas.DM.ones((1, 1))
+            self.add_to_applied_params_dict('params.atmosphere.rho_ref', params['rho_ref'])
         elif options['model'] == 'uniform':
             rho = params['rho_ref']
+            self.add_to_applied_params_dict('params.atmosphere.rho_ref', params['rho_ref'])
         elif options['model'] == 'datafile':
-            rho = self.get_pressure(zz) / \
-                params['r'] / self.get_temperature(zz)
+            rho = self.get_pressure(zz) / params['r'] / self.get_temperature(zz)
+            self.add_to_applied_params_dict('params.atmosphere.r', params['r'])
         else:
             raise ValueError('failure: unsupported atmospheric option chosen: %s', options['model'])
-
-
         return rho
 
     def get_density_ref(self):
         params = self.__params.prefix['theta0', 'atmosphere']
-        options = self.__options
         rho = params['rho_ref']
-
+        self.add_to_applied_params_dict('params.atmosphere.rho_ref', params['rho_ref'])
         return rho
 
     def get_pressure(self, zz):
@@ -90,17 +121,19 @@ class Atmosphere:
         if options['model'] == 'isa':
             p = self.get_density(zz) * \
                 params['r'] * self.get_temperature(zz)
+            self.add_to_applied_params_dict('params.atmosphere.r', params['r'])
+
         elif options['model'] == 'log_wind':
             p = params['p_ref'] * cas.DM.ones((1, 1))
+            self.add_to_applied_params_dict('params.atmosphere.p_ref', params['p_ref'])
         elif options['model'] == 'uniform':
             p = params['p_ref']
+            self.add_to_applied_params_dict('params.atmosphere.p_ref', params['p_ref'])
         elif options['model'] == 'datafile':
             p = params['p_ref'] * cas.DM.ones((1, 1)) # constant value for now, could be computed with the files..
-            # raise ValueError('failure: unsupported atmospheric option chosen: %s', options['model'])
+            self.add_to_applied_params_dict('params.atmosphere.p_ref', params['p_ref'])
         else:
             raise ValueError('failure: unsupported atmospheric option chosen: %s', options['model'])
-
-
         return p
 
     def get_viscosity(self, zz):
@@ -109,20 +142,46 @@ class Atmosphere:
         if options['model'] == 'isa':
             mu = params['mu_ref'] * (params['t_ref'] + params['c_sutherland']) / (self.get_temperature(zz) +
                  params['c_sutherland']) * (self.get_temperature(zz) / params['t_ref']) ** (3.0 / 2.0)
+            self.add_to_applied_params_dict('params.atmosphere.mu_ref', params['mu_ref'])
+            self.add_to_applied_params_dict('params.atmosphere.t_ref', params['t_ref'])
+            self.add_to_applied_params_dict('params.atmosphere.c_sutherland', params['c_sutherland'])
         elif options['model'] == 'log_wind': #todo: 'log wind' should not be the name of an option here.
             mu = params['mu_ref']
+            self.add_to_applied_params_dict('params.atmosphere.mu_ref', params['mu_ref'])
         elif options['model'] == 'uniform':
             mu = params['mu_ref']
+            self.add_to_applied_params_dict('params.atmosphere.mu_ref', params['mu_ref'])
         elif options['model'] == 'datafile':
             mu = params['mu_ref'] * (params['t_ref'] + params['c_sutherland']) / (self.get_temperature(zz) +
                  params['c_sutherland']) * (self.get_temperature(zz) / params['t_ref']) ** (3.0 / 2.0)
+            self.add_to_applied_params_dict('params.atmosphere.mu_ref', params['mu_ref'])
+            self.add_to_applied_params_dict('params.atmosphere.t_ref', params['t_ref'])
+            self.add_to_applied_params_dict('params.atmosphere.c_sutherland', params['c_sutherland'])
         else:
             raise ValueError('failure: unsupported atmospheric option chosen: %s', options['model'])
-
-
         return mu
 
     def get_speed_of_sound(self, zz):
         params = self.__params.prefix['theta0','atmosphere']
         a = (params['gamma'] * params['r'] * self.get_temperature(zz)) ** 0.5
+        self.add_to_applied_params_dict('params.atmosphere.gamma', params['gamma'])
+        self.add_to_applied_params_dict('params.atmosphere.r', params['r'])
         return a
+
+    def make_report(self, to_echo_or_latex='echo', latex_dict={}, trial_name=None, V_opt=None, p_fix_num=None, model_parameters=None):
+        copy_dict = struct_op.make_copy_of_parameter_dict_with_value_column_evaluated(self.__applied_parameters_dict, V_opt=V_opt, p_fix_num=p_fix_num, model_parameters=model_parameters)
+        caption = 'Environmental parameters'
+        if trial_name is not None:
+            caption += ' for ' + trial_name
+
+        print_op.print_dict_as_table(copy_dict, level='info', to_echo_or_latex=to_echo_or_latex, caption=caption, nan_replacement='--', latex_dict=latex_dict, transpose=True, latex_symbolic_in_first_column=True)
+        return None
+
+    @property
+    def applied_parameters_dict(self):
+        return self.__applied_parameters_dict
+
+    @applied_parameters_dict.setter
+    def applied_parameters_dict(self, value):
+        awelogger.logger.warning('Cannot set applied_parameters_dict object.')
+

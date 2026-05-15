@@ -149,8 +149,7 @@ class Quality(object):
                 pass_fail_dict[name] = fail_label
 
         print('########################################')
-        print('QUALITY CHECK details:')
-        print_op.print_dict_as_table(pass_fail_dict)
+        print_op.print_dict_as_table(pass_fail_dict, caption='QUALITY CHECK details:')
         print('#######################################')
 
     @property

@@ -128,7 +128,7 @@ class Trial(object):
 
         architecture = archi.Architecture(self.__options['user_options']['system_model']['architecture'])
         self.__options.build(architecture)
-        self.__model.build(self.__options['model'], architecture)
+        self.__model.build(self.__options['model'], architecture, trial_name=self.__name, options_object=self.__options)
         self.__formulation.build(self.__options['formulation'], self.__model)
         self.__nlp.build(self.__options['nlp'], self.__model, self.__formulation)
         self.__optimization.build(self.__options['solver'], self.__nlp, self.__model, self.__formulation, self.__name)
@@ -321,6 +321,14 @@ class Trial(object):
 
         # pickle data
         save_op.save(data_to_save, filename, file_extension)
+
+    def make_report(self, to_echo_or_latex='echo', latex_dict={}):
+        trial_name = self.__name
+        self.__options.make_report(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, trial_name=trial_name)
+        self.__model.print_model_info(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, nan_replacement='--', trial_name=trial_name, V_opt=self.__optimization.V_opt, p_fix_num=self.__optimization.p_fix_num)
+        self.__optimization.make_report(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, trial_name=trial_name)
+        return None
+
 
     def write_to_csv(self, filename=None, frequency=None, rotation_representation='dcm'):
         if filename is None:

@@ -182,26 +182,27 @@ def print_variable_info(object_name, variable_struct):
     return None
 
 
-def recursionably_make_pandas_sanitized_copy(val):
+def recursionably_make_pandas_sanitized_copy(val, repr_type='E', digits=4):
 
     if isinstance(val, complex) and (np.abs(np.imag(val)) < 1.e-16):
         val = np.real(val)
-
-    if isinstance(val, str) or isinstance(val, float) or isinstance(val, int):
-        return val
-    elif isinstance(val, cas.DM) and val.shape == (1, 1):
-        return float(val)
-    elif isinstance(val, cas.DM) or isinstance(val, np.ndarray):
-        return repr_g(val)
+    elif isinstance(val, cas.SX) or isinstance(val, cas.MX):
+        return str(val)
+    if isinstance(val, str) or isinstance(val, float) or isinstance(val, int) or isinstance(val, cas.DM):
+        return repr_g(val, repr_type=repr_type, digits=digits)
+    elif val is None:
+        return '-'
+    elif isinstance(val, np.ndarray):
+        return recursionably_make_pandas_sanitized_copy(cas.DM(val), digits=digits, repr_type=repr_type)
     elif isinstance(val, dict):
         local_copy = {}
         for subkey, subval in val.items():
-            local_copy[subkey] = recursionably_make_pandas_sanitized_copy(subval)
+            local_copy[subkey] = recursionably_make_pandas_sanitized_copy(subval, digits=digits, repr_type=repr_type)
         return local_copy
     elif isinstance(val, list):
         local_copy = []
         for subval in val:
-            local_copy += [recursionably_make_pandas_sanitized_copy(subval)]
+            local_copy += [recursionably_make_pandas_sanitized_copy(subval, digits=digits, repr_type=repr_type)]
         return local_copy
     else:
         message = 'the handling of this object type for printing with pandas still needs to be settled. simply returning item itself'
@@ -244,17 +245,20 @@ class Table:
         else:
             return False
 
+    def is_multilayer_table(self):
+        return get_depth_of_dict(self.__dict) > 1
 
-    def sanitize_for_pandas(self):
-        self.__repr_dict = recursionably_make_pandas_sanitized_copy(self.__dict)
+
+    def sanitize_for_pandas(self, digits=4, repr_type='E'):
+        self.__repr_dict = recursionably_make_pandas_sanitized_copy(self.__dict, digits=digits, repr_type=repr_type)
         return None
 
 
-    def to_pandas(self):
+    def to_pandas(self, digits=4, repr_type='E'):
 
         if self.__repr_dict is None:
-            self.sanitize_for_pandas()
-            return self.to_pandas()
+            self.sanitize_for_pandas(digits=digits, repr_type=repr_type)
+            return self.to_pandas(digits=digits)
 
         else:
             df = pd.DataFrame(self.__repr_dict)
@@ -263,68 +267,135 @@ class Table:
     def get_list_of_headers(self):
         return list(dict.fromkeys(self.__dict))
 
-    def to_string(self, digits=4, repr_type='E', column_width=10):
+    def from_pandas_to_string_for_two_column_table(self, df, float_skeleton, max_header_width, column_width, digits=4, repr_type='E'):
 
-        self.sanitize_for_pandas()
-        if self.is_two_column_table():
-            all_values_numeric = all(
-                [(isinstance(val, int) or isinstance(val, float) or isinstance(val, cas.DM)) for val in
-                 self.__repr_dict['value'].values()])
-            if not all_values_numeric:
-                for key, val in self.__repr_dict['value'].items():
-                    self.__repr_dict['value'][key] = repr_g(val, digits=digits, repr_type=repr_type)
+        key_width = int(np.max(np.array([column_size_for_dot_separated_items(), max_header_width, column_width])))
+        key_skeleton = "{0:.<" + str(key_width) + "}"
 
-        df = self.to_pandas()
+        col_name = 'value'
+        for row_indexer in range(len(df[col_name])):
+            df.loc[row_indexer, col_name] = repr_g(df.loc[row_indexer, col_name], digits=digits, repr_type=repr_type)
+
+        col_name = 'item'
+        for row_indexer in range(len(df[col_name])):
+            df.loc[row_indexer, col_name] = key_skeleton.format(repr_g(df.loc[row_indexer, col_name]))
+
+        string_skeleton = "{0:<" + str(column_size_for_dot_separated_items()) + "}"
+        body_string = df.to_string(header=False, index=False, float_format=float_skeleton,
+                                   formatters={"value": string_skeleton.format})
+
+        return body_string
+
+    def convert_from_two_column_table_to_multicolumn(self):
+        rearrange_table = {}
+        for idx in range(len(self.__dict['item'])):
+            rearrange_table[self.__dict['item'][idx]] = {'value': self.__dict['value'][idx]}
+        self.__dict = rearrange_table
+        return None
+
+    def to_string(self, digits=2, repr_type='E', column_width=10, caption=None, nan_replacement='NAN', transpose=False, sort_dim=0):
+
+        self.sanitize_for_pandas(digits=digits, repr_type=repr_type)
+
+        df = self.to_pandas(digits=digits)
+
+        if df.isnull().values.any():
+            df = df.replace(np.nan, nan_replacement)
 
         headers = self.get_list_of_headers()
         max_header_width = np.max(np.array([len(str(header)) for header in headers]))
 
+        if sort_dim is not None:
+            df = df.sort_index(axis=sort_dim)
+
+        if transpose:
+            df = df.transpose()
+
         float_skeleton = "%." + str(digits) + repr_type
         if self.is_two_column_table():
-
-            key_width = int(np.max(np.array([column_size_for_dot_separated_items(), max_header_width, column_width])))
-            key_skeleton = "{0:.<" + str(key_width) + "}"
-            for key, val in self.__repr_dict['item'].items():
-                self.__repr_dict['item'][key] = key_skeleton.format(val)
-
-            all_values_numeric = all([(isinstance(val, int) or isinstance(val, float) or isinstance(val, cas.DM)) for val in self.__repr_dict.values()])
-            if all_values_numeric:
-                body_string = df.to_string(float_format=float_skeleton, header=False, index=False)
-            else:
-                df = self.to_pandas()
-                column_width = column_size_for_dot_separated_items()
-                string_skeleton = "{0:<" + str(column_width) + "}"
-                body_string = df.to_string(header=False, index=False,
-                                           formatters={"value": string_skeleton.format})
+            body_string = self.from_pandas_to_string_for_two_column_table(df, float_skeleton, max_header_width, column_width, digits=digits, repr_type=repr_type)
         else:
-            body_string = df.to_string(float_format=float_skeleton, header=True, col_space=column_width, index=True)
+            body_string = df.to_string(float_format=float_skeleton, header=True, index=True)
 
         message = body_string + '\n'
+        if caption is not None:
+            message = caption + '\n' + message
 
         return message
 
-    def to_latex(self, digits=2, repr_type='E'):
+    def to_latex(self, digits=6, repr_type='f', caption=None, nan_replacement='--', inf_replacement=r'$\infty$', transpose=False, latex_dict={}, sort_dim=0, latex_symbolic_in_first_column=False, justify='lr'):
         # usethis with
         # \usepackage{booktabs, siunitx}
         # \sisetup{exponent-product=\cdot}
 
-        df = self.to_pandas()
+        if isinstance(caption, str):
+            caption = caption.replace('_', ' ')
+
+        was_originally_two_column = False
+        if self.is_two_column_table():
+            was_originally_two_column = True
+            self.convert_from_two_column_table_to_multicolumn()
+
+        df = self.to_pandas(digits=digits, repr_type=repr_type).replace(np.nan, nan_replacement)
         skeleton = "\\num{%." + str(digits) + repr_type + "}"
 
-        if self.is_two_column_table():
-            column_format = 'rl'
-            df_tex = df.to_latex(index=False, escape=False, column_format=column_format, float_format=skeleton)
+        if was_originally_two_column:
+            df = df.transpose()
+
+        if transpose:
+            df = df.transpose()
+
+        if sort_dim is not None:
+            df = df.sort_index(axis=sort_dim)
+
+        import re
+        def replace_whole_space_word(x):
+            if not isinstance(x, str):
+                return x
+
+            for old, new in latex_dict.items():
+                pattern = rf'(?<!\S){re.escape(old)}(?!\S)'
+                x = re.sub(pattern, lambda _: r'$' + new + r'$', x)
+
+            return x
+
+        df.index = df.index.map(replace_whole_space_word)
+        df.columns = df.columns.map(replace_whole_space_word)
+
+        opt_cols = [c for c in df.columns if 'awebox option' in c]
+        for col in opt_cols:
+            df[col] = df[col].apply(
+                lambda x: r'\aweboxOptions{ ' + x + ' }'
+            )
+        units_cols = [c for c in df.columns if 'units' in c]
+        for col in units_cols:
+            df[col] = df[col].apply(
+                lambda x: r'\unit{ ' + str(x) + ' }'
+            )
+
+        if was_originally_two_column:
+            column_format = "rl"
         else:
-            headers = self.get_list_of_headers()
-            column_format = "l" + ("c" * len(headers))
-            df_tex = df.to_latex(index=True, escape=False, column_format=column_format, float_format=skeleton)
+            column_format = justify[0] + (justify[1] * len(df.keys()))
+        df_tex = df.to_latex(index=True, escape=False, column_format=column_format, float_format=skeleton, caption=caption)
 
-        print(df_tex)
+        if was_originally_two_column:
+            df_tex = df_tex.replace(r'& value', r'item & value')
 
-        return df_tex
+        df_tex = df_tex.replace(r'\midrule', r'\hline\midrule')
+        df_tex = df_tex.replace(r'\begin{table}', r'\begin{table} \centering')
 
-    def print(self, level='info'):
-        string = self.to_string()
+        df_tex = df_tex.replace('inf', inf_replacement)
+
+        pre_fix = '\n' + r'\begin{center}' + '\n'
+        end_fix = r'\end{center}'
+        latex_out = pre_fix + df_tex + end_fix
+        print(latex_out)
+
+        return latex_out
+
+    def print(self, level='info', caption=None, nan_replacement="NAN", transpose=False, sort_dim=0, digits=4, repr_type='G'):
+        string = self.to_string(nan_replacement=nan_replacement, transpose=transpose, caption=caption, sort_dim=sort_dim, digits=digits, repr_type=repr_type)
         string_list = string.split('\n')
         for substring in string_list:
             base_print(substring, level=level)
@@ -411,7 +482,7 @@ def test_two_column_table_to_string():
         print(repr_g(tab.dict['value'][idx], digits=3, repr_type='E') in found_string)
         print()
 
-    example_line = 'cas.dm - array............................... DM([4.5, 4.5, 4.5])'
+    example_line = 'cas.dm - array............................... [4.5, 4.5, 4.5]'
     example_line_included = example_line in found_string
 
     criteria = all_items_included and all_values_included and example_line_included
@@ -429,18 +500,18 @@ def test_two_column_table_to_latex():
     header_in_latex = 'item & value \\' in latex
     ending_in_latex = '\end{tabular}' in latex
 
-    body_lines = ['int & 234 \\',
-                  'float & \\num{2.339E+01} \\',
-                  'neg & \\num{-2.800E+00} \\',
-                  'sci & \\num{3.431E-07} \\',
-                  'cas.dm - scalar & \\num{8.130E+00} \\',
-                  'cas.dm - array & [4.5, 4.5, 4.5] \\',
-                  'boolean & False \\',
-                  'string & apples \\',
-                  'dict aa1 & 3 \\',
-                  'dict bb1 & happy \\',
-                  'dict cc1 & [1, 2] \\']
-    all_body_included = [str(line) in latex for line in body_lines]
+    body_lines = ['boolean & False \\',
+                'cas.dm - array & [4.5, 4.5, 4.5] \\',
+                'cas.dm - scalar & 8.130E+00 \\',
+                'dict aa1 & 3 \\',
+                'dict bb1 & happy \\',
+                "dict cc1 & ['1', '2'] \\",
+                'float & 2.339E+01 \\',
+                'int & 234 \\',
+                'neg & -2.8 \\',
+                'sci & 3.431E-07 \\',
+                'string & apples \\']
+    all_body_included = all([str(line) in latex for line in body_lines])
 
     criteria = opening_in_latex and header_in_latex and ending_in_latex and all_body_included
     if not criteria:
@@ -523,7 +594,7 @@ def base_print(string, level='info'):
         print(string)
 
 
-def print_dict_as_table(dict, level='info'):
+def print_dict_as_table(dict, level='info', to_echo_or_latex='echo', caption=None, nan_replacement="NAN", transpose=False, latex_dict={}, sort_dim=None, digits=4, repr_type='G', latex_symbolic_in_first_column=False):
     depth = get_depth_of_dict(dict)
 
     if depth == 0:
@@ -531,7 +602,10 @@ def print_dict_as_table(dict, level='info'):
 
     elif depth in [1, 2]:
         tab = Table(dict)
-        tab.print(level=level)
+        if to_echo_or_latex == 'latex':
+            tab.to_latex(caption=caption, nan_replacement=nan_replacement, transpose=transpose, latex_dict=latex_dict, sort_dim=sort_dim, digits=digits, repr_type=repr_type, latex_symbolic_in_first_column=latex_symbolic_in_first_column)
+        else:
+            tab.print(level=level, caption=caption, nan_replacement=nan_replacement, transpose=transpose, sort_dim=sort_dim, digits=digits, repr_type=repr_type)
 
     else:
         message = 'function to print_dict_as_table is not available for dicts of depth ' + str(depth)
@@ -539,6 +613,21 @@ def print_dict_as_table(dict, level='info'):
 
     return None
 
+def print_bulleted_list(list, level='info', to_echo_or_latex='echo', caption=None):
+
+    if to_echo_or_latex == 'latex':
+        caption = '\n' + caption
+        print(caption)
+        print("\\begin{itemize}")
+        for name in list:
+            print('\item {}'.format(name).replace('_', ' '))
+        print('\end{itemize}')
+    else:
+        base_print(caption, level=level)
+        for name in list:
+            base_print('* {}'.format(name), level=level)
+        base_print('', level=level)
+    return None
 
 def column_size_for_dot_separated_items():
     return 45
@@ -546,14 +635,37 @@ def column_size_for_dot_separated_items():
 def repr_g(value, digits=4, repr_type='G'):
     if isinstance(value, str):
         return value
+    elif isinstance(value, cas.SX) or isinstance(value, cas.MX):
+        return str(value)
     elif isinstance(value, int) and (np.abs(value) < 10**digits):
+        return str(value)
+    elif isinstance(value, float) and np.abs(value).is_integer():
+        return repr_g(int(value), digits=digits, repr_type=repr_type)
+    elif isinstance(value, float) and (np.abs(value) < 10) and (np.abs(value) * 10**digits).is_integer():
         return str(value)
     elif (isinstance(value, int) or isinstance(value, float)):
         skeleton = "{:0." + str(digits) + repr_type + "}"
         message = skeleton.format(value)
         return message
-    elif isinstance(value, cas.DM) and value.shape == (1, 1):
-        return repr_g(float(value))
+
+    elif isinstance(value, cas.DM):
+        if value.shape == (1, 1):
+            return repr_g(float(value), repr_type=repr_type, digits=digits)
+        elif (value.shape[0] == 1) or (value.shape[1] == 1):
+            temp_dm = value.reshape((value.shape[0] * value.shape[1], 1))
+            temp_string = "["
+            for idx in range(temp_dm.shape[0]):
+                temp_string += repr_g(temp_dm[idx], repr_type=repr_type, digits=digits) + ", "
+            temp_string = temp_string[:-2] + "]"
+            return temp_string
+        else:
+            return repr(value)
+    elif isinstance(value, list):
+        temp_string = "["
+        for idx in range(len(value)):
+            temp_string += repr_g(value[idx], repr_type=repr_type, digits=digits) + ", "
+        temp_string = temp_string[:-2] + "]"
+        return temp_string
     else:
         return repr(value)
 

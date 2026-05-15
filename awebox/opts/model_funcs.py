@@ -28,7 +28,6 @@ _python-3.5 / casadi-3.4.5
 - author: jochem de scutter, rachel leuthold, thilo bronnenmeyer, alu-fr/kiteswarms 2017-20
 - edited: rachel leuthold, 2017-2025
 '''
-import pdb
 from platform import architecture
 
 import numpy as np
@@ -63,7 +62,7 @@ def build_model_options(options, help_options, user_options, options_tree, fixed
 
     # problem specifics
     options_tree, fixed_params = build_constraint_applicablity_options(options, options_tree, fixed_params, architecture)
-    options_tree, fixed_params = build_trajectory_options(options, options_tree, fixed_params, architecture)
+    options_tree, fixed_params = build_trajectory_options(options, help_options, options_tree, fixed_params, architecture)
     options_tree, fixed_params = build_integral_options(options, options_tree, fixed_params)
 
     # aerodynamics
@@ -75,7 +74,7 @@ def build_model_options(options, help_options, user_options, options_tree, fixed
     # tether
     options_tree, fixed_params = build_tether_drag_options(options, options_tree, fixed_params)
     options_tree, fixed_params = build_tether_stress_options(options, options_tree, fixed_params, architecture)
-    options_tree, fixed_params = build_tether_control_options(options, options_tree, fixed_params)
+    options_tree, fixed_params = build_tether_control_options(options, help_options, options_tree, fixed_params)
 
     # environment
     options_tree, fixed_params = build_wind_options(options, options_tree, fixed_params)
@@ -268,9 +267,9 @@ def select_scaling_method(method_in_options, overwrite_method, scaling_dict, thi
 
 def print_help_with_scaling(options, scaling_dict, selected_method, thing_estimated, suppress_help_statement):
     if options['model']['scaling']['other']['print_help_with_scaling'] and not suppress_help_statement:
-        print_op.base_print('available ' + thing_estimated + ' estimates are:', level='debug')
+        table_name = 'available ' + thing_estimated + ' estimates are:'
         sorted_scaling_dict = dict(sorted(scaling_dict.items(), key=lambda item: float(vect_op.norm(item[1]))))
-        print_op.print_dict_as_table(sorted_scaling_dict, level='debug')
+        print_op.print_dict_as_table(sorted_scaling_dict, level='debug', caption=table_name)
         selection_message = 'currently selected ' + thing_estimated + ' scaling/estimation option: ' + selected_method
         print_op.base_print(selection_message + '\n', level='debug')
 
@@ -362,9 +361,9 @@ def build_kite_dof_options(options, options_tree, fixed_params, architecture):
         windings = options['user_options']['trajectory']['lift_mode']['windings']
         omega_guess = 2. * np.pi / (t_f_guess / float(windings))
 
-        options_tree.append(('model', 'system_bounds', 'x', 'delta', [-1. * delta_max, delta_max], ('control surface deflection bounds', None),'x'))
+        options_tree.append(('model', 'system_bounds', 'x', 'delta', [-1. * delta_max, delta_max], ('control surface deflection bounds', None, 'rad'),'x'))
         options_tree.append(('model', 'system_bounds', 'u', 'ddelta', [-1. * ddelta_max, ddelta_max],
-                             ('control surface deflection rate bounds', None),'x'))
+                             ('control surface deflection rate bounds', None, 'rad/s'),'x'))
 
         standard_geometry = load_kite_geometry(options['user_options']['kite_standard'])
         delta_scaling = []
@@ -492,15 +491,29 @@ def get_airspeed_limits(options):
 
 ####### trajectory specifics
 
-def build_trajectory_options(options, options_tree, fixed_params, architecture):
+def build_trajectory_options(options, help_dict, options_tree, fixed_params, architecture):
 
     user_options = options['user_options']
+
+    sys_bound_help_info = help_dict['model']['system_bounds']['theta']
+    init_help_info = help_dict['solver']['initialization']['theta']
+    dict_of_fixed_units = {}
+    for theta_name in fixed_params.keys():
+        if theta_name in sys_bound_help_info.keys():
+            fixed_param_help_info = sys_bound_help_info[theta_name]
+        elif theta_name in init_help_info.keys():
+            fixed_param_help_info = init_help_info[theta_name]
+        else:
+            fixed_param_help_info = None
+
+        if (fixed_param_help_info is not None) and (len(fixed_param_help_info[0]) > 2):
+            fixed_param_units = fixed_param_help_info[0][2]
+            dict_of_fixed_units[theta_name] = fixed_param_units
 
     if user_options['trajectory']['type'] not in ['nominal_landing', 'transitions', 'compromised_landing', 'launch']:
         fixed_params = user_options['trajectory']['fixed_params']
         options_tree.append(('model', 'system_bounds_other', None, 'fixed_params', fixed_params,
-                         ('user input for fixed bounds on theta', None), 'x'))
-
+                         ('user input for fixed bounds on theta', None, list(dict_of_fixed_units.items())), 'x'))
 
     else:
         if user_options['trajectory']['type'] == 'launch':
@@ -522,8 +535,10 @@ def build_trajectory_options(options, options_tree, fixed_params, architecture):
         for theta in struct_op.subkeys(V_pickle, 'theta'):
             if theta not in ['t_f']:
                 fixed_params[theta] = V_pickle['theta', theta]
+
     for theta in list(fixed_params.keys()):
-        options_tree.append(('model', 'system_bounds', 'theta', theta, [fixed_params[theta]]*2,  ('user input for fixed bounds on theta', None),'x'))
+        if theta in dict_of_fixed_units.keys():
+            options_tree.append(('model', 'system_bounds', 'theta', theta, [fixed_params[theta]]*2,  ('user input for fixed bounds on theta', None, dict_of_fixed_units[theta]),'x'))
 
     scenario, broken_kite = user_options['trajectory']['compromised_landing']['emergency_scenario']
     if not broken_kite in architecture.kite_nodes:
@@ -966,10 +981,9 @@ def build_tether_stress_options(options, options_tree, fixed_params, architectur
 
     return options_tree, fixed_params
 
-
 ######## tether control
 
-def build_tether_control_options(options, options_tree, fixed_params):
+def build_tether_control_options(options, help_dict, options_tree, fixed_params):
 
     user_options = options['user_options']
     in_drag_mode_operation = user_options['trajectory']['system_type'] == 'drag_mode'
@@ -993,7 +1007,8 @@ def build_tether_control_options(options, options_tree, fixed_params):
 
     else:
         if control_name == 'ddl_t':
-            options_tree.append(('model', 'system_bounds', 'u', 'ddl_t', ddl_t_bounds,   ('main tether max acceleration [m/s^2]', None),'x'))
+            ddlt_descript = help_dict['model']['system_bounds']['x']['ddl_t'][0]
+            options_tree.append(('model', 'system_bounds', 'u', 'ddl_t', ddl_t_bounds, ddlt_descript, 'x'))
             options_tree.append(('model', 'scaling', 'u', 'ddl_t', ddl_t_scaling, ('???', None), 'x'))
 
         elif control_name == 'dddl_t':
@@ -1768,12 +1783,12 @@ def estimate_main_tether_tension_per_unit_length(options, architecture, suppress
     print_help_with_scaling(options, scaling_dict, selected_method, thing_estimated, suppress_help_statement)
 
     if options['model']['scaling']['other']['print_help_with_scaling'] and not suppress_help_statement:
-        print_op.base_print(thing_estimated + ' estimates correspond to following power estimates:', level='debug')
+        table_name = thing_estimated + ' estimates correspond to following power estimates:'
         power_estimate_dict = {}
         for name, val in scaling_dict.items():
             power_estimate_dict[name] = val * reelout_speed
         sorted_scaling_dict = dict(sorted(power_estimate_dict.items(), key=lambda item: float(vect_op.norm(item[1]))))
-        print_op.print_dict_as_table(sorted_scaling_dict, level='debug')
+        print_op.print_dict_as_table(sorted_scaling_dict, level='debug', caption=table_name)
 
     return multiplier
 

@@ -246,8 +246,8 @@ def collect_tractability_indicators(trial_name, step_name, solver_options, stats
         if 'kkt:' in name:
             subset_of_tractability[name] = value
 
-    awelogger.logger.info('tractability indicator report')
-    print_op.print_dict_as_table(subset_of_tractability)
+    table_name = 'tractability indicator report'
+    print_op.print_dict_as_table(subset_of_tractability, caption=table_name)
 
     return tractability
 

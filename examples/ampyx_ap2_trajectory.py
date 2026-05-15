@@ -13,7 +13,14 @@ Energy, Vol.173, pp. 569-585, 2019.
 
 import awebox as awe
 import awebox.opts.kite_data.ampyx_ap2_settings as ampyx_ap2_settings
+
+import matplotlib
+
+from awebox import Options
+
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+
 import numpy as np
 import awebox.tools.save_operations as save_op
 
@@ -154,7 +161,71 @@ def make_comparison(trial):
 
 if __name__ == "__main__":
 
-    trial = run()
-
-
-
+    trial = run(overwrite_options={'nlp.n_k':5, 'solver.max_iter':2, 'solver.max_iter_hippo': 2}, plot_show_block=False)
+    latex_dict = {'stab_derivs':
+                    {'0': r'0',
+                    'alpha': r'\AngleOfAttack',
+                    'beta': r'\Sideslip',
+                    'deltaa': r'\AileronAngle',
+                    'deltae': r'\ElevatorAngle',
+                    'deltar': r'\RudderAngle',
+                    'p': r'\rollRate',
+                    'q': r'\pitchRate',
+                    'r': r'\yawRate',
+                    'CL': r'\CL',
+                    'CD': r'\CD',
+                    'CS': r'\CS',
+                    'CX': r'\CX',
+                    'CY': r'\CY',
+                    'CZ': r'\CZ',
+                    'Cl': r'\Cl',
+                    'Cm': r'\Cm',
+                    'Cn': r'\Cn',
+                    },
+                  'model_var_bounds':
+                    {'theta.diam_t': r'\MainTetherDiameter',
+                     'theta.t_f': r'\OptimizationPeriod',
+                     'x.l_t': r'\MainTetherLength',
+                     'x.dl_t': r'\MainTetherSpeed',
+                     'u.ddl_t': r'\MainTetherAcceleration',
+                     'x.q': r'\NodePosition',
+                     'x.dq': r'\NodeVelocity',
+                     'x.omega': r'\KiteAngularVelocity',
+                     'x.delta': r'\KiteControlSurfaceDeflection',
+                     'z.lambda': r'\NodeTensionPerLength',
+                     'u.ddelta': r'\KiteControlSurfaceDeflectionRate',
+                    },
+                  'model_ineq_bounds':
+                      {
+                        'tether_force_max': r'\UpperBound{\TensionForce}',
+                        'tether_force_min': r'\LowerBound{\TensionForce}',
+                        'airspeed_max': r'\UpperBound{{\AirSpeed_\eff}}',
+                        'airspeed_min': r'\LowerBound{{\AirSpeed_\eff}}',
+                        'alpha_ub': r'\UpperBound{\AngleOfAttack}',
+                        'alpha_lb': r'\LowerBound{\AngleOfAttack}',
+                        'beta_ub': r'\UpperBound{\SideSlip}',
+                        'beta_lb': r'\LowerBound{\SideSlip}',
+                        'rotation_max': r'\UpperBound{\yawAngle}'
+                      },
+                  'environment':
+                      {
+                        't_ref': r'\Reference{\AirTemperature}',
+                        'gamma_air': r'\AirTemperatureGradient',
+                        'rho_ref': r'\Reference{\AirDensity}',
+                        'g': r'\GravityAcceleration',
+                        'r': r'\SpecificGasConstant',
+                        'gamma': r'\AirPolytropic',
+                        'mu_ref': r'\Reference{\AirDynamicViscosity}',
+                        'c_sutherland': r'\SutherlandConstant'
+                     },
+                  'model_dimensions':
+                      {
+                          'nx': r'\NumberOfStates',
+                          'nu': r'\NumberOfControls',
+                          'nz': r'\NumberOfAlgebraics',
+                          'np_var': r'\NumberOfParameters',
+                          'np_fix': r'\NumberOfPassedOptionParameters'
+                      }
+                  }
+    trial.make_report(to_echo_or_latex='latex', latex_dict=latex_dict)
+    # import pdb; pdb.set_trace()

@@ -33,6 +33,7 @@ python-3.5 / casadi 3.0.0
 
 
 import casadi.tools as cas
+
 import awebox.tools.struct_operations as struct_op
 import awebox.mdl.aero.induction_dir.vortex_dir.tools as vortex_tools
 import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
@@ -328,6 +329,47 @@ def define_bounds(model_system_bounds_options, variables):
                 variable_bounds[variable_type][name]['ub'] = cas.inf
 
     return variable_bounds
+
+def report_model_bounds(options_object, variables, to_echo_or_latex='echo', latex_dict={}, nan_replacement='--', trial_name='', digits=4):
+        joined_dict = {}
+        for key in options_object.flattened_dict.keys():
+            if 'model.system_bounds' in key:
+
+                system_bounds = options_object.flattened_dict[key]
+                for var_name, local_dict in system_bounds.items():
+
+                    entry_name = None
+                    for idx in range(len(variables.labels())):
+                        var_label = variables.labels()[idx]
+                        search_var_type = var_label.split(',')[0][1:]
+                        search_var_name = var_label.split(',')[1]
+                        search_var_base_name, _ = struct_op.split_name_and_node_identifier(search_var_name)
+
+                        if (search_var_base_name == var_name) and (search_var_type != 'xdot'):
+                            entry_name = search_var_type + '.' + var_name
+
+                    among_current_variables = (entry_name is not None)
+                    if among_current_variables:
+
+                        if to_echo_or_latex == 'latex':
+                            base_entry_name = entry_name
+                            # entry_name = '$ ' + base_entry_name + ' $'
+                            entry_name = base_entry_name
+
+                        joined_dict[entry_name] = {'lower': local_dict['value'][0],
+                                                  'upper': local_dict['value'][1],
+                                                  'units': local_dict['units'],
+                                                  }
+                        if to_echo_or_latex == 'latex':
+                            # joined_dict[entry_name]['units'] = r'\unit{' + local_dict['units'] + r'}'
+                            joined_dict[entry_name][r'\aweboxOptions{model.system_bounds.}'] = r'\aweboxOptions{' + base_entry_name + r'}'
+
+        caption = 'variable bounds'
+        if trial_name is not None:
+            caption += ' for ' + trial_name
+
+        print_op.print_dict_as_table(joined_dict, level='info', to_echo_or_latex=to_echo_or_latex, nan_replacement=nan_replacement, transpose=True, caption=caption, latex_dict=latex_dict, sort_dim=None, digits=digits, repr_type='f', latex_symbolic_in_first_column=True)
+        return None
 
 
 def scale_variable(variables, var_si, scaling):
