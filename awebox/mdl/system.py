@@ -34,11 +34,12 @@ python-3.5 / casadi 3.0.0
 
 import casadi.tools as cas
 
-import awebox.tools.struct_operations as struct_op
 import awebox.mdl.aero.induction_dir.vortex_dir.tools as vortex_tools
 import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
 import copy
 import awebox.tools.print_operations as print_op
+import awebox.tools.save_operations as save_op
+import awebox.tools.struct_operations as struct_op
 from awebox.logger.logger import Logger as awelogger
 
 def generate_structure(options, architecture):
@@ -330,7 +331,7 @@ def define_bounds(model_system_bounds_options, variables):
 
     return variable_bounds
 
-def report_model_bounds(options_object, variables, to_echo_or_latex='echo', latex_dict={}, nan_replacement='--', trial_name='', digits=4):
+def report_model_bounds(options_object, variables, to_echo_or_latex='echo', latex_dict={}, nan_replacement='--', trial_name='', digits=4, save=False):
         joined_dict = {}
         for key in options_object.flattened_dict.keys():
             if 'model.system_bounds' in key:
@@ -368,7 +369,10 @@ def report_model_bounds(options_object, variables, to_echo_or_latex='echo', late
         if trial_name is not None:
             caption += ' for ' + trial_name
 
-        print_op.print_dict_as_table(joined_dict, level='info', to_echo_or_latex=to_echo_or_latex, nan_replacement=nan_replacement, transpose=True, caption=caption, latex_dict=latex_dict, sort_dim=None, digits=digits, repr_type='f', latex_symbolic_in_first_column=True)
+        string_out = print_op.print_dict_as_table(joined_dict, level='info', to_echo_or_latex=to_echo_or_latex, nan_replacement=nan_replacement, transpose=True, caption=caption, latex_dict=latex_dict, sort_dim=None, digits=digits, repr_type='f', latex_symbolic_in_first_column=True)
+        if save:
+            save_op.write_string_to_txt_or_tex(string_out, trial_name.replace(' ', '_'),
+                                               to_echo_or_latex=to_echo_or_latex)
         return None
 
 

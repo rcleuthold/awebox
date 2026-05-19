@@ -156,6 +156,21 @@ def load_saved_data_from_dict(filename):
     return data
 
 
+def write_string_to_txt_or_tex(string, filename, extension=None, to_echo_or_latex='echo'):
+
+    if extension is not None:
+        ext = extension
+    elif to_echo_or_latex == 'latex':
+        ext = 'tex'
+    else:
+        ext = 'txt'
+
+    text_file = open(filename + "." + ext, "a")
+    text_file.write(string)
+    text_file.close()
+    return None
+
+
 def write_csv_data(data_dict, filename, rotation_representation='dcm'):
     write_csv_dict = init_write_csv_dict(data_dict)
 
@@ -312,49 +327,25 @@ def write_data_row(pcdw, data_dict, write_csv_dict, tgrid_ip, k, rotation_repres
 
     return None
 
-def running_on_aws_ec2(timeout=0.1):
-    try:
-        import requests
-        r = requests.get(
-            "http://169.254.169.254/latest/meta-data/",
-            timeout=timeout
-        )
-        return r.status_code == 200
-    except Exception:
-        return False
+def test_append_strings_to_file():
+    save_filenmame = 'save_op_test'
+    list_of_strings = ['apples', 'bananas', 'oranges']
+    expected = ''
+    for string in list_of_strings:
+        write_string_to_txt_or_tex(string, save_filenmame, extension='txt')
+        expected += string
 
-import subprocess
-import urllib.request
-import urllib.error
-def _imds_v2_token(timeout=2) -> str:
-    req = urllib.request.Request(
-        "http://169.254.169.254/latest/api/token",
-        method="PUT",
-        headers={"X-aws-ec2-metadata-token-ttl-seconds": "60"},
-    )
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read().decode()
+    filehandler = open(save_filenmame + '.txt', 'r')
+    string_read = filehandler.read()
+    criteria = (string_read == expected)
+    if not criteria:
+        message = 'something went wrong when saving strings to a file'
+        print_op.log_and_raise_error(message)
 
-def _imds_get(path: str, token: str, timeout=2) -> str:
-    url = f"http://169.254.169.254/latest/{path.lstrip('/')}"
-    req = urllib.request.Request(url, headers={"X-aws-ec2-metadata-token": token})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read().decode()
+    filehandler.close()
+    os.remove(save_filenmame + '.txt')
+    return None
 
-def running_on_aws_ec2(timeout=0.2) -> bool:
-    try:
-        token = _imds_v2_token(timeout=timeout)
-        _ = _imds_get("meta-data/instance-id", token, timeout=timeout)
-        return True
-    except Exception:
-        return False
-
-def stop_this_aws_ec2_instance():
-    if running_on_aws_ec2():
-        print_op.base_print('Shutting down aws ec2 instance...', level='warning')
-        subprocess.run(["sudo", "-n", "shutdown", "-h", "now"], capture_output=True, text=True)
-    else:
-        return
 
 def test_table_save_to_csv():
 
@@ -404,6 +395,7 @@ def test_table_save_to_csv():
 def test():
     # todo: test variable saving? and/or join with the table-save routine?
     test_table_save_to_csv()
+    test_append_strings_to_file()
     return None
 
 

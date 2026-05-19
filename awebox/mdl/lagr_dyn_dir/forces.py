@@ -44,7 +44,7 @@ import awebox.tools.print_operations as print_op
 from awebox.logger.logger import Logger as awelogger
 
 
-def generate_f_nodes(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling):
+def generate_f_nodes(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling, kite_obj_for_printing_only=None):
 
     variables_si = system_variables['SI']
 
@@ -56,7 +56,7 @@ def generate_f_nodes(options, atmos, wind, wake, system_variables, outputs, para
         if int(options['kite_dof']) == 6:
             node_forces['m' + str(node) + str(parent)] = cas.SX.zeros((3, 1))
 
-    aero_forces, outputs = generate_aerodynamic_forces(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling)
+    aero_forces, outputs, kite_obj_for_printing_only = generate_aerodynamic_forces(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
 
     # # this must be after the kite aerodynamics, because the tether model "kite_only" depends on the kite outputs.
     tether_drag_forces, outputs = generate_tether_drag_forces(options, variables_si, parameters, atmos, wind, outputs,
@@ -77,7 +77,7 @@ def generate_f_nodes(options, atmos, wind, wake, system_variables, outputs, para
         if (force[0] == 'm') and force in list(aero_forces.keys()):
             node_forces[force] += aero_forces[force]
 
-    return node_forces, outputs
+    return node_forces, outputs, kite_obj_for_printing_only
 
 
 def generate_drag_mode_forces(variables_si, outputs, architecture):
@@ -123,13 +123,13 @@ def generate_tether_drag_forces(options, variables_si, parameters, atmos, wind, 
     return tether_drag_forces, outputs
 
 
-def generate_aerodynamic_forces(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling):
+def generate_aerodynamic_forces(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling, kite_obj_for_printing_only=None):
     # homotopy parameters
     p_dec = parameters.prefix['phi']
     variables_si = system_variables['SI']
 
     # get aerodynamic forces and moments
-    outputs = kite_aero.get_forces_and_moments(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling)
+    outputs, kite_obj_for_printing_only = kite_aero.get_forces_and_moments(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
 
     # attribute aerodynamic forces to kites
     aero_forces = {}
@@ -142,7 +142,7 @@ def generate_aerodynamic_forces(options, atmos, wind, wake, system_variables, ou
         if int(options['kite_dof']) == 6:
             aero_forces['m' + str(kite) + str(parent)] = homotopy_moment
 
-    return aero_forces, outputs
+    return aero_forces, outputs, kite_obj_for_printing_only
 
 
 def fictitious_embedding(options, p_dec, variables_si, kite, parent, outputs):

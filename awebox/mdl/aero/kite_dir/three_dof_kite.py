@@ -45,7 +45,7 @@ import numpy as np
 from awebox.logger.logger import Logger as awelogger
 
 
-def get_force_vector(options, variables, atmos, wind, architecture, parameters, kite, outputs):
+def get_force_vector(options, variables, atmos, wind, architecture, parameters, kite, outputs, kite_obj_for_printing_only=None):
 
     f_aero_rot_overwrite = options['aero']['overwrite']['f_aero_rot']
     if f_aero_rot_overwrite is not None:
@@ -58,13 +58,13 @@ def get_force_vector(options, variables, atmos, wind, architecture, parameters, 
                                                         parameters, outputs)
 
     force_found_frame = 'earth'
-    force_found_vector = get_force_from_u_sym_in_earth_frame(vec_u, options, variables, kite, atmos, wind, architecture,
-                                                             parameters)
+    force_found_vector, kite_obj_for_printing_only = get_force_from_u_sym_in_earth_frame(vec_u, options, variables, kite, atmos, wind, architecture,
+                                                             parameters, kite_obj_for_printing_only=kite_obj_for_printing_only)
 
-    return force_found_vector, force_found_frame, vec_u, kite_dcm
+    return force_found_vector, force_found_frame, vec_u, kite_dcm, kite_obj_for_printing_only
 
 
-def get_force_cstr(options, variables, atmos, wind, architecture, parameters, outputs):
+def get_force_cstr(options, variables, atmos, wind, architecture, parameters, outputs, kite_obj_for_printing_only=None):
 
     f_aero_rot_overwrite = options['aero']['overwrite']['f_aero_rot']
     if f_aero_rot_overwrite is not None:
@@ -76,7 +76,7 @@ def get_force_cstr(options, variables, atmos, wind, architecture, parameters, ou
     for kite in architecture.kite_nodes:
         parent = architecture.parent_map[kite]
 
-        force_found_vector, force_found_frame, vec_u, kite_dcm = get_force_vector(options, variables, atmos, wind, architecture, parameters, kite, outputs)
+        force_found_vector, force_found_frame, vec_u, kite_dcm, kite_obj_for_printing_only = get_force_vector(options, variables, atmos, wind, architecture, parameters, kite, outputs, kite_obj_for_printing_only=kite_obj_for_printing_only)
 
         forces_dict = tools.get_framed_forces(vec_u, kite_dcm, variables, kite, architecture)
         force_framed_variable = forces_dict[force_found_frame]
@@ -90,12 +90,12 @@ def get_force_cstr(options, variables, atmos, wind, architecture, parameters, ou
                                         cstr_type='eq')
         cstr_list.append(f_kite_cstr)
 
-    return cstr_list
+    return cstr_list, kite_obj_for_printing_only
 
 
 
 
-def get_force_from_u_sym_in_earth_frame(vec_u, options, variables, kite, atmos, wind, architecture, parameters):
+def get_force_from_u_sym_in_earth_frame(vec_u, options, variables, kite, atmos, wind, architecture, parameters, kite_obj_for_printing_only=None):
 
     parent = architecture.parent_map[kite]
 
@@ -118,10 +118,20 @@ def get_force_from_u_sym_in_earth_frame(vec_u, options, variables, kite, atmos, 
         local_parameter_label = '[theta0,aero,' + poss_drag_label + ',0,0]'
         if local_parameter_label in parameters.labels():
             CD0 = vect_op.abs(parameters['theta0', 'aero', poss_drag_label, '0'][0])
+            if kite_obj_for_printing_only is not None:
+                kite_obj_for_printing_only.add_to_applied_params_dict('user_options.kite_standard.stab_derivs.CD', CD0)
 
     CD = CD0 + CL ** 2 / (np.pi * parameters['theta0', 'geometry', 'ar'])
+    if kite_obj_for_printing_only is not None:
+        kite_obj_for_printing_only.add_to_applied_params_dict('model.geometry.overwrite.ar',
+                                                              parameters['theta0', 'geometry', 'ar'])
+
 
     s_ref = parameters['theta0', 'geometry', 's_ref']
+    if kite_obj_for_printing_only is not None:
+        kite_obj_for_printing_only.add_to_applied_params_dict('model.geometry.overwrite.s_ref',
+                                                              parameters['theta0', 'geometry', 's_ref'])
+
 
     # lift and drag force
     f_lift = CL * 1. / 2. * rho_infty * cas.mtimes(vec_u.T, vec_u) * s_ref * Lhat
@@ -129,7 +139,7 @@ def get_force_from_u_sym_in_earth_frame(vec_u, options, variables, kite, atmos, 
 
     f_aero = f_lift + f_drag
 
-    return f_aero
+    return f_aero, kite_obj_for_printing_only
 
 
 

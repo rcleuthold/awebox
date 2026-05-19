@@ -33,30 +33,17 @@ import casadi.tools as cas
 import awebox.tools.print_operations as print_op
 import awebox.tools.struct_operations as struct_op
 
-class Atmosphere:
+class Atmosphere(print_op.PrintableObject):
     def __init__(self, options, params, options_object=None):
+        super().__init__(options_object=options_object, name='atmosphere')
         # if options['model'] == 'datafile':
             # self.find_u_polynomial_from_datafile(params)
             # self.find_p_polynomial_from_datafile(params)
         self.__options = options
         self.__params = params
 
-        self.__options_object = options_object
-        self.__applied_parameters_dict = {'model':{'description': 'atmsopheric model', 'value': options['model'], 'units':None, 'awebox option': 'user_options.atmosphere'}}
-
-
-    def add_to_applied_params_dict(self, address, value):
-        address_tuple = address.split('.')
-
-        self.__applied_parameters_dict[address_tuple[-1]] = {'awebox option': address, 'value': value}
-        if self.__options_object is not None:
-            help_dict = self.__options_object.help_dict
-            for idx in range(len(address_tuple)):
-                help_dict = help_dict[address_tuple[idx]]
-            if len(help_dict[0]) > 2:
-                self.__applied_parameters_dict[address_tuple[-1]]['description'] = help_dict[0][0]
-                self.__applied_parameters_dict[address_tuple[-1]]['units'] = help_dict[0][2]
-        return None
+        self.add_to_applied_params_dict('user_options.atmosphere', options['model'])
+        # self.__applied_parameters_dict = {'model':{'description': 'atmsopheric model', 'value': options['model'], 'units':None, 'awebox option': 'user_options.atmosphere'}}
 
     def get_temperature(self, zz):
         params = self.__params.prefix['theta0','atmosphere']
@@ -167,21 +154,3 @@ class Atmosphere:
         self.add_to_applied_params_dict('params.atmosphere.gamma', params['gamma'])
         self.add_to_applied_params_dict('params.atmosphere.r', params['r'])
         return a
-
-    def make_report(self, to_echo_or_latex='echo', latex_dict={}, trial_name=None, V_opt=None, p_fix_num=None, model_parameters=None):
-        copy_dict = struct_op.make_copy_of_parameter_dict_with_value_column_evaluated(self.__applied_parameters_dict, V_opt=V_opt, p_fix_num=p_fix_num, model_parameters=model_parameters)
-        caption = 'Environmental parameters'
-        if trial_name is not None:
-            caption += ' for ' + trial_name
-
-        print_op.print_dict_as_table(copy_dict, level='info', to_echo_or_latex=to_echo_or_latex, caption=caption, nan_replacement='--', latex_dict=latex_dict, transpose=True, latex_symbolic_in_first_column=True)
-        return None
-
-    @property
-    def applied_parameters_dict(self):
-        return self.__applied_parameters_dict
-
-    @applied_parameters_dict.setter
-    def applied_parameters_dict(self, value):
-        awelogger.logger.warning('Cannot set applied_parameters_dict object.')
-

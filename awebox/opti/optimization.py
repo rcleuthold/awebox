@@ -493,9 +493,9 @@ class Optimization(object):
 
         return usage_entire_step, usage_ipopt
 
-    def report_timings(self, to_echo_or_latex='echo', latex_dict={}, trial_name=None):
+    def report_timings(self, to_echo_or_latex='echo', latex_dict={}, trial_name=None, save=False):
 
-        caption = 'time per problem phase'
+        caption = 'solution time per problem phase'
         if trial_name is not None:
             caption += ' for ' + trial_name
 
@@ -507,11 +507,17 @@ class Optimization(object):
                            'cpu useage (whole step)': dict(tuple(useage_entire_step.items()) + tuple({'units': None}.items())),
                            'cpu useage (IPOPT)': dict(tuple(useage_ipopt.items()) + tuple({'units': None}.items())),
                            }
-        print_op.print_dict_as_table(all_timing_dict, to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, caption=caption, digits=2, nan_replacement='--', transpose=True)
+        string_out = print_op.print_dict_as_table(all_timing_dict, to_echo_or_latex=to_echo_or_latex,
+                                                  latex_dict=latex_dict, caption=caption, digits=2,
+                                                  nan_replacement='--', transpose=True)
+        if save:
+            save_op.write_string_to_txt_or_tex(string_out, trial_name.replace(' ', '_'),
+                                               to_echo_or_latex=to_echo_or_latex)
+
         return None
 
-    def make_report(self, to_echo_or_latex='echo', latex_dict={}, trial_name=None):
-        self.report_timings(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, trial_name=trial_name)
+    def make_report(self, to_echo_or_latex='echo', latex_dict={}, trial_name=None, save=False):
+        self.report_timings(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, trial_name=trial_name, save=save)
         return None
 
     ### arguments

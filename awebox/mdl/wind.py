@@ -33,12 +33,14 @@ import numpy as np
 from awebox.logger.logger import Logger as awelogger
 import awebox.tools.vector_operations as vect_op
 import awebox.tools.print_operations as print_op
+import awebox.tools.struct_operations as struct_op
 import awebox.tools.lagr_interpol as lagr_interpol
 import matplotlib.pyplot as plt
 
 
-class Wind:
-    def __init__(self, wind_model_options, params, suppress_type_incompatibility_warning=False):
+class Wind(print_op.PrintableObject):
+    def __init__(self, wind_model_options, params, suppress_type_incompatibility_warning=False, options_object=None):
+        super().__init__(options_object=options_object, name='wind')
         self.__options = wind_model_options
         self.__params = params #NOTE: where do those parameters come from?
 
@@ -48,6 +50,8 @@ class Wind:
 
         self.__type_incompatibility_warning_already_given = False
         self.__suppress_type_incompatibility_warning = suppress_type_incompatibility_warning
+
+        self.add_to_applied_params_dict('user_options.wind.model', wind_model_options['model'])
 
     def get_velocity(self, zz, external_parameters=None):
 
@@ -78,8 +82,23 @@ class Wind:
                 warn_about_importing_from_options()
                 self.__type_incompatibility_warning_already_given = True
 
-        if model in ['log_wind', 'power', 'uniform']:
-            u_val = get_speed(model, u_ref, z_ref, z0_air, exp_ref, zz)
+        if model == 'log_wind':
+            self.add_to_applied_params_dict('user_options.wind.u_ref', u_ref)
+            self.add_to_applied_params_dict('params.wind.z_ref', z_ref)
+            self.add_to_applied_params_dict('params.wind.log_wind.z0_air', z0_air)
+            u_val = get_log_law_speed(u_ref, z_ref, z0_air, zz)
+            u = u_val * u_hat
+
+        elif model == 'power':
+            self.add_to_applied_params_dict('user_options.wind.u_ref', u_ref)
+            self.add_to_applied_params_dict('params.wind.z_ref', z_ref)
+            self.add_to_applied_params_dict('params.wind.power_wind.exp_ref', exp_ref)
+            u_val = get_power_law_speed(u_ref, z_ref, exp_ref, zz)
+            u = u_val * u_hat
+
+        elif model == 'uniform':
+            self.add_to_applied_params_dict('user_options.wind.u_ref', u_ref)
+            u_val = get_uniform_speed(u_ref)
             u = u_val * u_hat
 
         elif model == 'datafile':
@@ -204,6 +223,7 @@ class Wind:
     def options(self, value):
         awelogger.logger.warning('Cannot set options object.')
 
+
 def warn_about_importing_from_options():
     message = 'to prevent casadi type incompatibility, wind parameters are imported ' \
               'directly from options. this may interfere with expected operation, especially in sweeps.'
@@ -211,33 +231,42 @@ def warn_about_importing_from_options():
     return None
 
 
-def get_speed(model, u_ref, z_ref, z0_air, exp_ref, zz):
-
+def get_z_cropped(zz, epsilon=1e-4):
     # approximates the maximum of (zz vs. 0)
-    epsilon = 1.e-4
     z_cropped = vect_op.smooth_abs(zz, epsilon=epsilon)
+    return z_cropped
 
+def get_log_law_speed(u_ref, z_ref, z0_air, zz):
+    z_cropped = get_z_cropped(zz)
+
+    # mathematically: it doesn't make a difference what the base of
+    # these logarithms is, as long as they have the same base.
+    # but, the values will be smaller in base 10 (since we're describing
+    # altitude differences), which makes convergence nicer.
+    # u = u_ref * np.log10(zz / z0_air) / np.log10(z_ref / z0_air)
+    u = u_ref * cas.log10(z_cropped / z0_air) / cas.log10(z_ref / z0_air)
+    return u
+
+def get_power_law_speed(u_ref, z_ref, exp_ref, zz):
+    z_cropped = get_z_cropped(zz)
+    # u = u_ref * (zz / z_ref) ** exp_ref
+    u = u_ref * (z_cropped / z_ref) ** exp_ref
+    return u
+
+def get_uniform_speed(u_ref):
+    u = u_ref
+    return u
+
+def get_speed(model, u_ref, z_ref, z0_air, exp_ref, zz):
     if model == 'log_wind':
-
-        # mathematically: it doesn't make a difference what the base of
-        # these logarithms is, as long as they have the same base.
-        # but, the values will be smaller in base 10 (since we're describing
-        # altitude differences), which makes convergence nicer.
-        # u = u_ref * np.log10(zz / z0_air) / np.log10(z_ref / z0_air)
-        u = u_ref * cas.log10(z_cropped / z0_air) / cas.log10(z_ref / z0_air)
-
+        return get_log_law_speed(u_ref, z_ref, z0_air, zz)
     elif model == 'power':
-        # u = u_ref * (zz / z_ref) ** exp_ref
-        u = u_ref * (z_cropped / z_ref) ** exp_ref
-
+        return get_power_law_speed(u_ref, z_ref, exp_ref, zz)
     elif model == 'uniform':
-        u = u_ref
-
+        return get_uniform_speed(u_ref)
     elif model == 'datafile':
         message = 'the mdl.wind external get_speed function is not currently set-up to allow wind velocity profile importing from datafile.'
         print_op.log_and_raise_error(message)
-
     else:
         raise ValueError('unsupported atmospheric option chosen: %s', model)
-
-    return u
+    return None

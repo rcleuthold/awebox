@@ -35,6 +35,7 @@ from . import default
 from . import funcs
 from ..mdl.aero.induction_dir.vortex_dir import tools
 import awebox.tools.print_operations as print_op
+import awebox.tools.save_operations as save_op
 
 class Options:
     def __init__(self):
@@ -185,78 +186,81 @@ class Options:
 
         return None
 
-    def report_stability_derivatives(self, to_echo_or_latex='echo', latex_dict={}, nan_replacement='--',trial_name=''):
+    def report_stability_derivatives(self, to_echo_or_latex='echo', latex_dict={}, nan_replacement='--', trial_name='', save=False):
 
         copied_dict = copy.deepcopy(self.__options_dict)
+        if copied_dict['user_options']['system_model']['kite_dof'] == 6:
 
-        stab_derivs = {}
-        for poss_deriv in copied_dict['params']['aero'].keys():
-            if poss_deriv[0] == 'C':
-                stab_derivs[poss_deriv] = copied_dict['params']['aero'][poss_deriv]
+            stab_derivs = {}
+            for poss_deriv in copied_dict['params']['aero'].keys():
+                if poss_deriv[0] == 'C':
+                    stab_derivs[poss_deriv] = copied_dict['params']['aero'][poss_deriv]
 
-        out_table = {}
-        for deriv_name in stab_derivs.keys():
+            out_table = {}
+            for deriv_name in stab_derivs.keys():
+                if deriv_name not in out_table.keys():
+                    out_table[deriv_name] = {}
 
-            # todo
-            if to_echo_or_latex == 'latex' and deriv_name in latex_dict.keys():
-                local_name = r'$ ' + latex_dict[deriv_name] + ' $'
-            else:
-                local_name = deriv_name
+                    for input_name, deriv_stack in stab_derivs[deriv_name].items():
+                        deriv_length = deriv_stack.shape[0]
 
-            if local_name not in out_table.keys():
-                out_table[local_name] = {}
+                        for ldx in range(deriv_length):
 
-                for input_name, deriv_stack in stab_derivs[deriv_name].items():
-                    deriv_length = deriv_stack.shape[0]
+                            if to_echo_or_latex == 'latex':
+                                multiplier = '' # ~ '
+                                dollar = '$'
+                                space = ' '
+                                unspace = '\hspace{-1ex} '
+                            else:
+                                multiplier = ' * '
+                                dollar = ''
+                                space = ''
+                                unspace = ''
 
-                    for ldx in range(deriv_length):
+                            subscript = input_name
+                            # the really weird spacing thing, is so that print_op's print_as_table's latex replacement
+                            # function will recognize the variable names individually
+                            if input_name == 'alpha' and ldx > 0:
+                                subscript += space + unspace + dollar + "^" + str(ldx + 1) + dollar
+                            elif ldx == 1:
+                                subscript += multiplier + " alpha "
+                            elif ldx > 1:
+                                subscript += multiplier + " alpha " + unspace + dollar + "^" + str(ldx) + dollar
 
-                        if to_echo_or_latex == 'latex':
-                            multiplier = '' # ~ '
-                            dollar = '$'
-                            space = ' '
-                            unspace = '\hspace{-1ex} '
-                        else:
-                            multiplier = ' * '
-                            dollar = ''
-                            space = ''
-                            unspace = ''
+                            out_table[deriv_name][subscript] = deriv_stack[ldx]
 
-                        subscript = input_name
-                        # the really weird spacing thing, is so that print_op's print_as_table's latex replacement
-                        # function will recognize the variable names individually
-                        if input_name == 'alpha' and ldx > 0:
-                            subscript += space + unspace + dollar + "^" + str(ldx + 1) + dollar
-                        elif ldx == 1:
-                            subscript += multiplier + " alpha "
-                        elif ldx > 1:
-                            subscript += multiplier + " alpha " + unspace + dollar + "^" + str(ldx) + dollar
+            caption = 'stability derivatives for ' + trial_name
+            string_out = print_op.print_dict_as_table(out_table, level='info', to_echo_or_latex=to_echo_or_latex,
+                                                      nan_replacement=nan_replacement, transpose=False,
+                                                      caption=caption, latex_dict=latex_dict, sort_dim=0)
+            if save:
+                save_op.write_string_to_txt_or_tex(string_out, trial_name.replace(' ', '_'),
+                                                   to_echo_or_latex=to_echo_or_latex)
 
-                        out_table[local_name][subscript] = deriv_stack[ldx]
-
-        print_op.print_dict_as_table(out_table, level='info', to_echo_or_latex=to_echo_or_latex, nan_replacement=nan_replacement, transpose=False, caption='stability derivatives for ' + trial_name, latex_dict=latex_dict, sort_dim=0)
-
-        # todo: aero validity rules?
+            # aero validity rules are printed with model inequality constraints
 
         return None
 
-    def make_report(self, to_echo_or_latex='echo', latex_dict={}, trial_name=''):
+    def make_report(self, to_echo_or_latex='echo', latex_dict={}, trial_name='', print_all_options=False, save=False):
 
         if to_echo_or_latex == 'latex':
             trial_name = trial_name.replace('_', ' ')
 
-        for top_level_name, subdict in self.__flattened_dict.items():
-
-            caption = top_level_name
-            if (trial_name is not None) and (trial_name != ''):
-                caption += ' for ' + trial_name
-            print_op.print_dict_as_table(subdict, to_echo_or_latex=to_echo_or_latex, caption=caption, nan_replacement='--', transpose=True, latex_dict=latex_dict)
+        if print_all_options:
+            for top_level_name, subdict in self.__flattened_dict.items():
+                caption = top_level_name
+                if (trial_name is not None) and (trial_name != ''):
+                    caption += ' for ' + trial_name
+                string_out = print_op.print_dict_as_table(subdict, to_echo_or_latex=to_echo_or_latex, caption=caption, nan_replacement='--', transpose=True, latex_dict=latex_dict)
+                if save:
+                    save_op.write_string_to_txt_or_tex(string_out, trial_name.replace(' ', '_'),
+                                                       to_echo_or_latex=to_echo_or_latex)
 
         if 'stab_derivs' in latex_dict.keys():
             stab_deriv_dict = latex_dict['stab_derivs']
         else:
             stab_deriv_dict = latex_dict
-        self.report_stability_derivatives(to_echo_or_latex=to_echo_or_latex, nan_replacement='--', latex_dict=stab_deriv_dict, trial_name=trial_name)
+        self.report_stability_derivatives(to_echo_or_latex=to_echo_or_latex, nan_replacement='--', latex_dict=stab_deriv_dict, trial_name=trial_name, save=save)
 
         return None
 

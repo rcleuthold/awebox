@@ -17,7 +17,7 @@ import awebox.mdl.aero.tether_dir.tether_aero as tether_aero
 
 import numpy as np
 
-def get_dynamics(options, atmos, wind, architecture, system_variables, system_gc, parameters, outputs, wake, scaling):
+def get_dynamics(options, atmos, wind, architecture, system_variables, system_gc, parameters, outputs, wake, scaling, kite_obj_for_printing_only=None):
 
     parent_map = architecture.parent_map
     number_of_nodes = architecture.number_of_nodes
@@ -36,7 +36,7 @@ def get_dynamics(options, atmos, wind, architecture, system_variables, system_gc
     # lagrangian
     # --------------------------------
 
-    outputs = energy_comp.energy_outputs(options, parameters, outputs, system_variables['SI'], architecture, scaling)
+    outputs, kite_obj_for_printing_only = energy_comp.energy_outputs(options, parameters, outputs, system_variables['SI'], architecture, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
     e_kinetic = sum(outputs['e_kinetic'][nodes] for nodes in list(outputs['e_kinetic'].keys()))
     e_potential = sum(outputs['e_potential'][nodes] for nodes in list(outputs['e_potential'].keys()))
 
@@ -55,7 +55,7 @@ def get_dynamics(options, atmos, wind, architecture, system_variables, system_gc
     # generalized forces in the system
     # --------------------------------
 
-    f_nodes, outputs = forces_comp.generate_f_nodes(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling)
+    f_nodes, outputs, kite_obj_for_printing_only = forces_comp.generate_f_nodes(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
     outputs = forces_comp.generate_tether_moments(options, system_variables['SI'], system_variables['scaled'], work_holonomic, outputs,
                                                   architecture)
 
@@ -169,7 +169,7 @@ def get_dynamics(options, atmos, wind, architecture, system_variables, system_gc
                                                   name='trivial_' + name)
             cstr_list.append(trivial_dyn_cstr)
 
-    return cstr_list, outputs
+    return cstr_list, outputs, kite_obj_for_printing_only
 
 
 def momentum_correction(options, generalized_coordinates, system_variables, parameters, outputs, architecture, scaling):

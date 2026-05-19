@@ -48,12 +48,13 @@ import awebox.mdl.lagr_dyn_dir.tools as lagr_tools
 import awebox.tools.vector_operations as vect_op
 import awebox.tools.struct_operations as struct_op
 import awebox.tools.print_operations as print_op
+import awebox.tools.save_operations as save_op
 import awebox.tools.constraint_operations as cstr_op
 
 from awebox.logger.logger import Logger as awelogger
 
 
-def make_dynamics(options, atmos, wind, parameters, architecture, options_help=None):
+def make_dynamics(options, atmos, wind, parameters, architecture, options_help=None, kite_obj_for_printing_only=None):
     # system architecture (see zanon2013a)
 
     # --------------------------------------------------------------------------------------
@@ -87,14 +88,14 @@ def make_dynamics(options, atmos, wind, parameters, architecture, options_help=N
                                                                         parameters)
 
     # enforce the lagrangian dynamics
-    lagr_dyn_cstr, outputs = lagr_dyn.get_dynamics(options, atmos, wind, architecture, system_variables, system_gc,
-                                                   parameters, outputs, wake, scaling)
+    lagr_dyn_cstr, outputs, kite_obj_for_printing_only = lagr_dyn.get_dynamics(options, atmos, wind, architecture, system_variables, system_gc,
+                                                   parameters, outputs, wake, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
     cstr_list.append(lagr_dyn_cstr)
 
     # enforce lifted aerodynamic force <-- this must happen after lagr_dyn.get_dynamics, which determines the kite indicators
     if options['aero']['lift_aero_force']:
-        aero_force_cstr = kite_aero.get_force_cstr(options, system_variables['SI'], atmos, wind, architecture,
-                                                   parameters, outputs)
+        aero_force_cstr, kite_obj_for_printing_only = kite_aero.get_force_cstr(options, system_variables['SI'], atmos, wind, architecture,
+                                                   parameters, outputs, kite_obj_for_printing_only=kite_obj_for_printing_only)
         cstr_list.append(aero_force_cstr)
 
     # enforce lifted tether force
@@ -124,21 +125,21 @@ def make_dynamics(options, atmos, wind, parameters, architecture, options_help=N
     aero_validity_cstr = aero_validity_inequality(options, outputs)
     cstr_list.append(aero_validity_cstr)
 
-    anticollision_cstr = anticollision_inequality(options, system_variables['SI'], parameters, architecture, options_help=options_help)
+    anticollision_cstr, kite_obj_for_printing_only = anticollision_inequality(options, system_variables['SI'], parameters, architecture, options_help=options_help, kite_obj_for_printing_only=kite_obj_for_printing_only)
     cstr_list.append(anticollision_cstr)
 
     acceleration_cstr = acceleration_inequality(options, system_variables['SI'], options_help=options_help)
     cstr_list.append(acceleration_cstr)
 
-    outputs, rotation_cstr = rotation_inequality(options, system_variables['SI'], parameters, architecture, outputs, options_help=options_help  )
+    outputs, rotation_cstr, kite_obj_for_printing_only = rotation_inequality(options, system_variables['SI'], parameters, architecture, outputs, options_help=options_help, kite_obj_for_printing_only=kite_obj_for_printing_only)
     cstr_list.append(rotation_cstr)
 
     power, outputs, _ = get_power(options, system_variables, parameters, outputs, architecture, scaling)
     max_power_cstr = max_power_inequality(options, system_variables['SI'], power, options_help=options_help)
     cstr_list.append(max_power_cstr)
 
-    outputs, ellips_cstr = ellipsoidal_flight_constraint(options, system_variables['SI'], parameters, architecture,
-                                                         outputs, options_help=options_help)
+    outputs, ellips_cstr, kite_obj_for_printing_only = ellipsoidal_flight_constraint(options, system_variables['SI'], parameters, architecture,
+                                                         outputs, options_help=options_help, kite_obj_for_printing_only=kite_obj_for_printing_only)
     cstr_list.append(ellips_cstr)
 
     # ----------------------------------------
@@ -200,7 +201,8 @@ def make_dynamics(options, atmos, wind, parameters, architecture, options_help=N
         integral_outputs,
         integral_outputs_fun,
         integral_scaling,
-        wake
+        wake,
+        kite_obj_for_printing_only
     ]
 
 
@@ -530,7 +532,7 @@ def xdot_outputs(variables, outputs):
     return outputs
 
 
-def anticollision_inequality(options, variables, parameters, architecture, options_help=None):
+def anticollision_inequality(options, variables, parameters, architecture, options_help=None, kite_obj_for_printing_only=None):
     kite_nodes = architecture.kite_nodes
     parent_map = architecture.parent_map
 
@@ -540,6 +542,8 @@ def anticollision_inequality(options, variables, parameters, architecture, optio
 
         safety_factor = options['model_bounds']['anticollision']['safety_factor']
         dist_min = safety_factor * parameters['theta0', 'geometry', 'b_ref']
+        if kite_obj_for_printing_only is not None:
+            kite_obj_for_printing_only.add_to_applied_params_dict('model.geometry.overwrite.b_ref', parameters['theta0', 'geometry', 'b_ref'])
 
         param_dict = make_inequality_parameter_dict_entry(options, parameters, 'model_bounds.anticollision.safety_factor', options_help=options_help)
 
@@ -560,7 +564,7 @@ def anticollision_inequality(options, variables, parameters, architecture, optio
                                                     parameter_dict=param_dict)
             cstr_list.append(anticollision_cstr)
 
-    return cstr_list
+    return cstr_list, kite_obj_for_printing_only
 
 
 def dcoeff_actuation_inequality(options, variables_si, parameters, architecture, options_help=None):
@@ -699,7 +703,7 @@ def max_power_inequality(options, variables, power, options_help=None):
     return cstr_list
 
 
-def ellipsoidal_flight_constraint(options, variables, parameters, architecture, outputs, options_help=None):
+def ellipsoidal_flight_constraint(options, variables, parameters, architecture, outputs, options_help=None, kite_obj_for_printing_only=None):
     cstr_list = cstr_op.MdlConstraintList()
 
     alpha = parameters['theta0', 'model_bounds', 'ellipsoidal_flight_region', 'alpha']
@@ -720,6 +724,10 @@ def ellipsoidal_flight_constraint(options, variables, parameters, architecture, 
 
     r = min_radius - parameters['theta0', 'geometry', 'b_ref']
     if options['model_bounds']['ellipsoidal_flight_region']['include']:
+
+        if kite_obj_for_printing_only is not None:
+            kite_obj_for_printing_only.add_to_applied_params_dict('model.geometry.overwrite.b_ref', parameters['theta0', 'geometry', 'b_ref'])
+
         for node in range(1, architecture.number_of_nodes):
             q = variables['x']['q{}'.format(architecture.node_label(node))]
 
@@ -733,7 +741,7 @@ def ellipsoidal_flight_constraint(options, variables, parameters, architecture, 
                                               parameter_dict=param_dict)
             cstr_list.append(ellipse_cstr)
 
-    return outputs, cstr_list
+    return outputs, cstr_list, kite_obj_for_printing_only
 
 
 def acceleration_inequality(options, variables, options_help=None):
@@ -1158,7 +1166,7 @@ def get_pitch_expr(x, n0, n1, parent_map):
     return cas.mtimes(q_hat.T, r[:, 0]) / vect_op.norm(q_hat)
 
 
-def get_span_angle_expr(options, x, n0, n1, parent_map, parameters):
+def get_span_angle_expr(options, x, n0, n1, parent_map, parameters, kite_obj_for_printing_only=None):
     """ Return the expression that allows to compute the cross-tether vs. body span-vector angle and related inequality,
     :param x: system variables
     :param n0: node number of kite node
@@ -1171,6 +1179,10 @@ def get_span_angle_expr(options, x, n0, n1, parent_map, parameters):
     q0 = x['q{}{}'.format(n0, parent_map[n0])]
     r0 = cas.reshape(x['r{}{}'.format(n0, parent_map[n0])], (3, 3))  # rotation matrix
     r_wtip = cas.vertcat(0.0, -parameters['theta0', 'geometry', 'b_ref'] / 2, 0.0)
+
+    if kite_obj_for_printing_only is not None:
+        kite_obj_for_printing_only.add_to_applied_params_dict('model.geometry.overwrite.b_ref',
+                                                              parameters['theta0', 'geometry', 'b_ref'])
 
     if n1 == 0:
         q1 = np.zeros((3, 1))
@@ -1195,7 +1207,7 @@ def get_span_angle_expr(options, x, n0, n1, parent_map, parameters):
     # angle between aircraft span vector and cross-tether
     span_angle = cas.acos(cas.mtimes(r0[:, 1].T, q_hat) / vect_op.norm(q_hat))
 
-    return span_ineq, span_angle, max_angle
+    return span_ineq, span_angle, max_angle, kite_obj_for_printing_only
 
 
 def get_yaw_expr(options, x, n0, n1, parent_map, gamma_max):
@@ -1230,7 +1242,7 @@ def get_yaw_expr(options, x, n0, n1, parent_map, gamma_max):
     return yaw_expr, yaw_angle
 
 
-def rotation_inequality(options, variables, parameters, architecture, outputs, options_help=None):
+def rotation_inequality(options, variables, parameters, architecture, outputs, options_help=None, kite_obj_for_printing_only=None):
     number_of_nodes = architecture.number_of_nodes
     kite_nodes = architecture.kite_nodes
     parent_map = architecture.parent_map
@@ -1337,10 +1349,10 @@ def rotation_inequality(options, variables, parameters, architecture, outputs, o
                     else:
 
                         # get angle between body span vector and cross-tether and related inequality
-                        rotation_angle_expr, span, max_angle = get_span_angle_expr(options, x, kites[k],
+                        rotation_angle_expr, span, max_angle, kite_obj_for_printing_only = get_span_angle_expr(options, x, kites[k],
                                                                         kites[(k + 1) % len(kites)],
-                                                                        parent_map, parameters)
-                        rotation_angle_expr2, span2, max_angle2 = get_span_angle_expr(options, x, kites[(k + 1) % len(kites)],
+                                                                        parent_map, parameters, kite_obj_for_printing_only=kite_obj_for_printing_only)
+                        rotation_angle_expr2, span2, max_angle2, _ = get_span_angle_expr(options, x, kites[(k + 1) % len(kites)],
                                                                           kites[k], parent_map, parameters)
 
                         if options['model_bounds']['rotation']['include']:
@@ -1357,9 +1369,9 @@ def rotation_inequality(options, variables, parameters, architecture, outputs, o
                         outputs['local_performance']['rot_angles' + tether_name] = span
                         outputs['local_performance']['rot_angles' + tether_name2] = span2
 
-    return outputs, cstr_list
+    return outputs, cstr_list, kite_obj_for_printing_only
 
-def report_applied_inequalities(cstr_list, to_echo_or_latex='echo', V_opt=None, p_fix_num=None, model_parameters=None, latex_dict=None, trial_name=None):
+def report_applied_inequalities(cstr_list, to_echo_or_latex='echo', V_opt=None, p_fix_num=None, model_parameters=None, latex_dict=None, trial_name=None, save=False):
     cstr_dict = {}
     for cstr in cstr_list.get_list('ineq'):
         cstr_name = struct_op.split_name_and_node_identifier(cstr.name)[0]
@@ -1420,7 +1432,11 @@ def report_applied_inequalities(cstr_list, to_echo_or_latex='echo', V_opt=None, 
                 else:
                     copy_dict[copy_cstr_name][entry_name] = eval_dict[cstr_name][entry_name]
 
-        print_op.print_dict_as_table(copy_dict, to_echo_or_latex=to_echo_or_latex, caption=caption, transpose=True, latex_dict=latex_dict, latex_symbolic_in_first_column=True)
+        string_out = print_op.print_dict_as_table(copy_dict, to_echo_or_latex=to_echo_or_latex, caption=caption, transpose=True, latex_dict=latex_dict, latex_symbolic_in_first_column=True)
+        if save:
+            save_op.write_string_to_txt_or_tex(string_out, trial_name.replace(' ', '_'),
+                                               to_echo_or_latex=to_echo_or_latex)
+
     else:
         print_op.print_bulleted_list(list(cstr_dict.keys()), caption=caption, to_echo_or_latex=to_echo_or_latex)
 

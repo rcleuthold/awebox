@@ -322,11 +322,11 @@ class Trial(object):
         # pickle data
         save_op.save(data_to_save, filename, file_extension)
 
-    def make_report(self, to_echo_or_latex='echo', latex_dict={}):
+    def make_report(self, to_echo_or_latex='echo', latex_dict={}, print_all_options=False, save=False):
         trial_name = self.__name
-        self.__options.make_report(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, trial_name=trial_name)
-        self.__model.print_model_info(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, nan_replacement='--', trial_name=trial_name, V_opt=self.__optimization.V_opt, p_fix_num=self.__optimization.p_fix_num)
-        self.__optimization.make_report(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, trial_name=trial_name)
+        self.__model.print_model_info(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, nan_replacement='--', trial_name=trial_name, V_opt=self.__optimization.V_opt, p_fix_num=self.__optimization.p_fix_num, save=save)
+        self.__options.make_report(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, trial_name=trial_name, print_all_options=print_all_options, save=save)
+        self.__optimization.make_report(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, trial_name=trial_name, save=save)
         return None
 
 

@@ -216,7 +216,10 @@ if __name__ == "__main__":
                         'r': r'\SpecificGasConstant',
                         'gamma': r'\AirPolytropic',
                         'mu_ref': r'\Reference{\AirDynamicViscosity}',
-                        'c_sutherland': r'\SutherlandConstant'
+                        'c_sutherland': r'\SutherlandConstant',
+                          'u_ref': r'\ReferenceWindSpeed',
+                          'z_ref': r'\WindReferenceHeight',
+                          'exp_ref': r'\PowerWindRoughnessExponent'
                      },
                   'model_dimensions':
                       {
@@ -225,7 +228,15 @@ if __name__ == "__main__":
                           'nz': r'\NumberOfAlgebraics',
                           'np_var': r'\NumberOfParameters',
                           'np_fix': r'\NumberOfPassedOptionParameters'
-                      }
+                      },
+                  'kite':
+                        {'kite_dof': r' $\DOF$ ',
+                        'm_k': r'\KiteMass',
+                        'j': r'\KiteMomentOfInertia',
+                        's_ref': r'\PlanformArea',
+                        'b_ref': r'\Wingspan',
+                        'c_ref': r'\MAC'
+                         }
                   }
-    trial.make_report(to_echo_or_latex='latex', latex_dict=latex_dict)
+    trial.make_report(to_echo_or_latex='latex', latex_dict=latex_dict, save=True)
     # import pdb; pdb.set_trace()
