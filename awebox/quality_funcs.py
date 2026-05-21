@@ -35,6 +35,9 @@ import casadi.tools as cas
 import awebox.tools.struct_operations as struct_op
 import awebox.tools.print_operations as print_op
 import awebox.tools.vector_operations as vect_op
+from awebox.mdl.architecture import Architecture
+from awebox.mdl.model import Model
+
 
 def test_opti_success(trial, test_param_dict, results):
     """
@@ -129,9 +132,27 @@ def include_result_of_allowed_invariant_test(results, name, node, parent, sol_va
         results[combined_name] = False
     else:
         results[combined_name] = True
-
     return results
 
+def test_flow_quasi_steadyness(trial, test_param_dict, results):
+
+    if trial.options['user_options']['induction_model'] == 'not_in_use':
+        reduced_frequency_thresh = test_param_dict['quasi_steady_reduced_frequency_thresh']
+        name = 'quasi-steady_reduced_frequency'
+
+        for kite in trial.model.architecture.kite_nodes:
+            qs_found = trial.visualization.plot_dict['interpolation_si']['outputs']['aerodynamics']['reduced_frequency_n_k_' + str(kite)]
+            qs_found_max = np.max(np.array(qs_found))
+
+            combined_name = name + str(kite)
+            if qs_found_max > reduced_frequency_thresh:
+                message = 'Maximum reduced frequency of kite ' + str(kite) + ' has value ' + str(qs_found_max) + ' > ' + str(reduced_frequency_thresh) + ' for trial ' + trial.name
+                awelogger.logger.warning(message)
+                results[combined_name] = False
+            else:
+                results[combined_name] = True
+
+    return results
 
 def test_node_altitude(trial, test_param_dict, results):
     """
@@ -324,5 +345,7 @@ def generate_test_param_dict(options):
     test_param_dict['check_energy_summation'] = options['test_param']['check_energy_summation']
     test_param_dict['energy_summation_thresh'] = options['test_param']['energy_summation_thresh']
     test_param_dict['non_power_fraction_of_objective_thresh'] = options['test_param']['non_power_fraction_of_objective_thresh']
+    test_param_dict['quasi_steady_reduced_frequency_thresh'] = options['test_param']['quasi_steady_reduced_frequency_thresh']
+
 
     return test_param_dict

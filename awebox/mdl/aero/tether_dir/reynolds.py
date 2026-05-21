@@ -30,17 +30,38 @@ _python-3.5 / casadi-3.4.5
 
 import awebox.tools.vector_operations as vect_op
 import casadi.tools as cas
+import awebox.tools.print_operations as print_op
+from awebox.mdl.wind import Wind
 
 
-def get_reynolds_number(atmos, ua, diam, q_upper, q_lower):
+def get_reynolds_number(atmos, diam=None, q_upper=None, q_lower=None, q_local=None, ua_local=None, wind=None, dq_local=None):
 
-    q_average = (q_upper + q_lower) / 2.
+    if diam is None:
+        message = 'not enough diameter information to determine the reynolds number function'
+        print_op.log_and_raise_error(message)
+
+    if q_local is not None:
+        q_average = q_local
+    elif (q_upper is not None) and (q_lower is not None):
+        q_average = (q_upper + q_lower) / 2.
+    else:
+        message = 'not enough position information to determine the reynolds number function'
+        print_op.log_and_raise_error(message)
+
     zz = q_average[2]
     rho_infty = atmos.get_density(zz)
     mu_infty = atmos.get_viscosity(zz)
 
-    norm_ua = cas.mtimes(ua.T, ua) ** 0.5
+    if ua_local is not None:
+        vec_ua = ua_local
+    elif (wind is not None) and (dq_local is not None):
+        vec_u_infty = wind.get_velocity(zz)
+        vec_ua = vec_u_infty - dq_local
+    else:
+        message = 'not enough velocity information to determine the reynolds number function'
+        print_op.log_and_raise_error(message)
 
+    norm_ua = cas.mtimes(vec_ua.T, vec_ua) ** 0.5
     reynolds = rho_infty * norm_ua * diam / mu_infty
 
     return reynolds

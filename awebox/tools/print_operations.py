@@ -57,15 +57,14 @@ class PrintableObject():
         description = ''
         if self.__options_object is not None:
             help_dict = self.__options_object.help_dict
-            try:
-                for idx in range(len(address_tuple)):
+
+            for idx in range(len(address_tuple)):
+                if (isinstance(help_dict, dict)) and (address_tuple[idx] in help_dict.keys()):
                     help_dict = help_dict[address_tuple[idx]]
-                if len(help_dict[0]) > 0:
-                    description = help_dict[0][0]
-                if len(help_dict[0]) > 2:
-                    units = help_dict[0][2]
-            except:
-                import pdb; pdb.set_trace()
+            if len(help_dict[0]) > 0:
+                description = help_dict[0][0]
+            if len(help_dict[0]) > 2:
+                units = help_dict[0][2]
 
         self.__applied_parameters_dict[param_name] = {'description': description, 'value': value, units_name(): units, awebox_option_name(): address}
         return None
@@ -429,10 +428,11 @@ class Table:
         else:
             column_format = justify[0] + (justify[1] * len(df.keys()))
 
-        table_reference = ''
+        joined_caption_and_reference = ''
         if caption is not None:
             table_reference = r'\label{tab:' + caption.replace(' ', '_').replace(":", "") + r'}'
-        df_tex = df.to_latex(index=True, escape=False, column_format=column_format, float_format=skeleton, caption=caption+table_reference)
+            joined_caption_and_reference = caption + table_reference
+        df_tex = df.to_latex(index=True, escape=False, column_format=column_format, float_format=skeleton, caption=joined_caption_and_reference)
 
         if was_originally_two_column:
             df_tex = df_tex.replace(r'& value', r'item & value')
@@ -561,17 +561,18 @@ def test_two_column_table_to_latex():
     ending_in_latex = '\end{tabular}' in latex
 
     body_lines = ['boolean & False \\',
-                'cas.dm - array & [4.5, 4.5, 4.5] \\',
-                'cas.dm - scalar & 8.130E+00 \\',
-                'cas.dm - matrix & [[4, 0], [0, 4]] \\',
-                'dict aa1 & 3 \\',
-                'dict bb1 & happy \\',
-                "dict cc1 & ['1', '2'] \\",
-                'float & 2.339E+01 \\',
-                'int & 234 \\',
-                'neg & -2.8 \\',
-                'sci & 3.431E-07 \\',
-                'string & apples \\']
+            r'cas.dm - array & $\begin{pmatrix}4.5 & 4.5 & 4.5 \end{pmatrix}^\top$ \\',
+            r'cas.dm - matrix & $\begin{pmatrix}1 & 2.2 \\ 3.3 & 4.4 \end{pmatrix}$ \\',
+            'cas.dm - scalar & 8.130E+00 \\',
+            'dict aa1 & 3 \\',
+            'dict bb1 & happy \\',
+            'dict cc1 & [1, 2] \\',
+            'float & 2.339E+01 \\',
+            'int & 234 \\',
+            'neg & -2.8 \\',
+            r'nparray & $\begin{pmatrix}1 & 2.2 & 3.33 \end{pmatrix}^\top$ \\',
+            'sci & 3.431E-07 \\',
+            'string & apples \\']
     all_body_included = [line in latex for line in body_lines]
 
     criteria = opening_in_latex and header_in_latex and ending_in_latex and all(all_body_included)

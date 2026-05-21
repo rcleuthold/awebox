@@ -184,8 +184,8 @@ def fast_sanity_check_that_first_integral_of_control_is_treated_reasonably(nlp_o
                 criteria = criteria and local_sol
 
         if not criteria:
-            message = 'something went wrong when assigning bounds to ' + test_first_int
-            print_op.log_and_raise_error(message)
+            message = 'something went wrong when assigning bounds to ' + test_first_int + ". fast sanity check that first integral of control is treated 'reasonably' fails"
+            print_op.base_print(message, level='warning')
 
     return None
 

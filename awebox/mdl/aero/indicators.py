@@ -226,7 +226,15 @@ def collect_kite_aerodynamics_outputs(options, architecture, atmos, wind, variab
         outputs['aerodynamics']['wingtip_' + tip + str(kite)] = x_wingtip
         outputs['aerodynamics']['u_app_' + tip + str(kite)] = u_app_wingtip
 
+    n_k = options['aero']['reduced_frequency']['n_k']
     outputs['aerodynamics']['fstar_aero' + str(kite)] = cas.mtimes(air_velocity.T, ehat_chord) / c_ref
+    fstar_control_dict = {'n_k': n_k / variables['theta']['t_f']}
+    if int(options['kite_dof']) == 6:
+        for idx in range(3):
+            fstar_control_dict['delta' + str(idx)] = variables['u']['ddelta' + str(kite) + str(architecture.parent_map[kite])][idx] / variables['x']['delta' + str(kite) + str(architecture.parent_map[kite])][idx]
+    for name, val in fstar_control_dict.items():
+        outputs['aerodynamics']['fstar_control_' + name + '_' + str(kite)] = val
+        outputs['aerodynamics']['reduced_frequency_' + name + '_' + str(kite)] = np.pi * val / outputs['aerodynamics']['fstar_aero' + str(kite)]
 
     outputs['aerodynamics']['r' + str(kite)] = kite_dcm.reshape((9, 1))
 

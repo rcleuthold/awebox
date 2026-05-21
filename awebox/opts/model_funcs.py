@@ -72,7 +72,7 @@ def build_model_options(options, help_options, user_options, options_tree, fixed
     options_tree, fixed_params = build_vortex_options(options, options_tree, fixed_params, architecture)
 
     # tether
-    options_tree, fixed_params = build_tether_drag_options(options, options_tree, fixed_params)
+    options_tree, fixed_params = build_tether_drag_options(options, help_options, options_tree, fixed_params)
     options_tree, fixed_params = build_tether_stress_options(options, options_tree, fixed_params, architecture)
     options_tree, fixed_params = build_tether_control_options(options, help_options, options_tree, fixed_params)
 
@@ -700,6 +700,8 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
 
     user_options = options['user_options']
 
+    options_tree.append(('model', 'aero', 'reduced_frequency', 'n_k', options['nlp']['n_k'], ('????', None), 'x')),
+
     actuator_symmetry = options['model']['aero']['actuator']['symmetry']
     actuator_steadyness = options['model']['aero']['actuator']['steadyness']
     options_tree.append(
@@ -898,9 +900,9 @@ def build_vortex_options(options, options_tree, fixed_params, architecture):
 
 ####### tether drag
 
-def build_tether_drag_options(options, options_tree, fixed_params):
+def build_tether_drag_options(options, help_dict, options_tree, fixed_params):
 
-    tether_drag_descript =  ('model to approximate the tether drag on the tether nodes', ['split', 'single', 'multi', 'not_in_use'])
+    tether_drag_descript =  help_dict['user_options']['tether_drag_model'][0]
     options_tree.append(('model', 'tether', 'tether_drag', 'model_type', options['user_options']['tether_drag_model'], tether_drag_descript,'x'))
     options_tree.append(('formulation', None, None, 'tether_drag_model', options['user_options']['tether_drag_model'], tether_drag_descript,'x'))
 
@@ -1753,13 +1755,10 @@ def estimate_main_tether_tension_per_unit_length(options, architecture, suppress
     scaling_dict['average_force'] = tension_via_average_force
     tension_acts_on['average_force'] = 'ground'
 
-    # arbitrary_margin_from_max = 0.5
-    print_op.warn_about_temporary_functionality_alteration()
-    arbitrary_margin_from_max = 1.0
     max_stress = options['params']['tether']['max_stress'] / options['params']['tether']['stress_safety_factor']
     diam_t = options['solver']['initialization']['theta']['diam_t']
     cross_sectional_area_t = np.pi * (diam_t / 2.) ** 2.
-    tension_via_max_stress = arbitrary_margin_from_max * max_stress * cross_sectional_area_t
+    tension_via_max_stress = max_stress * cross_sectional_area_t
     scaling_dict['max_stress'] = tension_via_max_stress
     tension_acts_on['max_stress'] = 'ground'
 

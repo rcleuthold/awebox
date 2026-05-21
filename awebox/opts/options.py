@@ -115,7 +115,7 @@ class Options:
     def recursively_flatten_dict(self, base_name, current_name, current_value, current_help):
 
         list_of_unexpected_subtypes = ['system_bounds', 'model_bounds', 'stab_derivs']
-        names_to_skip = ['stab_derivs']
+        names_to_skip = ['stab_derivs', 'architecture']
 
         for test_name in names_to_skip:
             if (test_name in base_name) or (test_name in current_name):

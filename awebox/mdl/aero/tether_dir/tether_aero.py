@@ -55,7 +55,6 @@ def get_force_var(variables_si, upper_node, architecture):
 
 def distribute_tether_drag_forces(options, variables_si, architecture, outputs):
 
-
     # initialize dictionary
     tether_drag_forces = {}
     for node in range(1, architecture.number_of_nodes):
@@ -101,82 +100,102 @@ def get_tether_cstr(options, variables_si, architecture, outputs):
     return cstr_list
 
 
-def get_force_outputs(model_options, variables, parameters, atmos, wind, upper_node, tether_cd_fun, outputs, architecture):
-
-    element_drag_fun = element.get_element_drag_fun(wind, atmos, tether_cd_fun, parameters)
-
-    trivial_lower, trivial_upper = segment.get_trivial_segment_forces(atmos, wind, variables, upper_node, architecture, parameters)
-    kite_only_lower, kite_only_upper = segment.get_kite_only_segment_forces(atmos, outputs, variables, upper_node, architecture, tether_cd_fun, parameters)
-
-    split_lower, split_upper = segment.get_distributed_segment_forces(1, variables, upper_node, architecture, element_drag_fun, parameters)
-
-    n_elements = model_options['tether']['aero_elements']
-    multi_lower, multi_upper = segment.get_distributed_segment_forces(n_elements, variables, upper_node, architecture, element_drag_fun, parameters)
-
-    equivalent_lower, equivalent_upper = get_equivalent_forces(model_options, variables, parameters, atmos, wind, upper_node, tether_cd_fun, architecture)
-
+def get_force_outputs(model_options, variables, parameters, atmos, wind, upper_node, tether_cd_fun, outputs, architecture, tether_obj_for_printing_only=None):
 
     re_number = segment.get_segment_reynolds_number(variables, atmos, wind, upper_node, architecture)
 
     if 'tether_aero' not in list(outputs.keys()):
         outputs['tether_aero'] = {}
 
-    outputs['tether_aero']['multi_upper' + str(upper_node)] = multi_upper
-    outputs['tether_aero']['multi_lower' + str(upper_node)] = multi_lower
-    outputs['tether_aero']['split_upper' + str(upper_node)] = split_upper
-    outputs['tether_aero']['split_lower' + str(upper_node)] = split_lower
-    outputs['tether_aero']['trivial_upper' + str(upper_node)] = trivial_upper
-    outputs['tether_aero']['trivial_lower' + str(upper_node)] = trivial_lower
-    outputs['tether_aero']['kite_only_upper' + str(upper_node)] = kite_only_upper
-    outputs['tether_aero']['kite_only_lower' + str(upper_node)] = kite_only_lower
-    outputs['tether_aero']['equivalent_upper' + str(upper_node)] = equivalent_upper
-    outputs['tether_aero']['equivalent_lower' + str(upper_node)] = equivalent_lower
+    use_old_version = False
+    print_op.warn_about_temporary_functionality_alteration()
+    if use_old_version:
+        element_drag_fun = element.get_element_drag_fun(wind, atmos, parameters, tether_cd_fun)
 
-    # homotopy parameters
-    p_dec = parameters.prefix['phi']
+        trivial_lower, trivial_upper = segment.get_trivial_segment_forces(upper_node, architecture, variables, parameters, atmos=atmos, wind=wind)
+        kite_only_lower, kite_only_upper = segment.get_kite_only_segment_forces(upper_node, architecture, variables, parameters, outputs, atmos=atmos, cd_tether_fun=tether_cd_fun)
 
-    tether_model = model_options['tether']['tether_drag']['model_type']
-    if tether_model == 'multi':
-        # drag_node = p_dec['tau'] * split_upper + (1. - p_dec['tau']) * multi_upper
-        # drag_parent = p_dec['tau'] * split_lower + (1. - p_dec['tau']) * multi_lower
-        drag_node = multi_upper
-        drag_parent = multi_lower
+        split_lower, split_upper = segment.get_distributed_segment_forces(1, variables, upper_node, architecture, element_drag_fun, parameters)
 
-    elif tether_model == 'split':
-        drag_node = split_upper
-        drag_parent = split_lower
+        n_elements = model_options['tether']['aero_elements']
+        multi_lower, multi_upper = segment.get_distributed_segment_forces(n_elements, variables, upper_node, architecture, element_drag_fun, parameters)
 
-    elif tether_model == 'trivial':
-        drag_node = trivial_upper
-        drag_parent = trivial_lower
+        equivalent_lower, equivalent_upper = get_equivalent_forces(model_options, variables, parameters, atmos, wind, upper_node, tether_cd_fun, architecture)
 
-    elif tether_model == 'kite_only':
-        drag_node = kite_only_upper
-        drag_parent = kite_only_lower
 
-    elif 'equivalent' in tether_model:
-        drag_node = equivalent_upper
-        drag_parent = equivalent_lower
-        if tether_model == 'equivalent_buggy':
-            message = 'You have deliberately selected a tether model that includes substantial integration errors, and is not recommended. Please be absolutely sure this model is what you would like to use.'
-            print_op.base_print(message, level='warning')
 
-    elif tether_model == 'not_in_use':
-        drag_parent = cas.DM.zeros((3, 1))
-        drag_node = cas.DM.zeros((3, 1))
+        outputs['tether_aero']['multi_upper' + str(upper_node)] = multi_upper
+        outputs['tether_aero']['multi_lower' + str(upper_node)] = multi_lower
+        outputs['tether_aero']['split_upper' + str(upper_node)] = split_upper
+        outputs['tether_aero']['split_lower' + str(upper_node)] = split_lower
+        outputs['tether_aero']['trivial_upper' + str(upper_node)] = trivial_upper
+        outputs['tether_aero']['trivial_lower' + str(upper_node)] = trivial_lower
+        outputs['tether_aero']['kite_only_upper' + str(upper_node)] = kite_only_upper
+        outputs['tether_aero']['kite_only_lower' + str(upper_node)] = kite_only_lower
+        outputs['tether_aero']['equivalent_upper' + str(upper_node)] = equivalent_upper
+        outputs['tether_aero']['equivalent_lower' + str(upper_node)] = equivalent_lower
 
+        # homotopy parameters
+        p_dec = parameters.prefix['phi']
+
+        tether_drag_model = model_options['tether']['tether_drag']['model_type']
+        if tether_obj_for_printing_only is not None:
+            tether_obj_for_printing_only.add_to_applied_params_dict('user_options.tether_drag_model', tether_drag_model)
+
+        if tether_drag_model == 'multi':
+            # drag_node = p_dec['tau'] * split_upper + (1. - p_dec['tau']) * multi_upper
+            # drag_parent = p_dec['tau'] * split_lower + (1. - p_dec['tau']) * multi_lower
+            drag_node = multi_upper
+            drag_parent = multi_lower
+
+            n_elements = model_options['tether']['aero_elements']
+            if tether_obj_for_printing_only is not None:
+                tether_obj_for_printing_only.add_to_applied_params_dict('model.tether.aero_elements', n_elements)
+
+        elif tether_drag_model == 'split':
+            drag_node = split_upper
+            drag_parent = split_lower
+
+        elif tether_drag_model == 'trivial':
+            drag_node = trivial_upper
+            drag_parent = trivial_lower
+
+        elif tether_drag_model == 'kite_only':
+            drag_node = kite_only_upper
+            drag_parent = kite_only_lower
+
+        elif 'equivalent' in tether_drag_model:
+            drag_node = equivalent_upper
+            drag_parent = equivalent_lower
+            if tether_drag_model == 'equivalent_buggy':
+                message = 'You have deliberately selected a tether model that includes substantial integration errors, and is not recommended. Please be absolutely sure this model is what you would like to use.'
+                print_op.base_print(message, level='warning')
+
+        elif tether_drag_model == 'not_in_use':
+            drag_parent = cas.DM.zeros((3, 1))
+            drag_node = cas.DM.zeros((3, 1))
+
+        else:
+            raise ValueError('tether drag model not supported.')
     else:
-        raise ValueError('tether drag model not supported.')
+        distributed_forces_dict = tether_obj_for_printing_only.calculate_distribute_drag_forces_on_nodes(upper_node, variables, parameters, architecture)
+        drag_node = distributed_forces_dict['upper']
+        drag_parent = distributed_forces_dict['lower']
+
+        tether_drag_model = model_options['tether']['tether_drag']['model_type']
+        if (tether_drag_model == 'kite_only') and (upper_node not in architecture.kite_nodes):
+            drag_node = cas.DM.zeros((3, 1))
+            drag_parent = cas.DM.zeros((3, 1))
 
     outputs['tether_aero']['homotopy_upper' + str(upper_node)] = drag_node
     outputs['tether_aero']['homotopy_lower' + str(upper_node)] = drag_parent
 
     outputs['tether_aero']['reynolds' + str(upper_node)] = re_number
 
-    return outputs
+    return outputs, tether_obj_for_printing_only
 
 
-def get_tether_segment_properties(options, architecture, scaling, variables_si, parameters, upper_node):
+def get_tether_segment_properties(options, architecture, scaling, variables_si, parameters, upper_node, tether_obj_for_printing_only=None):
 
     lower_node = architecture.parent_map[upper_node]
     main_tether = (lower_node == 0)
@@ -224,6 +243,8 @@ def get_tether_segment_properties(options, architecture, scaling, variables_si, 
     scaling_area = np.pi * (scaling_diam / 2.) ** 2.
 
     density = parameters['theta0', 'tether', 'rho']
+    if tether_obj_for_printing_only is not None:
+        tether_obj_for_printing_only.add_to_applied_params_dict('params.tether.rho', density)
     seg_mass = cross_section_area * density * seg_length
     scaling_mass = scaling_area * density * scaling_length
 
@@ -265,14 +286,14 @@ def get_tether_segment_properties(options, architecture, scaling, variables_si, 
     props['seg_mass'] = seg_mass
     props['scaling_mass'] = scaling_mass
 
-    return props
+    return props, tether_obj_for_printing_only
 
 def get_body_axes(q_upper, q_lower):
     # todo: remove this the moment Rachel is done with verification testing.
 
     tether = q_upper - q_lower
 
-    xhat = vect_op.xhat()
+    # xhat = vect_op.xhat()
     yhat = vect_op.yhat()
     ehat_z = vect_op.normalize(tether)
     ehat_x = vect_op.normed_cross(yhat, tether)
@@ -374,6 +395,7 @@ def get_equivalent_tether_drag_forces(variables, parameters, upper_node, archite
 
     return [equiv_force_upper_earthfixed, equiv_force_lower_earthfixed]
 
+
 def get_total_drag(variables, parameters, upper_node, architecture, model_options, diam, q_upper, q_lower, dq_upper, dq_lower, atmos, wind, cd_tether_fun, use_buggy_version_for_verification_purposes):
 
     elem = model_options['tether']['aero_elements']
@@ -406,6 +428,7 @@ def get_total_drag(variables, parameters, upper_node, architecture, model_option
         total_moment = total_moment + loc_moment
 
     return [total_force, total_moment]
+
 
 def get_segment_force(variables, parameters, upper_node, diam, q_upper, q_lower, dq_upper, dq_lower, atmos, wind, architecture, cd_tether_fun):
 

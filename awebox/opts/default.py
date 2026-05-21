@@ -61,8 +61,8 @@ def set_default_user_options():
         ('user_options',    None,          None,        'induction_model',       'not_in_use',       ('possible options', ['not_in_use', 'actuator', 'vortex'], None),'x'),
         ('user_options',    None,          None,        'kite_standard',         None,               ('possible options', None, None),'x'),
         ('user_options',    None,          None,        'atmosphere',            'isa',              ('atmospheric model', ['isa', 'uniform'], None),'x'),
-        ('user_options',    None,          None,        'tether_model',          'default',          ('possible options', ['default'], None),'x'),
-        ('user_options',    None,          None,        'tether_drag_model',     'multi',            ('possible options: split drag equally between nodes, get equivalent forces from multiple elements, or apply drag only to tether segments with kite end-nodes', ['split', 'multi', 'equivalent', 'kite_only', 'not_in_use'], None),'t'),
+        ('user_options',    None,          None,        'tether_model',          'default',          ('a placeholder for future expansion to non-rigid tether segments', ['default'], None),'x'),
+        ('user_options',    None,          None,        'tether_drag_model',     'multi',            ('method of integrating and distributing the tether drag between two nodes', "possible options: split drag equally between nodes 'split', distribute the drag linearly between the nodes 'multi', get equivalent forces from multiple elements 'equivalent', or apply drag only to tether segments with kite end-nodes 'kite-only', or use no drag 'not_in_use'", None),'t'),
     ]
 
     default_user_options, help_options = funcs.assemble_options_tree(default_user_options_tree, {}, {})
@@ -175,21 +175,21 @@ def set_default_options(default_user_options, help_options):
 
         ## kite model
         #### tether properties
-        ('params',  'tether', None,         'kappa',                10.,        ('Baumgarte stabilization constant for constraint formulation[-]', None, None),'s'),
-        ('params',  'tether', None,         'rho',                  970.,       ('tether material density [kg/m^3]', None, 'kg/m^3'),'s'),
-        ('params',  'tether', None,         'cd',                   1.,         ('drag coefficient [-]', None, None),'s'),
-        ('params',  'tether', None,         'f_max',                5.,         ('max. reel-out factor [-]', None, None),'s'),
-        ('params',  'tether', None,         'max_stress',           3.6e9,      ('maximum material tether stress [Pa]', None, 'Pa'),'s'),
-        ('params',  'tether', None,         'stress_safety_factor', 1.5,        ('tether stress safety factor [-]', None, None),'x'),
-        ('params',  'tether', None,         'youngs_modulus',       1.e11,      ('the ratio of stress over strain in elastic deformation [Pa/fractional-elongation]', None, 'Pa'), 'x'),
+        ('params',  'tether', None,         'kappa',                10.,        ('Baumgarte stabilization constant for constraint formulation', None, None),'s'),
+        ('params',  'tether', None,         'rho',                  970.,       ('tether material density', None, 'kg/m^3'),'s'),
+        ('params',  'tether', None,         'cd',                   1.,         ('drag coefficient', None, None),'s'),
+        ('params',  'tether', None,         'f_max',                5.,         ('max. reel-out factor', None, None),'s'),
+        ('params',  'tether', None,         'max_stress',           3.6e9,      ('maximum material tether stress', None, 'Pa'),'s'),
+        ('params',  'tether', None,         'stress_safety_factor', 1.5,        ('tether stress safety factor', None, None),'x'),
+        ('params',  'tether', None,         'youngs_modulus',       1.e11,      ('the ratio of stress over strain in elastic deformation', None, 'Pa'), 'x'), #todo: i don't think this is currently being used for anything?
         ('params',  'tether', None,         'lb_dl_t_reelout',      0.0,        ('tether speed lower bound during reel-out (for single_reelout phase_fix)', None, 'm/s'), 's'),
         ('model',   'tether', None,         'control_var',          'dddl_t',   ('tether control variable', ['ddl_t', 'dddl_t'], None), 'x'),
-        ('model',   'tether', None,         'aero_elements',        5,         ('number of discretizations made in approximating the tether drag. int greater than 1. [-]', None, None),'x'),
-        ('model',   'tether', None,         'reynolds_smoothing',   1e-1,       ('smoothing width of the heaviside approximation in the cd vs. reynolds polynomial [-]', None, None),'x'),
-        ('model',   'tether', None,         'cd_model',             'constant', ('how to calculate the tether drag coefficient: piecewise interpolation, polyfit interpolation, constant', ['piecewise', 'polyfit', 'constant'], None),'x'),
+        ('model',   'tether', None,         'aero_elements',        5,          ('number of discretizations made in approximating the tether drag', "integer greater than 1", None),'x'),
+        ('model',   'tether', None,         'reynolds_smoothing',   1e-4,       ('smoothing width of the heaviside approximation in the cd vs. reynolds polynomial', None, None),'x'),
+        ('model',   'tether', None,         'cd_model',             'constant', ('tether drag coefficient model', "piecewise interpolation 'piecewise', polyfit interpolation 'polyfit', constant 'constant'", None),'x'),
         ('model',   'tether', None,         'attachment',           'com',      ('tether attachment mode', ['com', 'stick'], None), 'x'),
         ('model',   'tether', 'cross_tether', 'attachment',         'com',      ('tether attachment mode', ['com', 'stick', 'wing_tip'], None),'x'),
-        ('model',   'tether', None,         'lift_tether_force',    False,       ('lift the tether force into the decision variables', [True, False], None), 'x'),
+        ('model',   'tether', None,         'lift_tether_force',    False,      ('lift the tether force into the decision variables', [True, False], None), 'x'),
 
         #### system bounds and limits (physical)
         ('model',  'system_bounds', 'theta',       'diam_t',       [1.0e-4, 1.0e-1],                                                                ('main tether diameter bounds [m]', None, 'm'),'x'),
@@ -616,6 +616,7 @@ def set_default_options(default_user_options, help_options):
         ('quality', 'test_param', None, 'check_energy_summation', False,    ('check that no kinetic or potential energy source has gotten lost', None, None), 'x'),
         ('quality', 'test_param', None, 'energy_summation_thresh', 1.e-10,  ('maximum lost kinetic or potential energy from different calculations', None, 'W^2'), 'x'),
         ('quality', 'test_param', None, 'non_power_fraction_of_objective_thresh', 0.1,  ('maximum fraction of objective contributed by sources other than the power-cost. written in decimals, therefore values less than 1.', None, None), 'x'),
+        ('quality', 'test_param', None, 'quasi_steady_reduced_frequency_thresh', 1e8,  ('maximum reduced frequency for quasi-steady flow models to be valid (recommended value when actually using test is 0.05)', None, None), 'x'),
     ]
 
     default_options_tree = add_available_aerodynamic_stability_derivative_overwrites(default_options_tree)

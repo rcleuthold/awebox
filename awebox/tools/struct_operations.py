@@ -28,7 +28,6 @@ _python-3.5 / casadi-3.4.5
 - author: thilo bronnenmeyer, jochem de schutter, rachel leuthold, 2017-20
 - edited: rachel leuthold, 2017-2025
 '''
-import pdb
 from typing import Dict
 
 import casadi.tools as cas

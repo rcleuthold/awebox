@@ -1037,11 +1037,12 @@ def calibrate_visualization(model, nlp, name, options):
     plot_dict['outputs_fun'] = model.outputs_fun
     plot_dict['integral_output_names'] = model.integral_outputs.keys()
     plot_dict['architecture'] = model.architecture
+    plot_dict['Collocation'] = nlp.Collocation
+
     plot_dict['variable_bounds'] = model.variable_bounds
     plot_dict['global_output_names'] = nlp.global_outputs.keys()
-    plot_dict['wind'] = model.wind
 
-    plot_dict['Collocation'] = nlp.Collocation
+    plot_dict['wind'] = model.wind
 
     if model.wake is not None:
         model.wake.define_model_variables_to_info_functions(model.variables, model.parameters)

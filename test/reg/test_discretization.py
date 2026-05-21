@@ -31,7 +31,7 @@ def get_integration_test_inputs():
 
     # # specify direct collocation options
     # # because we need them for struct_op.get_variables_at_time, later on.
-    base_options['nlp.n_k'] = 40
+    base_options['nlp.n_k'] = 60
     base_options['nlp.discretization'] = 'direct_collocation'
     base_options['nlp.collocation.u_param'] = 'zoh'
     base_options['nlp.collocation.scheme'] = 'radau'
@@ -128,6 +128,7 @@ def perform_rk_4_root_integrator_test(base_options, x0, z0, p, trial, tolerance)
     base_options['nlp.discretization'] = 'multiple_shooting'
     base_options['nlp.integrator.collocation_scheme'] = base_options['nlp.collocation.scheme']
     base_options['nlp.integrator.interpolation_order'] = base_options['nlp.collocation.d']
+
 
     # set discretization to multiple shooting
     base_options['nlp.integrator.type'] = 'rk4root'

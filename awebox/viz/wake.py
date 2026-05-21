@@ -1250,7 +1250,11 @@ def get_kite_plane_induction_params(plot_dict, idx_at_eval, suppress_wind_option
     # u_infty = wind.get_speed(wind_model, u_ref, z_ref, z0_air, exp_ref, center[2])
     # if not suppress_wind_options_import_warning:
     #     wind.warn_about_importing_from_options()
-    kite_plane_induction_params['u_infty'] = wind.get_velocity(center[2])[0]
+    # kite_plane_induction_params['u_infty'] = wind.get_velocity(center[2])[0]
+
+    model_parameters = plot_dict['model_parameters']
+    parameters = model_parameters(plot_dict['parameters_plot'])
+    kite_plane_induction_params['u_infty'] = wind.get_velocity(center[2], external_parameters=parameters)
 
     vec_u_zero = []
     for dim in range(3):

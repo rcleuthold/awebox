@@ -215,6 +215,22 @@ class Wind(print_op.PrintableObject):
         u_wind = cas.vertcat(x_component, y_component, z_component)
         return u_wind
 
+    # customize the object state to hopefully allow trial.save to pickle everything
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # CasADi/struct/SWIG-heavy object; reconstruct separately if needed
+        state.pop("_Wind__params", None)
+        # parent PrintableObject may hold a non-picklable options object
+        state.pop("_PrintableObject__options_object", None)
+        state.pop("_PrintableObject__applied_parameters_dict", None)
+        return state
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.__dict__["_Wind__params"] = None
+        self.__dict__["_PrintableObject__options_object"] = None
+        self.__dict__["_PrintableObject__applied_parameters_dict"] = {}
+
+
     @property
     def options(self):
         return self.__options

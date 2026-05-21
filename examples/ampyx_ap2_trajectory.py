@@ -84,7 +84,7 @@ def run(plot_show_block=True, overwrite_options={}):
     trial.write_to_csv(filename = 'Ampyx_AP2_solution', frequency = 30)
 
     # draw some of the pre-coded plots for analysis
-    trial.plot(['states', 'controls', 'constraints', 'quad'])
+    trial.plot(['states', 'controls', 'constraints', 'quad', 'characteristic_frequencies'])
 
     # extract information from the solution for independent plotting or post-processing
     # here: plot relevant system outputs, compare to [Licitra2019, Fig 11].
@@ -161,7 +161,8 @@ def make_comparison(trial):
 
 if __name__ == "__main__":
 
-    trial = run(overwrite_options={'nlp.n_k':5, 'solver.max_iter':2, 'solver.max_iter_hippo': 2}, plot_show_block=False)
+    trial = run(overwrite_options={'user_options.tether_drag_model': 'multi'}, plot_show_block=True)
+    #'nlp.n_k': 5, 'solver.max_iter': 2, 'solver.max_iter_hippo': 2,
     latex_dict = {'stab_derivs':
                     {'0': r'0',
                     'alpha': r'\AngleOfAttack',
@@ -239,4 +240,4 @@ if __name__ == "__main__":
                          }
                   }
     trial.make_report(to_echo_or_latex='latex', latex_dict=latex_dict, save=True)
-    # import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()

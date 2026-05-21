@@ -30,6 +30,7 @@ _python-3.5 / casadi-3.4.5
 import matplotlib
 from awebox.viz.plot_configuration import DEFAULT_MPL_BACKEND
 matplotlib.use(DEFAULT_MPL_BACKEND)
+# matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 import casadi.tools as cas
@@ -37,28 +38,39 @@ import numpy as np
 
 import awebox.tools.vector_operations as vect_op
 
-def get_tether_cd_fun(model_options, parameters):
+def get_tether_cd_fun(model_options, parameters, tether_obj_for_printing_only=None):
 
     reynolds = cas.SX.sym('reynolds')
 
+    cd_model = model_options['tether']['cd_model']
     smoothing = model_options['tether']['reynolds_smoothing']
-    if model_options['tether']['cd_model'] == 'polyfit':
+
+    if tether_obj_for_printing_only is not None:
+        tether_obj_for_printing_only.add_to_applied_params_dict('model.tether.cd_model', cd_model)
+
+    if cd_model == 'polyfit':
         drag_coeff = get_interpolation(reynolds, smoothing)
+        if tether_obj_for_printing_only is not None:
+            tether_obj_for_printing_only.add_to_applied_params_dict('model.tether.reynolds_smoothing', smoothing)
 
-    elif model_options['tether']['cd_model'] == 'piecewise':
+    elif cd_model == 'piecewise':
         drag_coeff = get_roshko_unitstep(reynolds, smoothing)
+        if tether_obj_for_printing_only is not None:
+            tether_obj_for_printing_only.add_to_applied_params_dict('model.tether.reynolds_smoothing', smoothing)
 
-    elif model_options['tether']['cd_model'] == 'constant':
+    elif cd_model == 'constant':
         drag_coeff = parameters['theta0','tether','cd']
+        if tether_obj_for_printing_only is not None:
+            tether_obj_for_printing_only.add_to_applied_params_dict('params.tether.cd', drag_coeff)
 
     else:
-        raise ValueError('invalid tether drag coefficient model selected: %s',model_options['tether']['cd_model'])
+        raise ValueError('invalid tether drag coefficient model selected: %s', cd_model)
 
     tether_cd_fun = cas.Function('tether_cd_fun', [reynolds, parameters], [drag_coeff])
 
-    return tether_cd_fun
+    return tether_cd_fun, tether_obj_for_printing_only
 
-def plot_cd_vs_reynolds(num_fig, model_options):
+def plot_cd_vs_reynolds(num_fig, model_options=None, smoothing=1e-1, cd=1):
 
     log_reynolds_list = np.arange(101.) * 7. / 100.
     cd_list_unitstep = []
@@ -66,7 +78,9 @@ def plot_cd_vs_reynolds(num_fig, model_options):
     cd_list_default = []
     reynolds_list = []
 
-    smoothing = model_options['tether']['reynolds_smoothing']
+    if model_options is not None:
+        smoothing = model_options['tether']['reynolds_smoothing']
+        cd = model_options['tether']['cd']
 
     for log_reynolds in log_reynolds_list:
         reynolds = 10.**log_reynolds
@@ -74,7 +88,7 @@ def plot_cd_vs_reynolds(num_fig, model_options):
 
         cd_list_unitstep = cas.vertcat(cd_list_unitstep, get_roshko_unitstep(reynolds, smoothing))
         cd_list_poly = cas.vertcat(cd_list_poly, get_interpolation(reynolds, smoothing))
-        cd_list_default = cas.vertcat(cd_list_default, model_options['tether']['cd'])
+        cd_list_default = cas.vertcat(cd_list_default, cd)
 
     cd_list_unitstep = np.array(cd_list_unitstep)
     cd_list_poly = np.array(cd_list_poly)
@@ -104,7 +118,10 @@ def get_roshko_unitstep(reynolds, eps):
     # low reynolds number relationship suggested by
     # http://scienceworld.wolfram.com/physics/CylinderDrag.html
 
+    cd_outside_bounds = 1e3
+
     lbreyn = 0.
+    h_before = cd_outside_bounds * (1. - vect_op.unitstep(log_reynolds - lbreyn, eps))
 
     # for log Re < 2
     cd_stokes = 100./reynolds
@@ -154,13 +171,15 @@ def get_roshko_unitstep(reynolds, eps):
     # R_squared_final = no fit performed
     h_final = vect_op.step_in_out(log_reynolds, lbreyn, ubreyn, eps) * cd_final
 
-    drag_coeff = h_stokes + h_laminar + h_lamsep + h_level + h_transition + h_turbsep + h_final
+    h_after = cd_outside_bounds * vect_op.unitstep(log_reynolds - ubreyn, eps)
+
+    drag_coeff = h_before + h_stokes + h_laminar + h_lamsep + h_level + h_transition + h_turbsep + h_final + h_after
 
     return drag_coeff
 
 def get_achenbach_datapoints():
 
-    # data 39376 < Re < 4815676, from fig 9, pg. 635 of
+    # data 3.9376e4 < Re < 4.815676e6, from fig 9, pg. 635 of
     # Achenbach, E. (1968). Distribution of local pressure and skin friction around a circular cylinder in cross-flow up to Re = 5e6
     # Journal of Fluid Mechanics, 34(4), 625-639. doi:10.1017/S0022112068002120
     # digitized by Mikko Folkersma (TU Delft, 2017)
@@ -265,3 +284,6 @@ def get_interpolation(reynolds, smoothing):
     estimate = cas.polyval(poly, np.log10(reynolds))
 
     return estimate
+
+if __name__ == "__main__":
+    plot_cd_vs_reynolds(1, smoothing=1e-4)

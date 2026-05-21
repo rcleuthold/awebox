@@ -332,7 +332,9 @@ def define_bounds(model_system_bounds_options, variables):
     return variable_bounds
 
 def report_model_bounds(options_object, variables, to_echo_or_latex='echo', latex_dict={}, nan_replacement='--', trial_name='', digits=4, save=False):
-        joined_dict = {}
+    joined_dict = {}
+
+    if (options_object is not None) and (hasattr(options_object, 'flattened_dict')):
         for key in options_object.flattened_dict.keys():
             if 'model.system_bounds' in key:
 
@@ -365,14 +367,15 @@ def report_model_bounds(options_object, variables, to_echo_or_latex='echo', late
                             # joined_dict[entry_name]['units'] = r'\unit{' + local_dict['units'] + r'}'
                             joined_dict[entry_name][r'\aweboxOptions{model.system_bounds.}'] = r'\aweboxOptions{' + base_entry_name + r'}'
 
-        caption = 'variable bounds'
-        if trial_name is not None:
-            caption += ' for ' + trial_name
+        if len(list(joined_dict.keys())) > 0:
+            caption = 'variable bounds'
+            if trial_name is not None:
+                caption += ' for ' + trial_name
 
-        string_out = print_op.print_dict_as_table(joined_dict, level='info', to_echo_or_latex=to_echo_or_latex, nan_replacement=nan_replacement, transpose=True, caption=caption, latex_dict=latex_dict, sort_dim=None, digits=digits, repr_type='f', latex_symbolic_in_first_column=True)
-        if save:
-            save_op.write_string_to_txt_or_tex(string_out, trial_name.replace(' ', '_'),
-                                               to_echo_or_latex=to_echo_or_latex)
+            string_out = print_op.print_dict_as_table(joined_dict, level='info', to_echo_or_latex=to_echo_or_latex, nan_replacement=nan_replacement, transpose=True, caption=caption, latex_dict=latex_dict, sort_dim=None, digits=digits, repr_type='f', latex_symbolic_in_first_column=True)
+            if save:
+                save_op.write_string_to_txt_or_tex(string_out, trial_name.replace(' ', '_'),
+                                                   to_echo_or_latex=to_echo_or_latex)
         return None
 
 

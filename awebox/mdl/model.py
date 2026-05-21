@@ -30,6 +30,7 @@ from . import atmosphere
 from . import wind
 from . import system
 from . import dynamics as dyn
+import awebox.mdl.aero.tether_dir.tether as tether_tether
 
 import time
 from . import dae
@@ -56,11 +57,13 @@ class Model(object):
             self.__timings = {}
             timer = time.time()
             self.__architecture = architecture
-            self.__options_object = options_object
-            self.__kite_obj_for_printing_only = print_op.PrintableObject(options_object=self.__options_object, name='kite')
             self.__generate_system_parameters(model_options)
+            self.__options_object = options_object
             self.__generate_atmosphere(model_options['atmosphere'])
             self.__generate_wind(model_options['wind'])
+            self.__tether_obj_for_printing_only = tether_tether.Tether(model_options, self.__parameters, self.__wind, self.__atmos, options_object=options_object)
+            self.__kite_obj_for_printing_only = print_op.PrintableObject(options_object=self.__options_object,
+                                                                         name='kite')
             self.__generate_system_dynamics(model_options)
             self.generate_scaled_variable_bounds(model_options)
             self.__generate_parameter_bounds(model_options)
@@ -108,7 +111,12 @@ class Model(object):
         integral_outputs,
         integral_outputs_fun,
         integral_scaling,
-        wake, self.__kite_obj_for_printing_only] = dyn.make_dynamics(options, self.__atmos, self.__wind, self.__parameters, self.__architecture, options_help=options_help, kite_obj_for_printing_only=self.__kite_obj_for_printing_only)
+        wake,
+        self.__kite_obj_for_printing_only,
+        self.__tether_obj_for_printing_only] = dyn.make_dynamics(options, self.__atmos, self.__wind, self.__parameters,
+                                                                 self.__architecture, options_help=options_help,
+                                                                 kite_obj_for_printing_only=self.__kite_obj_for_printing_only,
+                                                                 tether_obj_for_printing_only=self.__tether_obj_for_printing_only)
 
         self.__kite_dof = options['kite_dof']
         self.__kite_geometry = {} #options['geometry']
@@ -261,6 +269,7 @@ class Model(object):
 
             make_object_report(printable_object=self.atmos, latex_dict_keyname='environment')
             make_object_report(printable_object=self.wind, latex_dict_keyname='environment')
+            make_object_report(printable_object=self.tether_obj_for_printing_only, latex_dict_keyname='tether')
             make_object_report(printable_object=self.kite_obj_for_printing_only, latex_dict_keyname='kite')
 
         dyn.report_applied_inequalities(self.constraints_list, to_echo_or_latex=to_echo_or_latex, V_opt=V_opt, p_fix_num=p_fix_num, model_parameters=self.parameters, latex_dict=local_latex_dict('model_ineq_bounds'), trial_name=trial_name, save=save)
@@ -285,6 +294,14 @@ class Model(object):
         awelogger.logger.warning('Cannot set kite_obj_for_printing_only object.')
         return None
 
+    @property
+    def tether_obj_for_printing_only(self):
+        return self.__tether_obj_for_printing_only
+
+    @tether_obj_for_printing_only.setter
+    def tether_obj_for_printing_only(self, value):
+        awelogger.logger.warning('Cannot set tether_obj_for_printing_only object.')
+        return None
 
     @property
     def status(self):

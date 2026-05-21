@@ -52,6 +52,40 @@ def get_dict_of_saveable_objects_and_extensions(trial_or_sweep='Trial'):
 
     return saveable_dict
 
+
+def find_unpickleable(obj, path="root", depth=8):
+    try:
+        pickle.dumps(obj)
+        return []
+    except Exception as exc:
+        err = str(exc)
+
+    if depth <= 0:
+        return [(path, type(obj), err)]
+
+    out = []
+
+    if hasattr(obj, "__dict__"):
+        for k, v in obj.__dict__.items():
+            out += find_unpickleable(v, f"{path}.{k}", depth - 1)
+
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            out += find_unpickleable(v, f"{path}[{repr(k)}]", depth - 1)
+
+    elif isinstance(obj, (list, tuple)):
+        for i, v in enumerate(obj):
+            out += find_unpickleable(v, f"{path}[{i}]", depth - 1)
+
+    else:
+        return [(path, type(obj), err)]
+
+    if not out:
+        return [(path, type(obj), err)]
+
+    return out
+
+
 def get_object_and_extension(saving_method='reloadable_seed', trial_or_sweep='Trial'):
 
     saveable_dict = get_dict_of_saveable_objects_and_extensions(trial_or_sweep=trial_or_sweep)
@@ -97,6 +131,9 @@ def is_filename_acceptable_length(file_name):
 
 
 def save(data, file_name, file_type):
+
+    for item in find_unpickleable(data):
+        print_op.base_print('pickle error likely for: ' + item, level='warning')
 
     if is_filename_acceptable_length(file_name):
         file_pi = open(file_name + '.' + file_type, 'wb')
