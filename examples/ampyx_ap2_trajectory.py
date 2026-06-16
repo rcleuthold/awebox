@@ -84,7 +84,7 @@ def run(plot_show_block=True, overwrite_options={}):
     trial.write_to_csv(filename = 'Ampyx_AP2_solution', frequency = 30)
 
     # draw some of the pre-coded plots for analysis
-    trial.plot(['states', 'controls', 'constraints', 'quad', 'characteristic_frequencies'])
+    trial.plot(['states', 'controls', 'constraints', 'quad'])
 
     # extract information from the solution for independent plotting or post-processing
     # here: plot relevant system outputs, compare to [Licitra2019, Fig 11].
@@ -239,5 +239,5 @@ if __name__ == "__main__":
                         'c_ref': r'\MAC'
                          }
                   }
-    trial.make_report(to_echo_or_latex='latex', latex_dict=latex_dict, save=True)
+    trial.make_report(to_echo_or_latex='echo', latex_dict=latex_dict, save=True)
     import pdb; pdb.set_trace()

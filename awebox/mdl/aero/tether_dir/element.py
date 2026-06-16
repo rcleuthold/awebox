@@ -115,7 +115,7 @@ def get_uapp(q_upper, q_lower, dq_upper, dq_lower, wind):
     return ua
 
 def get_element_drag_fun(wind, atmos, parameters, cd_tether_fun, reynolds_fun=None):
-
+    info_to_add_to_applied_params_dict = {}
     info_sym = cas.SX.sym('info_sym', (13, 1))
 
     unpacked = unpack_element_info_column(info_sym)
@@ -153,7 +153,7 @@ def get_element_drag_fun(wind, atmos, parameters, cd_tether_fun, reynolds_fun=No
 
     element_drag_fun = cas.Function('element_drag_fun', [info_sym, parameters], [drag])
 
-    return element_drag_fun
+    return element_drag_fun, info_to_add_to_applied_params_dict
 
 def get_element_diameter(variables, upper_node, architecture):
 

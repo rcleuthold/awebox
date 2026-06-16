@@ -1345,8 +1345,19 @@ def set_layer_plot_scale(axes, nrows, x_min, x_max, y_min, y_max):
 
 
 def add_single_block_temporal_orientation_epigraph(ax, plot_dict, tau, linestyle='--'):
-    t_f = float(plot_dict['time_grids']['ip'][-1])
-    ax.axvline(x=float(tau * t_f), color='gray', linestyle=linestyle)
+
+    tg_last = plot_dict['time_grids']['ip'][-1]
+    if isinstance(tg_last, float):
+        tf = tg_last
+    elif isinstance(tg_last, np.ndarray):
+        tf = float(tg_last[0])
+    elif isinstance(tg_last, cas.DM) and tg_last.shape == (1, 1):
+        tf = float(tg_last)
+    elif isinstance(tg_last, cas.DM):
+        tf = float(vect_op.columnize(tg_last)[0])
+    else:
+        tf = float(tg_last) # pytest tells me this syntax is apparently going to be depreciated soon?
+    ax.axvline(x=float(tau * tf), color='gray', linestyle=linestyle)
     return None
 
 def add_block_plot_temporal_orientation_epigraphs(ax, plot_dict):

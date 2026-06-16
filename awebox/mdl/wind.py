@@ -44,6 +44,8 @@ class Wind(print_op.PrintableObject):
         self.__options = wind_model_options
         self.__params = params #NOTE: where do those parameters come from?
 
+        self.__xwind_data = None
+        self.__ywind_data = None
         if self.__options['model'] == 'datafile':
             self.find_u_polynomial_from_datafile()
             # self.find_p_polynomial_from_datafile(params) # pressure is set as constant for now
@@ -53,36 +55,40 @@ class Wind(print_op.PrintableObject):
 
         self.add_to_applied_params_dict('user_options.wind.model', wind_model_options['model'])
 
-    def get_velocity(self, zz, external_parameters=None):
-
-        options = self.__options
-
-        model = options['model']
-
-        u_hat = self.get_wind_direction()
-
+    def get_local_param_value(self, zz, external_parameters, param_name, second_name=None):
         if isinstance(zz, cas.SX):
-
             if external_parameters is None:
                 params = self.__params.prefix['theta0', 'wind']
             else:
                 params = external_parameters.prefix['theta0', 'wind']
 
-            u_ref = params['u_ref']
-            z_ref = params['z_ref']
-            z0_air = params['log_wind', 'z0_air']
-            exp_ref = params['power_wind', 'exp_ref']
+            if second_name is None:
+                return params[param_name]
+            else:
+                return params[param_name, second_name]
         else:
-            u_ref = options['u_ref']
-            z_ref = options['z_ref']
-            z0_air = options['log_wind']['z0_air']
-            exp_ref = options['power_wind']['exp_ref']
-
             if not self.__type_incompatibility_warning_already_given and not self.__suppress_type_incompatibility_warning:
                 warn_about_importing_from_options()
                 self.__type_incompatibility_warning_already_given = True
 
+            if second_name is None:
+                return self.__options[param_name]
+            else:
+                return self.__options[param_name][second_name]
+
+
+    def get_velocity(self, zz, external_parameters=None):
+
+        options = self.__options
+        model = options['model']
+
+        u_hat = self.get_wind_direction()
         if model == 'log_wind':
+
+            u_ref = self.get_local_param_value(zz, external_parameters, 'u_ref')
+            z_ref = self.get_local_param_value(zz, external_parameters, 'z_ref')
+            z0_air = self.get_local_param_value(zz, external_parameters, 'log_wind', second_name='z0_air')
+
             self.add_to_applied_params_dict('user_options.wind.u_ref', u_ref)
             self.add_to_applied_params_dict('params.wind.z_ref', z_ref)
             self.add_to_applied_params_dict('params.wind.log_wind.z0_air', z0_air)
@@ -90,6 +96,11 @@ class Wind(print_op.PrintableObject):
             u = u_val * u_hat
 
         elif model == 'power':
+
+            u_ref = self.get_local_param_value(zz, external_parameters, 'u_ref')
+            z_ref = self.get_local_param_value(zz, external_parameters, 'z_ref')
+            exp_ref = self.get_local_param_value(zz, external_parameters, 'power_wind', second_name='exp_ref')
+
             self.add_to_applied_params_dict('user_options.wind.u_ref', u_ref)
             self.add_to_applied_params_dict('params.wind.z_ref', z_ref)
             self.add_to_applied_params_dict('params.wind.power_wind.exp_ref', exp_ref)
@@ -97,6 +108,7 @@ class Wind(print_op.PrintableObject):
             u = u_val * u_hat
 
         elif model == 'uniform':
+            u_ref = self.get_local_param_value(zz, external_parameters, 'u_ref')
             self.add_to_applied_params_dict('user_options.wind.u_ref', u_ref)
             u_val = get_uniform_speed(u_ref)
             u = u_val * u_hat
@@ -110,14 +122,23 @@ class Wind(print_op.PrintableObject):
         return u
 
 
-    def plot_velocity_profile(self, z_max=800.):
-        z0_air = self.__options['log_wind']['z0_air']
-        z_min = z0_air
+    def plot_velocity_profile(self, z_min=None, z_max=800.):
+
+        import matplotlib
+        matplotlib.use('TkAgg')
+        import matplotlib.pyplot as plt
+
+        if z_min is None:
+            z0_air = self.__options['log_wind']['z0_air']
+            z_min = z0_air
         z_vals = list(np.arange(z_min, z_max, 1).flatten())
         u_vals = list(np.array([self.get_velocity(zz)[0] for zz in z_vals]).flatten())
 
         fig = plt.figure()
+        if self.xwind_data is not None:
+            plt.plot(self.xwind_data, self.heights, 'o')
         plt.plot(list(u_vals), list(z_vals))
+
         plt.xlabel('wind speed [m/s]')
         plt.ylabel('altitude [m]')
         plt.title('wind speed profile')
@@ -139,7 +160,7 @@ class Wind(print_op.PrintableObject):
 
         return u_ref
 
-    def find_u_polynomial_from_datafile(self):
+    def find_u_polynomial_from_datafile(self, use_buffer=True, order=12):
         """_data description:
         a function to create x- and y-direction wind-speed-vs-altitude polynomials, from a datafile that gives
         data at some number of lowest different pressure levels at multiple time instants - (eg, from 3h resolution
@@ -160,23 +181,120 @@ class Wind(print_op.PrintableObject):
         heightsdata  = options['atmosphere_heightsdata']
         featuresdata = options['atmosphere_featuresdata']
 
-        # create x and y wind component
         k = 0 # evaluates at the first time-stamp from the wind-data datafiles: the awebox does
         # not presently allow time-varying wind polynomials
 
-        xwind = [w * np.abs(np.cos(-a)) for w, a in featuresdata[:, k, :]]
-        ywind = [w * np.sin(-a) for w, a in featuresdata[:, k, :]]
-        xwind = np.array(xwind, dtype=float)
-        ywind = np.array(ywind, dtype=float)
-        self.heights = heightsdata[:, k]
+        if vect_op.is_numeric_columnar(heightsdata):
+            self.heights = np.array(heightsdata)
+        else:
+            self.heights = np.array(heightsdata[:, k])
 
-        # create the function of the lagrange polynomial for x and y wind
-        # and give out the polynomial parameters, respectively.
-        _, taux_opt = lagr_interpol.smooth_lagrange_poly(self.heights, xwind)
-        _, tauy_opt = lagr_interpol.smooth_lagrange_poly(self.heights, ywind)
+        featuresdata_axes = 0
+        try:
+            test = featuresdata[0, 0, 0]
+            featuresdata_axes = 3
+        except:
+            try:
+                test = featuresdata[0, 0]
+                featuresdata_axes = 2
+            except:
+                try:
+                    test = featuresdata[0]
+                    featuresdata_axes = 1
+                except:
+                    message = 'featuresdata for wind polynomial does not have a recognizable data-stape'
+                    print_op.log_and_raise_error(message)
 
-        self.taux_opt = taux_opt
-        self.tauy_opt = tauy_opt
+        # create x and y wind component
+        if featuresdata_axes == 1:
+            xwind = np.array(featuresdata)
+            ywind = 0. * xwind
+        elif featuresdata_axes == 2:
+            xwind = [w * np.abs(np.cos(-a)) for w, a in featuresdata[:, :]]
+            ywind = [w * np.sin(-a) for w, a in featuresdata[:, :]]
+            xwind = np.array(xwind, dtype=float)
+            ywind = np.array(ywind, dtype=float)
+        else:
+            xwind = [w * np.abs(np.cos(-a)) for w, a in featuresdata[:, k, :]]
+            ywind = [w * np.sin(-a) for w, a in featuresdata[:, k, :]]
+            xwind = np.array(xwind, dtype=float)
+            ywind = np.array(ywind, dtype=float)
+
+        self.__xwind_data = xwind
+        self.__ywind_data = ywind
+
+        if use_buffer: # try to damp out any interpolation oscillations near the edge of the domain.
+            buffer = 1 #int(np.floor(float(len(self.heights))/5.))
+            delta_h = self.heights[-1] - self.heights[-2]
+            heights_buffer = [self.heights[-1] + delta_h * (float(bdx) + 1.) for bdx in range(buffer)]
+            heights = np.array(cas.vertcat(self.heights, heights_buffer))
+            xwind = np.array(cas.vertcat(xwind, buffer*[xwind[-1]]))
+            ywind = np.array(cas.vertcat(ywind, buffer*[ywind[-1]]))
+        else:
+            heights = self.heights
+
+        # do the interpolation
+        zz_sym = cas.SX.sym('zz_sym')
+
+        # we had lagrange polynomial fit before, but it worked really badly with the vandiver/holler/kim verification test.
+        # L_funx, taux_opt = lagr_interpol.smooth_lagrange_poly(heights, xwind)
+        # L_funy, tauy_opt = lagr_interpol.smooth_lagrange_poly(heights, ywind)
+        # self.__Lagr_x_fun = cas.Function('Lagr_x_fun', [zz_sym], [L_funx(zz_sym, taux_opt)])
+        # self.__Lagr_y_fun = cas.Function('Lagr_y_fun', [zz_sym], [L_funy(zz_sym, tauy_opt)])
+        # self.taux_opt = taux_opt
+        # self.tauy_opt = tauy_opt
+
+        unit_steps_x = vect_op.interpolate_by_unit_stepping(heights, xwind, zz_sym, 0.2)
+        unit_steps_y = vect_op.interpolate_by_unit_stepping(heights, ywind, zz_sym, 0.2)
+        self.__Lagr_x_fun = cas.Function('Lagr_x_fun', [zz_sym], [unit_steps_x])
+        self.__Lagr_y_fun = cas.Function('Lagr_y_fun', [zz_sym], [unit_steps_y])
+
+        def quick_sanity_check_on_interpolation(thresh=1.0):
+            for idx in range(2, len(self.heights)):
+                comparison = {'x': {'found': self.Lagr_x_fun(heights[idx]), 'expected': xwind[idx]},
+                              'y': {'found': self.Lagr_y_fun(heights[idx]), 'expected': ywind[idx]}
+                              }
+                for dir, test_dict in comparison.items():
+                    diff = (test_dict['found'] - test_dict['expected'])
+                    if np.abs(diff) > thresh:
+                        message = 'datafile wind speed interpolation in direction (' + dir + ') at altitude ' + str(self.heights[idx]) + ' does not work as expected. '
+                        for pair_name, pair_val in test_dict.items():
+                            message += pair_name + ": " + str(pair_val) + ". "
+                        print_op.log_and_raise_error(message)
+        quick_sanity_check_on_interpolation()
+
+    @property
+    def Lagr_x_fun(self):
+        return self.__Lagr_x_fun
+
+    @Lagr_x_fun.setter
+    def Lagr_x_fun(self, value):
+        awelogger.logger.warning('Cannot set Lagr_x_fun object.')
+
+    @property
+    def Lagr_y_fun(self):
+        return self.__Lagr_y_fun
+
+    @Lagr_y_fun.setter
+    def Lagr_y_fun(self, value):
+        awelogger.logger.warning('Cannot set Lagr_y_fun object.')
+
+    @property
+    def xwind_data(self):
+        return self.__xwind_data
+
+    @xwind_data.setter
+    def xwind_data(self, value):
+        awelogger.logger.warning('Cannot set xwind_data object.')
+
+    @property
+    def ywind_data(self):
+        return self.__ywind_data
+
+    @ywind_data.setter
+    def ywind_data(self, value):
+        awelogger.logger.warning('Cannot set ywind_data object.')
+
 
     def find_p_polynomial_from_datafile(self):
         options = self.__options
@@ -203,15 +321,10 @@ class Wind(print_op.PrintableObject):
         self.p_polynomials = [self.lp_fun, taup_opt]
 
     def get_velocity_from_datafile(self, zz):
-
-        # generate the lagrange polynomial with the 'optimized' poly. parameters
-        Lagr_x_fun = lagr_interpol.lagrange_poly(self.heights, self.taux_opt)
-        Lagr_y_fun = lagr_interpol.lagrange_poly(self.heights, self.tauy_opt)
         # compute the x,y,z components
-        x_component = Lagr_x_fun(zz)
-        y_component = Lagr_y_fun(zz)
+        x_component = self.__Lagr_x_fun(zz)
+        y_component = self.__Lagr_y_fun(zz)
         z_component = 0.
-
         u_wind = cas.vertcat(x_component, y_component, z_component)
         return u_wind
 

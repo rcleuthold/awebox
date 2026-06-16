@@ -541,7 +541,7 @@ def test_two_column_table_to_string():
         print(repr_g(tab.dict['value'][idx], digits=3, repr_type='E') in found_string)
         print()
 
-    example_line = 'cas.dm - array............................... [4.5, 4.5, 4.5]'
+    example_line = 'cas.dm - array.................................... [4.5, 4.5, 4.5]'
     example_line_included = example_line in found_string
 
     criteria = all(all_items_included) and all(all_values_included) and example_line_included
@@ -556,9 +556,9 @@ def test_two_column_table_to_latex():
     tab = make_sample_two_column_table()
     latex = tab.to_latex(digits=3, repr_type='E')
 
-    opening_in_latex = '\\begin{tabular}{rl}' in latex
-    header_in_latex = 'item & value \\' in latex
-    ending_in_latex = '\end{tabular}' in latex
+    opening_in_latex = r'\begin{tabular}{rl}' in latex
+    header_in_latex = r'item & value \\' in latex
+    ending_in_latex = r'\end{tabular}' in latex
 
     body_lines = ['boolean & False \\',
             r'cas.dm - array & $\begin{pmatrix}4.5 & 4.5 & 4.5 \end{pmatrix}^\top$ \\',
@@ -586,8 +586,8 @@ def test_multicolumn_table_to_latex():
     tab = make_sample_multicolumn_table()
     test_latex = tab.to_latex(digits=2, repr_type='E')
 
-    includes_header = ' & Sun & Earth & Moon & Mars \\' in test_latex
-    includes_midrule = '\midrule' in test_latex
+    includes_header = r' & Sun & Earth & Moon & Mars \\' in test_latex
+    includes_midrule = r'\midrule' in test_latex
     test_entries = ['Sun', 'Mars', '6.96E+05', '6.42E+23', 'R (km)', 'mass (kg)']
     includes_entries = [entry in test_latex for entry in test_entries]
     includes_information = all(includes_entries)
@@ -680,12 +680,12 @@ def print_dict_as_table(dict, level='info', to_echo_or_latex='echo', caption=Non
 def print_bulleted_list(list, level='info', to_echo_or_latex='echo', caption=None):
 
     if to_echo_or_latex == 'latex':
-        caption = '\n' + caption
+        caption = r'\n' + caption
         print(caption)
-        print("\\begin{itemize}")
+        print(r"\\begin{itemize}")
         for name in list:
-            print('\item {}'.format(name).replace('_', ' '))
-        print('\end{itemize}')
+            print(r'\item {}'.format(name).replace('_', ' '))
+        print(r'\end{itemize}')
     else:
         base_print(caption, level=level)
         for name in list:
@@ -694,7 +694,7 @@ def print_bulleted_list(list, level='info', to_echo_or_latex='echo', caption=Non
     return None
 
 def column_size_for_dot_separated_items():
-    return 45
+    return 50
 
 def repr_g(value, digits=4, repr_type='G', to_echo_or_latex='echo'):
     if isinstance(value, str):

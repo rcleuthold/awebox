@@ -212,7 +212,7 @@ class Options:
                                 space = ' '
                                 unspace = '\hspace{-1ex} '
                             else:
-                                multiplier = ' * '
+                                multiplier = ' *'
                                 dollar = ''
                                 space = ''
                                 unspace = ''
@@ -225,7 +225,7 @@ class Options:
                             elif ldx == 1:
                                 subscript += multiplier + " alpha "
                             elif ldx > 1:
-                                subscript += multiplier + " alpha " + unspace + dollar + "^" + str(ldx) + dollar
+                                subscript += multiplier + " alpha" + space + unspace + dollar + "^" + str(ldx) + dollar
 
                             out_table[deriv_name][subscript] = deriv_stack[ldx]
 

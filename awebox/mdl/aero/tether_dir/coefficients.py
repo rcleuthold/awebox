@@ -30,45 +30,80 @@ _python-3.5 / casadi-3.4.5
 import matplotlib
 from awebox.viz.plot_configuration import DEFAULT_MPL_BACKEND
 matplotlib.use(DEFAULT_MPL_BACKEND)
-# matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 import casadi.tools as cas
 import numpy as np
+import awebox.tools.print_operations as print_op
 
 import awebox.tools.vector_operations as vect_op
 
-def get_tether_cd_fun(model_options, parameters, tether_obj_for_printing_only=None):
-
+def get_tether_cd_fun(model_options, parameters, cd_model_overwrite=None, smoothing_overwrite=None):
+    info_to_add_to_applied_params_dict = {}
     reynolds = cas.SX.sym('reynolds')
 
-    cd_model = model_options['tether']['cd_model']
-    smoothing = model_options['tether']['reynolds_smoothing']
+    if cd_model_overwrite is not None:
+        cd_model = cd_model_overwrite
+    else:
+        cd_model = model_options['tether']['cd_model']
 
-    if tether_obj_for_printing_only is not None:
-        tether_obj_for_printing_only.add_to_applied_params_dict('model.tether.cd_model', cd_model)
+    if smoothing_overwrite is not None:
+        smoothing = smoothing_overwrite
+    else:
+        smoothing = model_options['tether']['reynolds_smoothing']
 
+    info_to_add_to_applied_params_dict['model.tether.cd_model'] = cd_model
     if cd_model == 'polyfit':
         drag_coeff = get_interpolation(reynolds, smoothing)
-        if tether_obj_for_printing_only is not None:
-            tether_obj_for_printing_only.add_to_applied_params_dict('model.tether.reynolds_smoothing', smoothing)
-
+        info_to_add_to_applied_params_dict['model.tether.reynolds_smoothing'] = smoothing
     elif cd_model == 'piecewise':
         drag_coeff = get_roshko_unitstep(reynolds, smoothing)
-        if tether_obj_for_printing_only is not None:
-            tether_obj_for_printing_only.add_to_applied_params_dict('model.tether.reynolds_smoothing', smoothing)
-
+        info_to_add_to_applied_params_dict['model.tether.reynolds_smoothing'] = smoothing
     elif cd_model == 'constant':
         drag_coeff = parameters['theta0','tether','cd']
-        if tether_obj_for_printing_only is not None:
-            tether_obj_for_printing_only.add_to_applied_params_dict('params.tether.cd', drag_coeff)
-
+        info_to_add_to_applied_params_dict['params.tether.cd'] = drag_coeff
     else:
         raise ValueError('invalid tether drag coefficient model selected: %s', cd_model)
 
     tether_cd_fun = cas.Function('tether_cd_fun', [reynolds, parameters], [drag_coeff])
 
-    return tether_cd_fun, tether_obj_for_printing_only
+    return tether_cd_fun, info_to_add_to_applied_params_dict
+
+def test(thresh=1.1):
+    # thresh 1.0 means maximally finding value twice expected.
+
+    # Heddleson et al https://apps.dtic.mil/sti/tr/pdf/ADA395503.pdf
+    test_dict = {'Heddleson0': {'reynolds': 4e4, 'cd': 1e0},
+                 'Heddleson1': {'reynolds': 1e5, 'cd': 1e0},
+                 'Heddleson2': {'reynolds': 4e5, 'cd': 5e-1},
+                 'Heddleson3': {'reynolds': 7e5, 'cd': 3e-1},
+                 'Heddleson4': {'reynolds': 2e6, 'cd': 5e-1}
+                }
+    achenbach_re, achenbach_cd = get_achenbach_datapoints()
+    for idx in range(len(achenbach_re)):
+        test_dict['Achenbach' + str(idx)] = {'reynolds': achenbach_re[idx], 'cd': achenbach_cd[idx]}
+
+    model_options = None
+    parameters = cas.SX.sym('parameters', (3, 1))
+    smoothing_overwrite = 1e-8
+    for cd_model_overwrite in ['polyfit', 'piecewise']:
+        cd_fun, _ = get_tether_cd_fun(model_options, parameters, cd_model_overwrite=cd_model_overwrite, smoothing_overwrite=smoothing_overwrite)
+        for test_name, test_values in test_dict.items():
+            reynolds = test_values['reynolds']
+            expected = test_values['cd']
+            found = cd_fun(reynolds, parameters)
+            test_values['found'] = found
+            error = (expected - found) / expected
+            test_values['error'] = error
+            criteria = (error * error)**0.5 < thresh
+            if not criteria:
+                message = 'unexpected cd found with ' + cd_model_overwrite + ' model at test ' + test_name + '. '
+                for val_name, val_val in test_values.items():
+                    message += val_name + ': ' + str(val_val) + ', '
+                message = message[:-2]
+                print_op.log_and_raise_error(message)
+    return None
 
 def plot_cd_vs_reynolds(num_fig, model_options=None, smoothing=1e-1, cd=1):
 
@@ -118,56 +153,66 @@ def get_roshko_unitstep(reynolds, eps):
     # low reynolds number relationship suggested by
     # http://scienceworld.wolfram.com/physics/CylinderDrag.html
 
-    cd_outside_bounds = 1e3
+    re_outside_bounds_lb = -1.
+    re_stokes_lb = 0.
+    re_laminar_lb = 2.
+    re_lamsep_lb = 4.
+    re_level_lb = 4.3
+    re_transition_lb = 5.26
+    re_turbsep_lb = 5.74
+    re_final_lb = 7.
+    re_after_lb = 10.
+    # re_list = np.array([re_outside_bounds_lb, re_stokes_lb, re_laminar_lb, re_lamsep_lb, re_level_lb, re_transition_lb, re_turbsep_lb, re_final_lb, re_after_lb])
 
-    lbreyn = 0.
+    cd_outside_bounds = 1e3
+    lbreyn = re_stokes_lb
     h_before = cd_outside_bounds * (1. - vect_op.unitstep(log_reynolds - lbreyn, eps))
 
     # for log Re < 2
     cd_stokes = 100./reynolds
-    ubreyn = 2.
+    ubreyn = re_laminar_lb
     # R_squared_stokes = no fit performed
     h_stokes = vect_op.step_in_out(log_reynolds, lbreyn, ubreyn, eps) * cd_stokes
 
     # for 2 < log Re < 4
     cd_laminar = 1.
     lbreyn = ubreyn
-    ubreyn = 4.
+    ubreyn = re_lamsep_lb
     # R_squared_laminar = no fit performed
     h_laminar = vect_op.step_in_out(log_reynolds, lbreyn, ubreyn, eps) * cd_laminar
 
     # for 4 < log Re < 4.3
     cd_lamsep = 1.02198077356237e-5 * reynolds + 1.01141242
     lbreyn = ubreyn
-    ubreyn = 4.3
+    ubreyn = re_level_lb
     # R_squared_lamsep = 0.99
     h_lamsep = vect_op.step_in_out(log_reynolds, lbreyn, ubreyn, eps) * cd_lamsep
 
     # for 4.3 < log Re < 5.26
     cd_level = -1.03659206648679e-7 * reynolds + 1.2046901692
     lbreyn = ubreyn
-    ubreyn = 5.26
+    ubreyn = re_transition_lb
     # R_squared_level = 0.55
     h_level = vect_op.step_in_out(log_reynolds, lbreyn, ubreyn, eps) * cd_level
 
     # for 5.26 < log Re < 5.74
     cd_transition = -3.28441892597317e-6 * reynolds + 1.8415437577
     lbreyn = ubreyn
-    ubreyn = 5.74
+    ubreyn = re_turbsep_lb
     # R_squared_transition = 0.94
     h_transition = vect_op.step_in_out(log_reynolds, lbreyn, ubreyn, eps) * cd_transition
 
     # for 5.74 < log Re < 7
     cd_turbsep = 7.10799367510221e-8 * reynolds + 0.2824178662
     lbreyn = ubreyn
-    ubreyn = 7.
+    ubreyn = re_final_lb
     # R_squared_turbsep = 0.84
     h_turbsep = vect_op.step_in_out(log_reynolds, lbreyn, ubreyn, eps) * cd_turbsep
 
     # for 7 < log Re
     cd_final = 0.8
     lbreyn = ubreyn
-    ubreyn = 10.
+    ubreyn = re_after_lb
     # R_squared_final = no fit performed
     h_final = vect_op.step_in_out(log_reynolds, lbreyn, ubreyn, eps) * cd_final
 
@@ -286,4 +331,5 @@ def get_interpolation(reynolds, smoothing):
     return estimate
 
 if __name__ == "__main__":
-    plot_cd_vs_reynolds(1, smoothing=1e-4)
+    # plot_cd_vs_reynolds(1, smoothing=1e-4)
+    test()

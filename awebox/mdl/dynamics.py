@@ -54,7 +54,7 @@ import awebox.tools.constraint_operations as cstr_op
 from awebox.logger.logger import Logger as awelogger
 
 
-def make_dynamics(options, atmos, wind, parameters, architecture, options_help=None, kite_obj_for_printing_only=None, tether_obj_for_printing_only=None):
+def make_dynamics(options, atmos, wind, parameters, architecture, options_help=None, kite_obj_for_printing_only=None, tether_obj=None):
     # system architecture (see zanon2013a)
 
     # --------------------------------------------------------------------------------------
@@ -88,18 +88,18 @@ def make_dynamics(options, atmos, wind, parameters, architecture, options_help=N
                                                                         parameters)
 
     # enforce the lagrangian dynamics
-    lagr_dyn_cstr, outputs, kite_obj_for_printing_only, tether_obj_for_printing_only = lagr_dyn.get_dynamics(options,
-                                                                                                             atmos,
-                                                                                                             wind,
-                                                                                                             architecture,
-                                                                                                             system_variables,
-                                                                                                             system_gc,
-                                                                                                             parameters,
-                                                                                                             outputs,
-                                                                                                             wake,
-                                                                                                             scaling,
-                                                                                                             kite_obj_for_printing_only=kite_obj_for_printing_only,
-                                                                                                             tether_obj_for_printing_only=tether_obj_for_printing_only)
+    lagr_dyn_cstr, outputs, kite_obj_for_printing_only, tether_obj = lagr_dyn.get_dynamics(options,
+                                                                                             atmos,
+                                                                                             wind,
+                                                                                             architecture,
+                                                                                             system_variables,
+                                                                                             system_gc,
+                                                                                             parameters,
+                                                                                             outputs,
+                                                                                             wake,
+                                                                                             scaling,
+                                                                                             kite_obj_for_printing_only=kite_obj_for_printing_only,
+                                                                                             tether_obj=tether_obj)
     cstr_list.append(lagr_dyn_cstr)
 
     # enforce lifted aerodynamic force <-- this must happen after lagr_dyn.get_dynamics, which determines the kite indicators
@@ -213,7 +213,7 @@ def make_dynamics(options, atmos, wind, parameters, architecture, options_help=N
         integral_scaling,
         wake,
         kite_obj_for_printing_only,
-        tether_obj_for_printing_only
+        tether_obj
     ]
 
 
@@ -892,7 +892,7 @@ def tether_stress_inequality(options, variables_si, outputs, parameters, archite
 
         # tether properties are either assigned in lagr_dyn or are reported in the inequalities
         seg_props, _ = tether_aero.get_tether_segment_properties(options, architecture, scaling, variables_si, parameters,
-                                                              upper_node=node, tether_obj_for_printing_only=None)
+                                                              upper_node=node, tether_obj=None)
         seg_length = seg_props['seg_length']
         cross_section_area = seg_props['cross_section_area']
 

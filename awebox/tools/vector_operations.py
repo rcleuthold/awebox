@@ -30,6 +30,8 @@ _python-3.5 / casadi-3.4.5
 '''
 
 import matplotlib
+from scipy.constants import yard
+
 from awebox.viz.plot_configuration import DEFAULT_MPL_BACKEND
 matplotlib.use(DEFAULT_MPL_BACKEND)
 import matplotlib.pyplot as plt
@@ -396,6 +398,30 @@ def find_zero_cols(matrix, tol):
 def unitstep(val, eps=1e-8):
     heavi = cas.arctan(val / eps) / np.pi + 0.5
     return heavi
+
+def interpolate_by_unit_stepping(x_data, y_data, x_sym, epsilon_factor=0.01):
+    if data_is_obviously_uninterpolatable(x_data, y_data):
+        message = 'unit-step interpolation will not work, data is obviously un-interpretable'
+        print_op.log_and_raise_error(message)
+
+    fun = y_data[0]
+
+    halfway_x = (x_data[0:-1] + x_data[1:]) / 2.
+    halfway_y = (y_data[0:-1] + y_data[1:]) / 2.
+    for idx in range(x_data.shape[0]-1):
+        delta_x = x_data[idx+1] - x_data[idx]
+        delta_y = y_data[idx+1] - y_data[idx]
+        linear_m = delta_y / delta_x
+        linear_b = halfway_y[idx] - linear_m * halfway_x[idx]
+        local_linear = linear_m * x_sym + linear_b
+        next_unit_step = step_in_out(x_sym, x_data[idx], x_data[idx+1], delta_x * epsilon_factor)
+        fun += local_linear * next_unit_step
+
+    delta_x = x_data[-1] - x_data[-2]
+    next_unit_step = unitstep(x_sym - x_data[-1], delta_x * epsilon_factor)
+    fun += y_data[-1] * next_unit_step
+
+    return fun
 
 def step_in_out(number, step_in, step_out, eps=1e-4):
     step_in = unitstep(number - step_in, eps)
@@ -974,6 +1000,8 @@ def is_strictly_increasing(array):
 
     if not ((len(array.shape) == 1) or (array.shape[0] == 1) or (array.shape[1] == 1)):
         return False
+
+    array = columnize(array)
 
     for idx in range(1, array.shape[0]):
         if not (array[idx] > array[idx-1]):

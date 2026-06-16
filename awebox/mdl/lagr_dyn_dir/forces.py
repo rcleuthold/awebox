@@ -44,7 +44,7 @@ import awebox.tools.print_operations as print_op
 from awebox.logger.logger import Logger as awelogger
 
 
-def generate_f_nodes(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling, kite_obj_for_printing_only=None, tether_obj_for_printing_only=None):
+def generate_f_nodes(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling, kite_obj_for_printing_only=None, tether_obj=None):
 
     variables_si = system_variables['SI']
 
@@ -59,8 +59,8 @@ def generate_f_nodes(options, atmos, wind, wake, system_variables, outputs, para
     aero_forces, outputs, kite_obj_for_printing_only = generate_aerodynamic_forces(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
 
     # # this must be after the kite aerodynamics, because the tether model "kite_only" depends on the kite outputs.
-    tether_drag_forces, outputs, tether_obj_for_printing_only = generate_tether_drag_forces(options, variables_si, parameters, atmos, wind, outputs,
-                                                              architecture, tether_obj_for_printing_only=tether_obj_for_printing_only)
+    tether_drag_forces, outputs, tether_obj = generate_tether_drag_forces(options, variables_si, parameters, atmos, wind, outputs,
+                                                              architecture, tether_obj=tether_obj)
 
     if options['trajectory']['system_type'] == 'drag_mode':
         generator_forces, outputs = generate_drag_mode_forces(variables_si, outputs, architecture)
@@ -77,7 +77,7 @@ def generate_f_nodes(options, atmos, wind, wake, system_variables, outputs, para
         if (force[0] == 'm') and force in list(aero_forces.keys()):
             node_forces[force] += aero_forces[force]
 
-    return node_forces, outputs, kite_obj_for_printing_only, tether_obj_for_printing_only
+    return node_forces, outputs, kite_obj_for_printing_only, tether_obj
 
 
 def generate_drag_mode_forces(variables_si, outputs, architecture):
@@ -99,20 +99,21 @@ def generate_drag_mode_forces(variables_si, outputs, architecture):
     return generator_forces, outputs
 
 
-def generate_tether_drag_forces(options, variables_si, parameters, atmos, wind, outputs, architecture, tether_obj_for_printing_only=None):
+def generate_tether_drag_forces(options, variables_si, parameters, atmos, wind, outputs, architecture, tether_obj=None):
 
     # tether_drag_coeff.plot_cd_vs_reynolds(100, options)
-    tether_cd_fun, tether_obj_for_printing_only = tether_drag_coeff.get_tether_cd_fun(options, parameters, tether_obj_for_printing_only=tether_obj_for_printing_only)
+    cd_fun, info_to_add_to_applied_params_dict = tether_drag_coeff.get_tether_cd_fun(options, parameters)
+    if tether_obj is not None:
+        tether_obj.add_dict_to_applied_params_dict(info_to_add_to_applied_params_dict)
 
     # mass vector, containing the mass of all nodes
     for node in range(1, architecture.number_of_nodes):
-        outputs, tether_obj_for_printing_only = tether_aero.get_force_outputs(options, variables_si, parameters, atmos, wind, node, tether_cd_fun, outputs,
-                                                architecture, tether_obj_for_printing_only=tether_obj_for_printing_only)
+        outputs, tether_obj = tether_aero.get_force_outputs(options, variables_si, parameters, atmos, wind, node, cd_fun, outputs,
+                                                architecture, tether_obj=tether_obj)
 
     if options['tether']['lift_tether_force']:
-        if tether_obj_for_printing_only is not None:
-            tether_obj_for_printing_only.add_to_applied_params_dict('model.tether.lift_tether_force',
-                                                                    options['tether']['lift_tether_force'])
+        if tether_obj is not None:
+            tether_obj.add_to_applied_params_dict('model.tether.lift_tether_force', options['tether']['lift_tether_force'])
 
         tether_drag_forces = {}
         for node in range(1, architecture.number_of_nodes):
@@ -125,7 +126,7 @@ def generate_tether_drag_forces(options, variables_si, parameters, atmos, wind, 
     # collect tether drag losses
     outputs = indicators.collect_tether_drag_losses(variables_si, tether_drag_forces, outputs, architecture)
 
-    return tether_drag_forces, outputs, tether_obj_for_printing_only
+    return tether_drag_forces, outputs, tether_obj
 
 
 def generate_aerodynamic_forces(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling, kite_obj_for_printing_only=None):
