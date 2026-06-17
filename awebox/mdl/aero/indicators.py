@@ -470,10 +470,10 @@ def get_beta(ua, r):
     return beta
 
 def get_dynamic_pressure(atmos, wind, zz):
+    # todo: does this get used anywhere?
     u = wind.get_velocity(zz)
     rho = atmos.get_density(zz)
     q = 0.5 * rho * cas.mtimes(u.T, u)
-
     return q
 
 def get_power_density(atmos, wind, zz):

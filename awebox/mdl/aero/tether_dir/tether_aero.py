@@ -111,7 +111,15 @@ def get_force_outputs(model_options, variables, parameters, atmos, wind, upper_n
     if 'tether_aero' not in list(outputs.keys()):
         outputs['tether_aero'] = {}
 
-    distributed_forces_dict = tether_obj.calculate_distribute_drag_forces_on_nodes(upper_node, variables, parameters, architecture)
+    # drag inputs that we need for the kite_only drag model
+    kite = upper_node
+    ehat_1 = outputs['aerodynamics']['ehat_chord' + str(kite)]
+    ehat_3 = outputs['aerodynamics']['ehat_up' + str(kite)]
+    alpha = outputs['aerodynamics']['alpha' + str(kite)]
+    kite_dynamic_pressure = outputs['aerodynamics']['dyn_pressure' + str(kite)]
+    air_velocity = outputs['aerodynamics']['air_velocity' + str(kite)]
+
+    distributed_forces_dict = tether_obj.calculate_distribute_drag_forces_on_nodes(upper_node, model_options, variables, parameters, architecture, ehat_1=ehat_1, ehat_3=ehat_3, alpha=alpha, kite_dynamic_pressure=kite_dynamic_pressure, air_velocity=air_velocity)
     drag_node = distributed_forces_dict['upper']
     drag_parent = distributed_forces_dict['lower']
 

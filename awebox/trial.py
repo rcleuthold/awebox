@@ -133,7 +133,7 @@ class Trial(object):
         self.__nlp.build(self.__options['nlp'], self.__model, self.__formulation)
         self.__optimization.build(self.__options['solver'], self.__nlp, self.__model, self.__formulation, self.__name)
         self.__visualization.build(self.__model, self.__nlp, self.__name, self.__options)
-        self.__quality.build(self.__options['quality'], self.__name)
+        self.__quality.build(self.__options['quality'], self.__name, options_help_dict=self.__options.help_dict)
         self.set_timings('construction')
         awelogger.logger.info('Trial "%s" built.', self.__name)
         awelogger.logger.info('Trial construction time: %s',print_op.print_single_timing(self.__timings['construction']))
@@ -242,14 +242,16 @@ class Trial(object):
         elif timing == 'optimization':
             self.__timings['optimization'] = self.optimization.timings['optimization']
 
-    def print_solution(self):
+    def print_solution(self, to_echo_or_latex='echo', latex_dict={}, save=False):
 
         time_period = self.__optimization.global_outputs_opt['time_period'].full()[0][0]
         avg_power_watts = self.__optimization.global_outputs_opt['avg_power_watts'].full()[0][0]
         avg_power_kw = avg_power_watts * 1.e-3
 
+
+
         optimal_label = 'Value at Optimal Solution'
-        dimension_label = 'Dimension'
+        dimension_label = 'units'
 
         dict_parameters = {
             'Average power output': {optimal_label: str(avg_power_kw),
@@ -257,6 +259,14 @@ class Trial(object):
             'Time period': {optimal_label: str(round(time_period, 2)),
                             dimension_label: 's'}
             }
+
+        if self.nlp.options['phase_fix'] == 'single_reelout':
+            phase_fix_reelout = self.options['nlp']['phase_fix_reelout']
+            n_k_reelout = round(self.nlp.n_k * phase_fix_reelout)
+            t_f = self.optimization.V_final_si['theta', 't_f']
+            t_switch = float(t_f[0] * n_k_reelout / self.nlp.n_k)
+            phi_switch = t_switch / time_period
+            dict_parameters['Switching ratio'] = {optimal_label: str(phi_switch), dimension_label: '-'}
 
         theta_info = {
             'diam_t': ('Main tether diameter', 1e3, 'mm'),
@@ -278,7 +288,9 @@ class Trial(object):
                 dict_parameters[info[0]] = {optimal_label: str(round(self.__optimization.V_final_si['theta', theta].full()[0][0]*info[1],3)),
                                             dimension_label: info[2]}
 
-        print_op.print_dict_as_table(dict_parameters)
+        string_out = print_op.print_dict_as_table(dict_parameters, to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, latex_symbolic_in_first_column=True, transpose=False)
+        if save:
+            save_op.write_string_to_txt_or_tex(string_out, self.__name.replace(' ', '_'), to_echo_or_latex=to_echo_or_latex)
 
         return None
 
@@ -327,6 +339,8 @@ class Trial(object):
         self.__model.print_model_info(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, nan_replacement='--', trial_name=trial_name, V_opt=self.__optimization.V_opt, p_fix_num=self.__optimization.p_fix_num, save=save)
         self.__options.make_report(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, trial_name=trial_name, print_all_options=print_all_options, save=save)
         self.__optimization.make_report(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, trial_name=trial_name, save=save)
+        self.print_solution(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, save=save)
+        self.__quality.make_report(to_echo_or_latex=to_echo_or_latex, latex_dict=latex_dict, trial_name=trial_name, save=save)
         return None
 
 

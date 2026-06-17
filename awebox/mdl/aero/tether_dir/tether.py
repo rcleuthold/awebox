@@ -100,7 +100,7 @@ class Tether(print_op.PrintableObject):
         self.add_dict_to_applied_params_dict(info_to_add_to_applied_params_dict)
         return None
 
-    def calculate_distribute_drag_forces_on_nodes(self, upper_node, variables, parameters, architecture):
+    def calculate_distribute_drag_forces_on_nodes(self, upper_node, model_options, variables, parameters, architecture, ehat_1=None, ehat_3=None, alpha=None, kite_dynamic_pressure=None, air_velocity=None):
         q_top, q_bottom, dq_top, dq_bottom = tether_element.get_upper_and_lower_pos_and_vel(variables, upper_node,
                                                                                             architecture)
         diam = tether_element.get_element_diameter(variables, upper_node, architecture)
@@ -108,8 +108,14 @@ class Tether(print_op.PrintableObject):
                              'q_lower': q_bottom,
                              'dq_upper': dq_top,
                              'dq_lower': dq_bottom,
-                             'diameter': diam}
-        segment_info_columnized = tether_element.columnize_element_info(unpacked_as_dict=segment_info_dict)
+                             'diameter': diam,
+                             'ehat_1': ehat_1,
+                             'ehat_3': ehat_3,
+                             'alpha': alpha,
+                             'kite_dynamic_pressure': kite_dynamic_pressure,
+                             'air_velocity': air_velocity}
+        kite_only = model_options['tether']['tether_drag']['model_type'] == 'kite_only'
+        segment_info_columnized = tether_element.columnize_element_info(unpacked_as_dict=segment_info_dict, kite_only=kite_only)
         columnized_node_forces = self.__drag_distribution_fun(segment_info_columnized, parameters)
         node_forces_dict = tether_segment.unpack_node_force_column(columnized_node_forces)
         return node_forces_dict

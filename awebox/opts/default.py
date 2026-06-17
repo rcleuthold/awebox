@@ -62,7 +62,7 @@ def set_default_user_options():
         ('user_options',    None,          None,        'kite_standard',         None,               ('possible options', None, None),'x'),
         ('user_options',    None,          None,        'atmosphere',            'isa',              ('atmospheric model', ['isa', 'uniform'], None),'x'),
         ('user_options',    None,          None,        'tether_model',          'default',          ('a placeholder for future expansion to non-rigid tether segments', ['default'], None),'x'),
-        ('user_options',    None,          None,        'tether_drag_model',     'multi',            ('method of integrating and distributing the tether drag between two nodes', "possible options: split drag equally between nodes 'split', distribute the drag linearly between the nodes 'multi', get equivalent forces from multiple elements 'equivalent', or apply drag only to tether segments with kite end-nodes 'kite-only', or use no drag 'not_in_use'", None),'t'),
+        ('user_options',    None,          None,        'tether_drag_model',     'multi',            ('integrating and distributing the tether drag onto the nodes', "possible options: split drag equally between nodes 'split', distribute the drag linearly between the nodes 'multi', get equivalent forces from multiple elements 'equivalent', or apply drag only to tether segments with kite end-nodes 'kite-only', or use no drag 'not_in_use'", None),'t'),
     ]
 
     default_user_options, help_options = funcs.assemble_options_tree(default_user_options_tree, {}, {})
@@ -604,19 +604,18 @@ def set_default_options(default_user_options, help_options):
         ('quality', 'test_param', None, 'c_max', 1e0,                       ('maximum invariant test parameter', None, 'm^2'), 'x'),
         ('quality', 'test_param', None, 'dc_max', 1e1,                      ('maximum invariant test parameter', None, 'm^2/s'), 'x'),
         ('quality', 'test_param', None, 'z_min', 0.,                        ('minimum node altitude test parameter', None, 'm'), 'x'),
-        ('quality', 'test_param', None, 'r_max', 1e-2,                      ('maximum invariant test parameter', None, 'None'), 'x'),
+        ('quality', 'test_param', None, 'r_max', 1e-2,                      ('maximum invariant test parameter', None, None), 'x'),
         ('quality', 'test_param', None, 'max_loyd_factor', 30,              ('maximum loyd factor test parameter', None, None), 'x'),
         ('quality', 'test_param', None, 'max_power_harvesting_factor', 100, ('maximum power harvesting factor test parameter', None, None), 'x'),
         ('quality', 'test_param', None, 'max_tension', 1e6,                 ('maximum max main tether tension test parameter', None, 'N'), 'x'),
         ('quality', 'test_param', None, 'max_velocity', 100.,               ('maximum kite velocity test parameter', None, 'm/s'), 'x'),
         ('quality', 'test_param', None, 't_f_min', 5.,                      ('minimum final time test parameter', None, 's'), 'x'),
         ('quality', 'test_param', None, 'power_balance_thresh', 1e0,       ('power balance threshold test parameter', None, None), 'x'),
-        ('quality', 'test_param', None, 'max_control_interval', 10.,        ('max control interval test parameter', None, None), 'x'),
+        ('quality', 'test_param', None, 'max_control_interval', 10.,        ('max control interval test parameter', None, 's'), 'x'),
         ('quality', 'test_param', None, 'vortex_truncation_error_thresh', 0.01,('maximum estimated vortex truncation error', None, None), 'x'),
         ('quality', 'test_param', None, 'check_energy_summation', False,    ('check that no kinetic or potential energy source has gotten lost', None, None), 'x'),
         ('quality', 'test_param', None, 'energy_summation_thresh', 1.e-10,  ('maximum lost kinetic or potential energy from different calculations', None, 'W^2'), 'x'),
-        ('quality', 'test_param', None, 'non_power_fraction_of_objective_thresh', 0.1,  ('maximum fraction of objective contributed by sources other than the power-cost. written in decimals, therefore values less than 1.', None, None), 'x'),
-        ('quality', 'test_param', None, 'quasi_steady_reduced_frequency_thresh', 1e8,  ('maximum reduced frequency for quasi-steady flow models to be valid (recommended value when actually using test is 0.05)', None, None), 'x'),
+        ('quality', 'test_param', None, 'non_power_fraction_of_objective_thresh', 0.1,  ('maximum fraction of objective contributed by sources other than the power-cost. written in decimals, therefore values less than 1.', None, None), 'x')
     ]
 
     default_options_tree = add_available_aerodynamic_stability_derivative_overwrites(default_options_tree)

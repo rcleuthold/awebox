@@ -293,7 +293,11 @@ def write_data_row(pcdw, data_dict, write_csv_dict, tgrid_ip, k, rotation_repres
                     var = data_dict[variable_type][variable][sub_variable]
                     variable_length = len(var)
                     for index in range(variable_length):
-                        write_csv_dict[variable_type + '_' + variable + '_' + sub_variable + '_' + str(index)] = str(var[index][k])
+                        if isinstance(var[index], list) and (len(var[index]) > 0):
+                            local_value = var[index][k]
+                        else:
+                            local_value = var[index]
+                        write_csv_dict[variable_type + '_' + variable + '_' + sub_variable + '_' + str(index)] = str(local_value)
 
             # continue if no sub_variables exist
             else:
@@ -316,7 +320,11 @@ def write_data_row(pcdw, data_dict, write_csv_dict, tgrid_ip, k, rotation_repres
                     var = data_dict[variable_type][variable]
                     variable_length = len(var)
                     for index in range(variable_length):
-                        write_csv_dict[variable_type + '_' + variable + '_' + str(index)] = str(var[index][k])
+                        if isinstance(var[index], list) and (len(var[index]) > 0):
+                            local_value = var[index][k]
+                        else:
+                            local_value = var[index]
+                        write_csv_dict[variable_type + '_' + variable + '_' + str(index)] = str(local_value)
 
     write_csv_dict['time'] = tgrid_ip[k]
 

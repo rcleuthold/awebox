@@ -84,7 +84,7 @@ def run(plot_show_block=True, overwrite_options={}):
     trial.write_to_csv(filename = 'Ampyx_AP2_solution', frequency = 30)
 
     # draw some of the pre-coded plots for analysis
-    trial.plot(['states', 'controls', 'constraints', 'quad'])
+    trial.plot(['states', 'controls', 'constraints', 'quad', 'isometric'])
 
     # extract information from the solution for independent plotting or post-processing
     # here: plot relevant system outputs, compare to [Licitra2019, Fig 11].
@@ -159,10 +159,106 @@ def make_comparison(trial):
 
     return criteria
 
+def get_overwrite_options_to_replicate_Licitra2019():
+    # expected_t_f = 39.6 #s
+    # # flight_radius = 250. / 2. #m, fig. 14
+    # #
+    # # max_height = 350. #m, fig. 14
+    #
+    # average_l_t = 400.
+    # # # inclination_angle = np.arcsin((max_height - flight_radius) / average_l_t)
+    # # # cone_angle = np.arctan(flight_radius / average_l_t)
+    # #
+    # # expected_t_f = 60.
+    # # cone_angle = 25. * np.pi / 180.
+    # # flight_radius = average_l_t * np.tan(cone_angle)
+    # # average_groundspeed = (2. * np.pi * flight_radius) / expected_t_f
+    #
+    # average_groundspeed = 16.
+    # cone_angle_deg = 30.
+    #
+    #
+    # inclination_angle_deg = 60.
+    # u_infty = 10.
+    # matching_airspeed = 14.
+    # a_term = 1.
+    # b_term = -2. * u_infty * np.sin(inclination_angle_deg * np.pi/180.)
+    # c_term = (u_infty**2. - matching_airspeed**2.)
+    # average_groundspeed = (-b_term + (b_term**2. - 4. * a_term * c_term)**0.5) / (2. * a_term)
+    # omega = 2. * np.pi / expected_t_f
+    # radius = average_groundspeed / omega
+    # cone_angle_deg = np.arcsin(radius / average_l_t) * 180. / np.pi
+    #
+    #
+    #
+    inclination_angle_deg = 20.
+    expected_t_f = 39.6
+    average_l_t = 400.
+    u_infty = 10.
+    matching_airspeed = 14.
+    a_term = 1.
+    b_term = -2. * u_infty * np.sin(inclination_angle_deg * np.pi/180.)
+    c_term = (u_infty**2. - matching_airspeed**2.)
+    average_groundspeed = (-b_term + (b_term**2. - 4. * a_term * c_term)**0.5) / (2. * a_term)
+    omega = 2. * np.pi / expected_t_f
+    radius = average_groundspeed / omega
+    cone_angle_deg = np.arcsin(radius / average_l_t) * 180. / np.pi
+    #
+    # # import pdb; pdb.set_trace()
+
+    # inclination_angle_deg = 20.
+
+    overwrite_options = {
+                        # Table 1 of Licitra2019 gives CX0 value as positive, this is either a typo, or it represents the propeller force? But, the match is very bad when we use these.
+                         # 'model.aero.overwrite.CX0': [0.456],
+                         # 'model.aero.overwrite.CXalpha': [8.320],
+                         # 'model.aero.overwrite.CXdeltae': [-0.011, 0.112],
+                         # 'model.aero.overwrite.CYbeta': [-0.186],
+                         # 'model.aero.overwrite.CYp': [-0.102],
+                         # 'model.aero.overwrite.CYdeltaa': [-0.05],
+                         # 'model.aero.overwrite.CYdeltar': [0.103],
+                         # 'model.aero.overwrite.CZ0': [-5.4],
+                         # 'model.aero.overwrite.CZalpha': [1.226, 10.203],
+                         # 'model.aero.overwrite.Clbeta': [-0.062],
+                         # 'model.aero.overwrite.Clp': [-0.559],
+                         # 'model.aero.overwrite.Cldeltaa': [-0.248, 0.041],
+                         # 'model.aero.overwrite.Cldeltar': [0.004],
+                         # 'model.aero.overwrite.Cm0': [-0.315],
+                         # 'model.aero.overwrite.Cmalpha': [0.205],
+                         # 'model.aero.overwrite.Cmdeltae': [-1.019],
+                         # 'model.aero.overwrite.Cnr': [-0.052],
+                         # 'model.aero.overwrite.Cndeltar': [-0.041],
+                         'user_options.trajectory.fixed_params': {'diam_t': 0.002},
+                         'params.tether.rho': 0.0046 / (np.pi * (0.002/2.)**2.),
+                         'params.tether.cd': 1.2,
+                         'user_options.tether_drag_model': 'kite_only',
+                         'user_options.trajectory.lift_mode.phase_fix': 'single_reelout',
+                         'solver.initialization.init_clipping': False,
+                         'solver.cost.beta.0': 1e1,
+                         # 'nlp.n_k': 10,
+                         # 'solver.initialization.check_feasibility.raise_exception': True,
+                         # 'nlp.collocation.name_constraints': True,
+                         # 'solver.initialization.check_reference': True,
+                         'user_options.wind.model': 'power',
+                         'user_options.atmosphere': 'uniform',
+                         'model.model_bounds.airspeed.include': True,
+                         'params.model_bounds.airspeed_limits': np.array([13., 32.]),
+                         'solver.initialization.kite_dcm': 'aero_validity',
+                         'solver.initialization.groundspeed': average_groundspeed,
+                         'solver.initialization.cone_deg': cone_angle_deg,
+                         'solver.initialization.inclination_deg': inclination_angle_deg,
+                         'model.model_bounds.rotation.include': True,
+                         'model.model_bounds.rotation.type': 'roll_pitch',
+                         'params.model_bounds.rot_angles': np.array([50. * np.pi/180., 40. * np.pi/180., 160. * np.pi/180.]),
+                         'model.system_bounds.x.ddl_t': [-2.3, 2.4]
+                         }
+
+    return overwrite_options
+
 if __name__ == "__main__":
 
-    trial = run(overwrite_options={'user_options.tether_drag_model': 'multi'}, plot_show_block=True)
-    #'nlp.n_k': 5, 'solver.max_iter': 2, 'solver.max_iter_hippo': 2,
+    licitra2019_overwrite_options = get_overwrite_options_to_replicate_Licitra2019()
+    trial = run(overwrite_options=licitra2019_overwrite_options, plot_show_block=True)
     latex_dict = {'stab_derivs':
                     {'0': r'0',
                     'alpha': r'\AngleOfAttack',
@@ -239,5 +335,5 @@ if __name__ == "__main__":
                         'c_ref': r'\MAC'
                          }
                   }
-    trial.make_report(to_echo_or_latex='echo', latex_dict=latex_dict, save=True)
+    trial.make_report(to_echo_or_latex='latex', latex_dict=latex_dict, save=True)
     import pdb; pdb.set_trace()

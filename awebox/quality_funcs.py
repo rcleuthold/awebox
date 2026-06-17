@@ -39,7 +39,7 @@ from awebox.mdl.architecture import Architecture
 from awebox.mdl.model import Model
 
 
-def test_opti_success(trial, test_param_dict, results):
+def test_opti_success(trial, test_param_dict, results, printable_summary_dict={}, test_units_dict=None):
     """
     Test whether optimization was successful
     :return: results
@@ -47,9 +47,20 @@ def test_opti_success(trial, test_param_dict, results):
 
     results['solve_succeeded'] = trial.optimization.solve_succeeded
 
-    return results
+    printable_summary_dict['solve_succeeded'] = {'found': results['solve_succeeded'], 'threshhold': True, 'units': None,
+                                                 'test_passed': results['solve_succeeded']}
+    return results, printable_summary_dict
 
-def test_numerics(trial, test_param_dict, results):
+def add_test_to_printable_summary(name, found, printable_summary_dict, results, test_param_dict, test_units_dict):
+    printable_summary_dict[name] = {'found': found,
+                                    'threshhold': test_param_dict[name]}
+    if test_units_dict is not None:
+        printable_summary_dict[name]['units'] = test_units_dict[name]
+
+    printable_summary_dict[name]['test_passed'] = results[name]
+    return printable_summary_dict
+
+def test_numerics(trial, test_param_dict, results, printable_summary_dict, test_units_dict=None):
     """
     Test whether optimal parameters are chosen in a reasonable way
     :return: results
@@ -63,6 +74,7 @@ def test_numerics(trial, test_param_dict, results):
         results['t_f_min'] = False
     else:
         results['t_f_min'] = True
+    printable_summary_dict = add_test_to_printable_summary('t_f_min', t_f, printable_summary_dict, results, test_param_dict, test_units_dict)
 
     # test if t_f/k_k ratio makes sense
     max_control_interval = test_param_dict['max_control_interval']
@@ -72,10 +84,12 @@ def test_numerics(trial, test_param_dict, results):
         results['max_control_interval'] = False
     else:
         results['max_control_interval'] = True
+    printable_summary_dict = add_test_to_printable_summary('max_control_interval', t_f / float(n_k), printable_summary_dict, results,
+                                                               test_param_dict, test_units_dict)
 
-    return results
+    return results, printable_summary_dict
 
-def test_invariants(trial, test_param_dict, results, input_values):
+def test_invariants(trial, test_param_dict, results, input_values, printable_summary_dict, test_units_dict=None):
     """
     Test whether invariants reasonably sized
     :return: test results
@@ -116,15 +130,15 @@ def test_invariants(trial, test_param_dict, results, input_values):
             r_sol = max(r_list)
 
             # test whether invariants are small enough
-            results = include_result_of_allowed_invariant_test(results, 'c', node, parent, c_sol, c_max, trial.name)
-            results = include_result_of_allowed_invariant_test(results, 'dc', node, parent, dc_sol, dc_max, trial.name)
+            results, printable_summary_dict = include_result_of_allowed_invariant_test(results, 'c', node, parent, c_sol, c_max, trial.name, printable_summary_dict, test_units_dict=test_units_dict)
+            results, printable_summary_dict = include_result_of_allowed_invariant_test(results, 'dc', node, parent, dc_sol, dc_max, trial.name, printable_summary_dict, test_units_dict=test_units_dict)
 
             if DOF6 and node in architecture.kite_nodes:
-                results = include_result_of_allowed_invariant_test(results, 'r', node, parent, r_sol, r_max, trial.name)
+                results, printable_summary_dict = include_result_of_allowed_invariant_test(results, 'r', node, parent, r_sol, r_max, trial.name, printable_summary_dict, test_units_dict=test_units_dict)
 
-    return results
+    return results, printable_summary_dict
 
-def include_result_of_allowed_invariant_test(results, name, node, parent, sol_value, max_value, trial_name):
+def include_result_of_allowed_invariant_test(results, name, node, parent, sol_value, max_value, trial_name, printable_summary_dict, test_units_dict=None):
     combined_name = name + str(node) + str(parent)
     if sol_value > max_value:
         message = 'Invariant ' + combined_name + ' has value ' + str(sol_value) + ' > ' + str(max_value) + ' of V for trial ' + trial_name
@@ -132,29 +146,15 @@ def include_result_of_allowed_invariant_test(results, name, node, parent, sol_va
         results[combined_name] = False
     else:
         results[combined_name] = True
-    return results
 
-def test_flow_quasi_steadyness(trial, test_param_dict, results):
+    printable_summary_dict[combined_name] = {'found': sol_value, 'threshhold': max_value, 'test_passed': results[combined_name]}
+    if test_units_dict is not None:
+        printable_summary_dict[combined_name]['units'] = test_units_dict[name + "_max"]
 
-    if trial.options['user_options']['induction_model'] == 'not_in_use':
-        reduced_frequency_thresh = test_param_dict['quasi_steady_reduced_frequency_thresh']
-        name = 'quasi-steady_reduced_frequency'
+    return results, printable_summary_dict
 
-        for kite in trial.model.architecture.kite_nodes:
-            qs_found = trial.visualization.plot_dict['interpolation_si']['outputs']['aerodynamics']['reduced_frequency_n_k_' + str(kite)]
-            qs_found_max = np.max(np.array(qs_found))
 
-            combined_name = name + str(kite)
-            if qs_found_max > reduced_frequency_thresh:
-                message = 'Maximum reduced frequency of kite ' + str(kite) + ' has value ' + str(qs_found_max) + ' > ' + str(reduced_frequency_thresh) + ' for trial ' + trial.name
-                awelogger.logger.warning(message)
-                results[combined_name] = False
-            else:
-                results[combined_name] = True
-
-    return results
-
-def test_node_altitude(trial, test_param_dict, results):
+def test_node_altitude(trial, test_param_dict, results, printable_summary_dict, test_units_dict=None):
     """
     Test whether variables are of reasonable size and have correct signs
     :return: test results
@@ -182,20 +182,27 @@ def test_node_altitude(trial, test_param_dict, results):
         error_message = 'Node ' + node_str + ' has negative height for trial ' + trial.name
 
         heights_x = np.array(V_final_si['x', :, node_str, 2])
-        if np.min(heights_x) < z_min:
+        found_height = np.min(heights_x)
+        if found_height < z_min:
             results['min_node_height'] = False
 
         if discretization == 'direct_collocation':
             heights_coll_var = np.array(V_final_si['coll_var', :, :, 'x', node_str, 2])
-            if np.min(heights_coll_var) < z_min:
+            found_height = np.min(heights_coll_var)
+            if found_height < z_min:
                 results['min_node_height'] = False
+
+        printable_summary_dict['min_node_height'] = {'found': found_height, 'threshhold': z_min,
+                                                 'test_passed': results['min_node_height']}
+        if test_units_dict is not None:
+            printable_summary_dict['min_node_height']['units'] = test_units_dict['z_min']
 
         if not results['min_node_height']:
             print_op.log_and_raise_error(error_message)
 
-    return results
+    return results, printable_summary_dict
 
-def test_power_balance(trial, test_param_dict, results, input_values):
+def test_power_balance(trial, test_param_dict, results, input_values, printable_summary_dict, test_units_dict=None):
     """Test whether conservation of energy holds at all nodes and for the entire system.
     this test is only going to be meaningful, if there are no fictitious forces.
     :return: test results
@@ -210,7 +217,7 @@ def test_power_balance(trial, test_param_dict, results, input_values):
 
         check_energy_summation = test_param_dict['check_energy_summation']
         if check_energy_summation:
-            results = summation_check_on_potential_and_kinetic_power(trial, test_param_dict['energy_summation_thresh'], results, input_values)
+            results = summation_check_on_potential_and_kinetic_power(trial, test_param_dict['energy_summation_thresh'], results, input_values, test_units_dict['energy_summation_thresh'])
 
         balance = {}
         max_abs_system_power = 1.e-15
@@ -261,9 +268,15 @@ def test_power_balance(trial, test_param_dict, results, input_values):
         else:
             results['energy_balance' + 'total'] = True
 
-    return results
+        printable_summary_dict['energy_balance_total'] = {'found': balance['total'],
+                                                              'threshhold': test_param_dict['power_balance_thresh'],
+                                                              'test_passed': results['energy_balance' + 'total']}
+        if test_units_dict is not None:
+            printable_summary_dict['energy_balance_total']['units'] = test_units_dict['power_balance_thresh']
 
-def summation_check_on_potential_and_kinetic_power(trial, thresh, results, input_values):
+    return results, printable_summary_dict
+
+def summation_check_on_potential_and_kinetic_power(trial, thresh, results, input_values, printable_summary_dict, units=None):
 
     abbreviated_energy_names = ['pot', 'kin']
 
@@ -292,7 +305,14 @@ def summation_check_on_potential_and_kinetic_power(trial, thresh, results, input
         else:
             results['power_summation_check_' + abbreviated_name] = True
 
-    return results
+        printable_summary_dict['energy_balance' + abbreviated_name] = {'found': error,
+                                                              'threshhold': thresh,
+                                                              'test_passed': results['energy_balance' + abbreviated_name]}
+        if units is not None:
+            printable_summary_dict['energy_balance' + abbreviated_name]['units'] = units
+
+
+    return results, printable_summary_dict
 
 def power_balance_key_belongs_to_node(keyname, node):
     keyname_includes_nodenumber = (keyname[-len(str(node)):] == str(node))
@@ -301,7 +321,7 @@ def power_balance_key_belongs_to_node(keyname, node):
     return key_belongs_to_node
 
 
-def test_tracked_vortex_periods(trial, test_param_dict, results, input_values, global_input_values):
+def test_tracked_vortex_periods(trial, test_param_dict, results, input_values, global_input_values, printable_summary_dict, test_units_dict=None):
 
     if 'vortex' in input_values['outputs']:
         results['vortex_truncation_error'] = True
@@ -319,33 +339,25 @@ def test_tracked_vortex_periods(trial, test_param_dict, results, input_values, g
             awelogger.logger.warning(message)
             results['vortex_truncation_error'] = False
 
-    return results
+        printable_summary_dict = add_test_to_printable_summary('vortex_truncation_error', max_trunc_error, printable_summary_dict, results,
+                                                               test_param_dict, test_units_dict)
+
+    return results, printable_summary_dict
 
 
-def generate_test_param_dict(options):
+def generate_test_param_dict(options, options_help_dict=None):
     """
     Set parameters relevant for testing
     :return: dictionary with test parameters
     """
 
     test_param_dict = {}
-    test_param_dict['c_max'] = options['test_param']['c_max']
-    test_param_dict['dc_max'] = options['test_param']['dc_max']
-    # test_param_dict['ddc_max'] = options['test_param']['ddc_max']
-    test_param_dict['z_min'] = options['test_param']['z_min']
-    test_param_dict['r_max'] = options['test_param']['r_max']
-    test_param_dict['max_loyd_factor'] = options['test_param']['max_loyd_factor']
-    test_param_dict['max_power_harvesting_factor'] = options['test_param']['max_power_harvesting_factor']
-    test_param_dict['max_tension'] = options['test_param']['max_tension']
-    test_param_dict['max_velocity'] = options['test_param']['max_velocity']
-    test_param_dict['t_f_min'] = options['test_param']['t_f_min']
-    test_param_dict['max_control_interval'] = options['test_param']['max_control_interval']
-    test_param_dict['power_balance_thresh'] = options['test_param']['power_balance_thresh']
-    test_param_dict['vortex_truncation_error_thresh'] = options['test_param']['vortex_truncation_error_thresh']
-    test_param_dict['check_energy_summation'] = options['test_param']['check_energy_summation']
-    test_param_dict['energy_summation_thresh'] = options['test_param']['energy_summation_thresh']
-    test_param_dict['non_power_fraction_of_objective_thresh'] = options['test_param']['non_power_fraction_of_objective_thresh']
-    test_param_dict['quasi_steady_reduced_frequency_thresh'] = options['test_param']['quasi_steady_reduced_frequency_thresh']
+    test_units_dict = {}
 
+    for name, val in options['test_param'].items():
+        test_param_dict[name] = val
 
-    return test_param_dict
+        if options_help_dict is not None:
+            test_units_dict[name] = options_help_dict['quality']['test_param'][name][0][2]
+
+    return test_param_dict, test_units_dict

@@ -1284,18 +1284,29 @@ def rotation_inequality(options, variables, parameters, architecture, outputs, o
                     get_pitch_expr(x, kite, parent_map[kite], parent_map)
                 )
 
+                max_roll_pitch_param_dict = {'params.model_bounds.rot_angles (max roll, pitch)': (max_angles,
+                                                                                      options_help['params'][
+                                                                                          'model_bounds']['rot_angles'][
+                                                                                          0][2])}
+                min_roll_pitch_param_dict = {'params.model_bounds.rot_angles (min roll, pitch)': (min_angles,
+                                                                                      options_help['params'][
+                                                                                          'model_bounds']['rot_angles'][
+                                                                                          0][2])}
+
                 if options['model_bounds']['rotation']['include']:
                     expr_max = rotation_angles - max_angles
                     expr_min = min_angles - rotation_angles
 
                     cstr_max = cstr_op.Constraint(expr=expr_max,
                                                   name='rotation_max' + str(kite) + str(parent),
-                                                  cstr_type='ineq')
+                                                  cstr_type='ineq',
+                                                  parameter_dict=max_roll_pitch_param_dict)
                     cstr_list.append(cstr_max)
 
                     cstr_min = cstr_op.Constraint(expr=expr_min,
                                                   name='rotation_min' + str(kite) + str(parent),
-                                                  cstr_type='ineq')
+                                                  cstr_type='ineq',
+                                                  parameter_dict=min_roll_pitch_param_dict)
                     cstr_list.append(cstr_min)
 
                 outputs['local_performance']['rot_angles' + str(kite) + str(parent)] = cas.vertcat(

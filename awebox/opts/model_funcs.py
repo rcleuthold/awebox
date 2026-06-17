@@ -99,6 +99,9 @@ def build_geometry_options(options, help_options, options_tree, fixed_params):
             dict_type = 'model'
         options_tree.append((dict_type, 'geometry', None, name, geometry[name], ('???', None),'x'))
 
+    if options['user_options']['trajectory']['type'] not in ['nominal_landing', 'transitions', 'compromised_landing', 'launch']:
+        fixed_params = options['user_options']['trajectory']['fixed_params']
+
     return options_tree, fixed_params
 
 def get_geometry(options):
@@ -538,7 +541,11 @@ def build_trajectory_options(options, help_dict, options_tree, fixed_params, arc
 
     for theta in list(fixed_params.keys()):
         if theta in dict_of_fixed_units.keys():
-            options_tree.append(('model', 'system_bounds', 'theta', theta, [fixed_params[theta]]*2,  ('user input for fixed bounds on theta', None, dict_of_fixed_units[theta]),'x'))
+            options_tree.append(('model', 'system_bounds', 'theta', theta, [fixed_params[theta]] * 2,
+                                 ('user input for fixed bounds on theta', None, dict_of_fixed_units[theta]), 'x'))
+        else:
+            options_tree.append(('model', 'system_bounds', 'theta', theta, [fixed_params[theta]] * 2,
+                                 ('user input for fixed bounds on theta', None), 'x'))
 
     scenario, broken_kite = user_options['trajectory']['compromised_landing']['emergency_scenario']
     if not broken_kite in architecture.kite_nodes:
