@@ -66,6 +66,7 @@ setup(name='awebox',
         'jinja2',
         'reportlab',
         'dill',
-        'sympy'
+        'sympy',
+        'joblib'
    ],
 )
