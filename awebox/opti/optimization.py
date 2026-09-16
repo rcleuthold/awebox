@@ -30,7 +30,6 @@
 # matplotlib.use('TkAgg')
 # import matplotlib.pyplot as plt
 import pickle
-from os.path import exists
 
 from . import scheduling
 from . import preparation

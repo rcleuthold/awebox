@@ -390,8 +390,10 @@ def test_segment_integration_varying(aero_elements=100, cd_model='polyfit', drag
 
 def make_plots_for_integration_test():
 
+    import os
     import matplotlib
-    matplotlib.use('TkAgg')
+    if "MPLBACKEND" not in os.environ:
+        matplotlib.use("TkAgg")
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()

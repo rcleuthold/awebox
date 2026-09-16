@@ -30,10 +30,8 @@ _python-3.5 / casadi-3.4.5
 
 import os
 import matplotlib
-
 if "MPLBACKEND" not in os.environ:
     matplotlib.use("TkAgg")
-
 import matplotlib.pyplot as plt
 
 import casadi.tools as cas

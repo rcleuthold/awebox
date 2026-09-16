@@ -28,10 +28,10 @@ _python-3.5 / casadi-3.4.5
 - edited: rachel leuthold, jochem de schutter alu-fr 2017-20
 '''
 
+import os
 import matplotlib
-from awebox.viz.plot_configuration import DEFAULT_MPL_BACKEND
-matplotlib.use(DEFAULT_MPL_BACKEND)
-# matplotlib.use('TkAgg')
+if "MPLBACKEND" not in os.environ:
+    matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 
 import awebox.tools.vector_operations as vect_op

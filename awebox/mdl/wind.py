@@ -124,8 +124,10 @@ class Wind(print_op.PrintableObject):
 
     def plot_velocity_profile(self, z_min=None, z_max=800.):
 
+        import os
         import matplotlib
-        matplotlib.use('TkAgg')
+        if "MPLBACKEND" not in os.environ:
+            matplotlib.use("TkAgg")
         import matplotlib.pyplot as plt
 
         if z_min is None:
