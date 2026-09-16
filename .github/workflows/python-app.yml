@@ -39,6 +39,60 @@ jobs:
       run: |
         python -m pip install .
 
+
+    - name: Patch old CasADi wheel for current macOS
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        CASADI_DIR="$(python -c 'import os, casadi; print(os.path.dirname(casadi.__file__))')"
+
+        echo "CasADi version:"
+        python -c "import casadi; print(casadi.__version__)"
+        echo "CasADi directory: $CASADI_DIR"
+
+        find "$CASADI_DIR" -type f \( -name '*.dylib' -o -name '*.so' \) -print0 |
+        while IFS= read -r -d '' lib; do
+
+          rpath_file="$(mktemp)"
+          seen_file="$(mktemp)"
+
+          otool -l "$lib" 2>/dev/null |
+            awk '$1=="cmd" && $2=="LC_RPATH" {getline; getline; print $2}' \
+            > "$rpath_file" || true
+
+          changed=0
+
+          while IFS= read -r rpath; do
+            [ -z "$rpath" ] && continue
+
+            if grep -Fxq "$rpath" "$seen_file"; then
+              echo "Removing duplicate RPATH '$rpath' from:"
+              echo "  $lib"
+              install_name_tool -delete_rpath "$rpath" "$lib"
+              changed=1
+            else
+              printf '%s\n' "$rpath" >> "$seen_file"
+            fi
+          done < "$rpath_file"
+
+          rm -f "$rpath_file" "$seen_file"
+
+          if [ "$changed" -eq 1 ]; then
+            echo "Re-signing $lib"
+            codesign --force --sign - "$lib"
+          fi
+        done
+
+
+    - name: Check CasADi and IPOPT
+      run: |
+        python -c "import platform; print('machine:', platform.machine())"
+        python -c "import casadi; print('casadi:', casadi.__version__); print('path:', casadi.__file__)"
+        python -c "import casadi; print(casadi.CasadiMeta_plugins())"
+        python -c "import casadi as ca; x=ca.MX.sym('x'); ca.nlpsol('s','ipopt',{'x':x,'f':x*x}); print('IPOPT OK')"
+
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
