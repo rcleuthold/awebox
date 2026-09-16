@@ -64,6 +64,7 @@ setup(name='awebox',
         'progress==1.5',
         'python-resources',
         'jinja2',
-        'reportlab'
+        'reportlab',
+        'dill'
    ],
 )
