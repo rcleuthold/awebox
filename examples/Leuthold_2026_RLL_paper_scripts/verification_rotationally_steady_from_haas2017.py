@@ -5,7 +5,7 @@
 import numpy as np
 
 import awebox.trial as awe_trial
-from examples.Leuthold_2025_RLL_paper_scripts import c5a_data as c5a_data
+from examples.Leuthold_2026_RLL_paper_scripts import c5a_data as c5a_data
 
 import awebox.tools.vector_operations as vect_op
 import awebox.tools.print_operations as print_op
