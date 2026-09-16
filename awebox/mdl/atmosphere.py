@@ -44,7 +44,6 @@ class Atmosphere(print_op.PrintableObject):
 
         self.add_to_applied_params_dict('model.atmosphere.model', options['model'])
         self.add_to_applied_params_dict('params.atmosphere.g', params['theta0', 'atmosphere', 'g'])
-        # self.__applied_parameters_dict = {'model':{'description': 'atmsopheric model', 'value': options['model'], 'units':None, 'awebox option': 'user_options.atmosphere'}}
 
     def get_temperature(self, zz):
         params = self.__params.prefix['theta0','atmosphere']
