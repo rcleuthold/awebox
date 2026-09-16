@@ -27,10 +27,13 @@ file to generate the tether drag coefficient vs. reynolds number relationship, f
 _python-3.5 / casadi-3.4.5
 - author: rachel leuthold, alu-fr 2018
 '''
+
+import os
 import matplotlib
-from awebox.viz.plot_configuration import DEFAULT_MPL_BACKEND
-matplotlib.use(DEFAULT_MPL_BACKEND)
-matplotlib.use('TkAgg')
+
+if "MPLBACKEND" not in os.environ:
+    matplotlib.use("TkAgg")
+
 import matplotlib.pyplot as plt
 
 import casadi.tools as cas
