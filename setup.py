@@ -65,6 +65,7 @@ setup(name='awebox',
         'python-resources',
         'jinja2',
         'reportlab',
-        'dill'
+        'dill',
+        'sympy'
    ],
 )
