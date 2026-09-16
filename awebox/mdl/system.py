@@ -359,13 +359,16 @@ def report_model_bounds(options_object, variables, to_echo_or_latex='echo', late
                             # entry_name = '$ ' + base_entry_name + ' $'
                             entry_name = base_entry_name
 
-                        joined_dict[entry_name] = {'lower': local_dict['value'][0],
-                                                  'upper': local_dict['value'][1],
-                                                  'units': local_dict['units'],
-                                                  }
-                        if to_echo_or_latex == 'latex':
-                            # joined_dict[entry_name]['units'] = r'\unit{' + local_dict['units'] + r'}'
-                            joined_dict[entry_name][r'\aweboxOptions{model.system_bounds.}'] = r'\aweboxOptions{' + base_entry_name + r'}'
+                        try:
+                            joined_dict[entry_name] = {'lower': local_dict['value'][0],
+                                                      'upper': local_dict['value'][1],
+                                                      'units': local_dict['units'],
+                                                      }
+                            if to_echo_or_latex == 'latex':
+                                # joined_dict[entry_name]['units'] = r'\unit{' + local_dict['units'] + r'}'
+                                joined_dict[entry_name][r'\aweboxOptions{model.system_bounds.}'] = r'\aweboxOptions{' + base_entry_name + r'}'
+                        except:
+                            pass
 
         if len(list(joined_dict.keys())) > 0:
             caption = 'variable bounds'

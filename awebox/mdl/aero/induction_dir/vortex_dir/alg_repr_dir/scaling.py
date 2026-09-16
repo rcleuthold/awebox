@@ -198,16 +198,16 @@ def append_induced_velocity_scaling(options, geometry, options_tree, architectur
     if scaling_method == 'ref_full':
         wu_ind_scale = u_ref
     elif scaling_method == 'ref_ref':
-        wu_ind_scale = u_ref * 2. * a_ref
+        wu_ind_scale = u_ref * a_ref
     elif scaling_method == 'ref_betz':
-        wu_ind_scale = u_ref * 2. * a_betz
+        wu_ind_scale = u_ref * a_betz
 
     elif scaling_method == 'infty_full':
         wu_ind_scale = u_altitude
     elif scaling_method == 'infty_ref':
-        wu_ind_scale = u_altitude * 2. * a_ref
+        wu_ind_scale = u_altitude * a_ref
     elif scaling_method == 'infty_betz':
-        wu_ind_scale = u_altitude * 2. * a_betz
+        wu_ind_scale = u_altitude * a_betz
 
     else:
         message = 'unfamiliar wu_ind_scaling_method (' + scaling_method + ').'

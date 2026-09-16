@@ -15,22 +15,19 @@ import awebox as awe
 import awebox.opts.kite_data.ampyx_ap2_settings as ampyx_ap2_settings
 
 import matplotlib
-
-from awebox import Options
-
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
+import casadi.tools as cas
 import numpy as np
+from awebox.tools import vector_operations
 import awebox.tools.save_operations as save_op
 
 from awebox.logger.logger import Logger as awelogger
-import casadi.tools as cas
-
 awelogger.logger.setLevel(10)
 
 
-def run(plot_show_block=True, overwrite_options={}):
+def run(plot_show_block=True, overwrite_options={}, final_homotopy_step='final'):
 
     # indicate desired system architecture
     # here: single kite with 6DOF Ampyx AP2 model
@@ -78,7 +75,7 @@ def run(plot_show_block=True, overwrite_options={}):
     # build and optimize the NLP (trial)
     trial = awe.Trial(options, 'Ampyx_AP2')
     trial.build()
-    trial.optimize()
+    trial.optimize(final_homotopy_step=final_homotopy_step)
 
     # write the solution to CSV file, interpolating the collocation solution with given frequency.
     trial.write_to_csv(filename = 'Ampyx_AP2_solution', frequency = 30)
@@ -97,7 +94,8 @@ def run(plot_show_block=True, overwrite_options={}):
     print('Average power: {} kW'.format(avg_power))
     print('======================================')
 
-    plt.subplots(5, 1, sharex=True)
+    mm_to_in = 0.0393701
+    plt.subplots(5, 1, sharex=True, figsize=(206*mm_to_in, 238*mm_to_in))
     plt.subplot(511)
     plt.plot(time, plot_dict['x']['l_t'][0], label='Tether Length')
     plt.ylabel('[m]')
@@ -121,19 +119,20 @@ def run(plot_show_block=True, overwrite_options={}):
     plt.subplot(514)
     plt.plot(time, 180.0 / np.pi * outputs['aerodynamics']['alpha1'][0], label='Angle of Attack')
     plt.plot(time, 180.0 / np.pi * outputs['aerodynamics']['beta1'][0], label='Side-Slip Angle')
-
     plt.ylabel('[deg]')
     plt.legend()
     plt.hlines([9, -6], time[0], time[-1], linestyle='--', color='black')
     plt.grid(True)
 
     plt.subplot(515)
-    plt.plot(time, outputs['local_performance']['tether_force10'][0], label='Tether Force Magnitude')
-    plt.ylabel('[N]')
+    plt.plot(time, outputs['local_performance']['tether_force10'][0] * 1e-3, label='Tether Force Magnitude')
+    plt.ylabel('[kN]')
     plt.xlabel('t [s]')
     plt.legend()
-    plt.hlines([50, 1800], time[0], time[-1], linestyle='--', color='black')
+    plt.hlines([50e-3, 1800e-3], time[0], time[-1], linestyle='--', color='black')
     plt.grid(True)
+    plt.xlim(time[0], time[-1])
+    plt.tight_layout()
 
     # a block=False argument will automatically close the figures after they've been created
     plt.show(block=plot_show_block)
@@ -160,93 +159,40 @@ def make_comparison(trial):
     return criteria
 
 def get_overwrite_options_to_replicate_Licitra2019():
-    # expected_t_f = 39.6 #s
-    # # flight_radius = 250. / 2. #m, fig. 14
-    # #
-    # # max_height = 350. #m, fig. 14
-    #
-    # average_l_t = 400.
-    # # # inclination_angle = np.arcsin((max_height - flight_radius) / average_l_t)
-    # # # cone_angle = np.arctan(flight_radius / average_l_t)
-    # #
-    # # expected_t_f = 60.
-    # # cone_angle = 25. * np.pi / 180.
-    # # flight_radius = average_l_t * np.tan(cone_angle)
-    # # average_groundspeed = (2. * np.pi * flight_radius) / expected_t_f
-    #
-    # average_groundspeed = 16.
-    # cone_angle_deg = 30.
-    #
-    #
-    # inclination_angle_deg = 60.
-    # u_infty = 10.
-    # matching_airspeed = 14.
-    # a_term = 1.
-    # b_term = -2. * u_infty * np.sin(inclination_angle_deg * np.pi/180.)
-    # c_term = (u_infty**2. - matching_airspeed**2.)
-    # average_groundspeed = (-b_term + (b_term**2. - 4. * a_term * c_term)**0.5) / (2. * a_term)
-    # omega = 2. * np.pi / expected_t_f
-    # radius = average_groundspeed / omega
-    # cone_angle_deg = np.arcsin(radius / average_l_t) * 180. / np.pi
-    #
-    #
-    #
-    inclination_angle_deg = 20.
-    expected_t_f = 39.6
-    average_l_t = 400.
-    u_infty = 10.
-    matching_airspeed = 14.
-    a_term = 1.
-    b_term = -2. * u_infty * np.sin(inclination_angle_deg * np.pi/180.)
-    c_term = (u_infty**2. - matching_airspeed**2.)
-    average_groundspeed = (-b_term + (b_term**2. - 4. * a_term * c_term)**0.5) / (2. * a_term)
-    omega = 2. * np.pi / expected_t_f
-    radius = average_groundspeed / omega
-    cone_angle_deg = np.arcsin(radius / average_l_t) * 180. / np.pi
-    #
-    # # import pdb; pdb.set_trace()
-
-    # inclination_angle_deg = 20.
 
     overwrite_options = {
-                        # Table 1 of Licitra2019 gives CX0 value as positive, this is either a typo, or it represents the propeller force? But, the match is very bad when we use these.
-                         # 'model.aero.overwrite.CX0': [0.456],
-                         # 'model.aero.overwrite.CXalpha': [8.320],
-                         # 'model.aero.overwrite.CXdeltae': [-0.011, 0.112],
-                         # 'model.aero.overwrite.CYbeta': [-0.186],
-                         # 'model.aero.overwrite.CYp': [-0.102],
-                         # 'model.aero.overwrite.CYdeltaa': [-0.05],
-                         # 'model.aero.overwrite.CYdeltar': [0.103],
-                         # 'model.aero.overwrite.CZ0': [-5.4],
-                         # 'model.aero.overwrite.CZalpha': [1.226, 10.203],
-                         # 'model.aero.overwrite.Clbeta': [-0.062],
-                         # 'model.aero.overwrite.Clp': [-0.559],
-                         # 'model.aero.overwrite.Cldeltaa': [-0.248, 0.041],
-                         # 'model.aero.overwrite.Cldeltar': [0.004],
-                         # 'model.aero.overwrite.Cm0': [-0.315],
-                         # 'model.aero.overwrite.Cmalpha': [0.205],
-                         # 'model.aero.overwrite.Cmdeltae': [-1.019],
-                         # 'model.aero.overwrite.Cnr': [-0.052],
-                         # 'model.aero.overwrite.Cndeltar': [-0.041],
+                        # Table 1 of Licitra2019 gives CX0 value as positive, this is either a typo, or it represents
+                        # a propeller force? Either way, the match when computed with the given stability derivatives
+                        # is much, much worse, then when computed with the Malz version of these coefficients.
+                        #  'model.aero.overwrite.CX0': [0.456],
+                        #  'model.aero.overwrite.CXalpha': [8.320],
+                        #  'model.aero.overwrite.CXdeltae': [-0.011, 0.112],
+                        #  'model.aero.overwrite.CYbeta': [-0.186],
+                        #  'model.aero.overwrite.CYp': [-0.102],
+                        #  'model.aero.overwrite.CYdeltaa': [-0.05],
+                        #  'model.aero.overwrite.CYdeltar': [0.103],
+                        #  'model.aero.overwrite.CZ0': [-5.4],
+                        #  'model.aero.overwrite.CZalpha': [1.226, 10.203],
+                        #  'model.aero.overwrite.Clbeta': [-0.062],
+                        #  'model.aero.overwrite.Clp': [-0.559],
+                        #  'model.aero.overwrite.Cldeltaa': [-0.248, 0.041],
+                        #  'model.aero.overwrite.Cldeltar': [0.004],
+                        #  'model.aero.overwrite.Cm0': [-0.315],
+                        #  'model.aero.overwrite.Cmalpha': [0.205],
+                        #  'model.aero.overwrite.Cmdeltae': [-1.019],
+                        #  'model.aero.overwrite.Cnr': [-0.052],
+                        #  'model.aero.overwrite.Cndeltar': [-0.041],
                          'user_options.trajectory.fixed_params': {'diam_t': 0.002},
                          'params.tether.rho': 0.0046 / (np.pi * (0.002/2.)**2.),
                          'params.tether.cd': 1.2,
                          'user_options.tether_drag_model': 'kite_only',
                          'user_options.trajectory.lift_mode.phase_fix': 'single_reelout',
-                         'solver.initialization.init_clipping': False,
+                         'solver.initialization.init_clipping': False, # there is no feasible circular trajectory. so, we will rely on IPOPT and the homotopy and provide an uninformed initial guess
                          'solver.cost.beta.0': 1e1,
-                         # 'nlp.n_k': 10,
-                         # 'solver.initialization.check_feasibility.raise_exception': True,
-                         # 'nlp.collocation.name_constraints': True,
-                         # 'solver.initialization.check_reference': True,
                          'user_options.wind.model': 'power',
                          'user_options.atmosphere': 'uniform',
                          'model.model_bounds.airspeed.include': True,
                          'params.model_bounds.airspeed_limits': np.array([13., 32.]),
-                         'solver.initialization.kite_dcm': 'aero_validity',
-                         'solver.initialization.groundspeed': average_groundspeed,
-                         'solver.initialization.cone_deg': cone_angle_deg,
-                         'solver.initialization.inclination_deg': inclination_angle_deg,
                          'model.model_bounds.rotation.include': True,
                          'model.model_bounds.rotation.type': 'roll_pitch',
                          'params.model_bounds.rot_angles': np.array([50. * np.pi/180., 40. * np.pi/180., 160. * np.pi/180.]),
@@ -259,81 +205,8 @@ if __name__ == "__main__":
 
     licitra2019_overwrite_options = get_overwrite_options_to_replicate_Licitra2019()
     trial = run(overwrite_options=licitra2019_overwrite_options, plot_show_block=True)
-    latex_dict = {'stab_derivs':
-                    {'0': r'0',
-                    'alpha': r'\AngleOfAttack',
-                    'beta': r'\Sideslip',
-                    'deltaa': r'\AileronAngle',
-                    'deltae': r'\ElevatorAngle',
-                    'deltar': r'\RudderAngle',
-                    'p': r'\rollRate',
-                    'q': r'\pitchRate',
-                    'r': r'\yawRate',
-                    'CL': r'\CL',
-                    'CD': r'\CD',
-                    'CS': r'\CS',
-                    'CX': r'\CX',
-                    'CY': r'\CY',
-                    'CZ': r'\CZ',
-                    'Cl': r'\Cl',
-                    'Cm': r'\Cm',
-                    'Cn': r'\Cn',
-                    },
-                  'model_var_bounds':
-                    {'theta.diam_t': r'\MainTetherDiameter',
-                     'theta.t_f': r'\OptimizationPeriod',
-                     'x.l_t': r'\MainTetherLength',
-                     'x.dl_t': r'\MainTetherSpeed',
-                     'u.ddl_t': r'\MainTetherAcceleration',
-                     'x.q': r'\NodePosition',
-                     'x.dq': r'\NodeVelocity',
-                     'x.omega': r'\KiteAngularVelocity',
-                     'x.delta': r'\KiteControlSurfaceDeflection',
-                     'z.lambda': r'\NodeTensionPerLength',
-                     'u.ddelta': r'\KiteControlSurfaceDeflectionRate',
-                    },
-                  'model_ineq_bounds':
-                      {
-                        'tether_force_max': r'\UpperBound{\TensionForce}',
-                        'tether_force_min': r'\LowerBound{\TensionForce}',
-                        'airspeed_max': r'\UpperBound{{\AirSpeed_\eff}}',
-                        'airspeed_min': r'\LowerBound{{\AirSpeed_\eff}}',
-                        'alpha_ub': r'\UpperBound{\AngleOfAttack}',
-                        'alpha_lb': r'\LowerBound{\AngleOfAttack}',
-                        'beta_ub': r'\UpperBound{\SideSlip}',
-                        'beta_lb': r'\LowerBound{\SideSlip}',
-                        'rotation_max': r'\UpperBound{\yawAngle}'
-                      },
-                  'environment':
-                      {
-                        't_ref': r'\Reference{\AirTemperature}',
-                        'gamma_air': r'\AirTemperatureGradient',
-                        'rho_ref': r'\Reference{\AirDensity}',
-                        'g': r'\GravityAcceleration',
-                        'r': r'\SpecificGasConstant',
-                        'gamma': r'\AirPolytropic',
-                        'mu_ref': r'\Reference{\AirDynamicViscosity}',
-                        'c_sutherland': r'\SutherlandConstant',
-                          'u_ref': r'\ReferenceWindSpeed',
-                          'z_ref': r'\WindReferenceHeight',
-                          'exp_ref': r'\PowerWindRoughnessExponent'
-                     },
-                  'model_dimensions':
-                      {
-                          'nx': r'\NumberOfStates',
-                          'nu': r'\NumberOfControls',
-                          'nz': r'\NumberOfAlgebraics',
-                          'np_var': r'\NumberOfParameters',
-                          'np_fix': r'\NumberOfPassedOptionParameters'
-                      },
-                  'kite':
-                        {'kite_dof': r' $\DOF$ ',
-                        'm_k': r'\KiteMass',
-                        'j': r'\KiteMomentOfInertia',
-                        's_ref': r'\PlanformArea',
-                        'b_ref': r'\Wingspan',
-                        'c_ref': r'\MAC'
-                         }
-                  }
+
+    import suggested_latex_dict as suggested_dict_mod
+    latex_dict = suggested_dict_mod.get_suggested_latex_dictionary()
     trial.make_report(to_echo_or_latex='latex', latex_dict=latex_dict, save=True)
     import pdb; pdb.set_trace()

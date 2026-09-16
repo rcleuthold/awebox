@@ -28,7 +28,7 @@ from casadi.tools import vertcat
 def data_dict():
 
     data_dict = {}
-    data_dict['name'] = 'ampyx'
+    data_dict['name'] = 'Ampyx AP2'
 
     data_dict['geometry'] = geometry() # kite geometry
 

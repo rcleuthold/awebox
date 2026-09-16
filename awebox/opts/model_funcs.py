@@ -78,7 +78,7 @@ def build_model_options(options, help_options, user_options, options_tree, fixed
 
     # environment
     options_tree, fixed_params = build_wind_options(options, options_tree, fixed_params)
-    options_tree, fixed_params = build_atmosphere_options(options, options_tree, fixed_params)
+    options_tree, fixed_params = build_atmosphere_options(options, help_options, options_tree, fixed_params)
 
     # scaling
     options_tree, fixed_params = build_fict_scaling_options(options, options_tree, fixed_params, architecture)
@@ -346,6 +346,10 @@ def build_scaling_options(options, options_tree, fixed_params, architecture):
 def build_kite_dof_options(options, options_tree, fixed_params, architecture):
 
     user_options = options['user_options']
+    options_tree.append(('model', None, None, 'kite_name', user_options['kite_standard']['name'], ('???', None),'x')),
+
+    system_summary_string = str(architecture.number_of_kites) + "x " + user_options['kite_standard']['name']
+    options_tree.append(('model', None, None, 'system_summary_string', system_summary_string, ('???', None, None),'x'))
 
     kite_dof = get_kite_dof(user_options)
 
@@ -474,19 +478,21 @@ def get_airspeed_limits(options):
         airspeed_min = overwrite_airspeed_limits[0]
     elif 'airspeed_min' in aero_validity.keys():
         airspeed_min = aero_validity['airspeed_min']
-    elif airspeed_include:
+    else:
         airspeed_min = -cas.inf
-        message = 'no airspeed minimum given despite request to include airspeed limits; setting minimum airspeed to -inf'
-        print_op.base_print(message, level='warning')
+        if airspeed_include:
+            message = 'no airspeed minimum given despite request to include airspeed limits; setting minimum airspeed to -inf'
+            print_op.base_print(message, level='warning')
 
     if vect_op.is_numeric_scalar(overwrite_airspeed_limits[1]):
         airspeed_max = overwrite_airspeed_limits[1]
     elif 'airspeed_max' in aero_validity.keys():
         airspeed_max = aero_validity['airspeed_max']
-    elif airspeed_include:
+    else:
         airspeed_max = cas.inf
-        message = 'no airspeed maximum given despite request to include airspeed limits; setting maximum airspeed to +inf'
-        print_op.base_print(message, level='warning')
+        if airspeed_include:
+            message = 'no airspeed maximum given despite request to include airspeed limits; setting maximum airspeed to +inf'
+            print_op.base_print(message, level='warning')
 
     airspeed_limits = np.array([airspeed_min, airspeed_max])
     return airspeed_limits
@@ -1080,9 +1086,9 @@ def get_u_at_altitude(options, zz):
 
 ######## atmosphere
 
-def build_atmosphere_options(options, options_tree, fixed_params):
+def build_atmosphere_options(options, help_options, options_tree, fixed_params):
 
-    options_tree.append(('model',  'atmosphere', None, 'model', options['user_options']['atmosphere'], ('atmosphere model', None),'x'))
+    options_tree.append(('model',  'atmosphere', None, 'model', options['user_options']['atmosphere'], help_options['user_options']['atmosphere'][0], 'x'))
     q_ref = get_q_ref(options)
     options_tree.append(('params',  'atmosphere', None, 'q_ref', q_ref, ('aerodynamic dynamic pressure [Pa]', None),'x'))
 
@@ -1406,12 +1412,17 @@ def estimate_flight_radius(options, architecture, suppress_help_statement=False)
     synthesizing_dict['cone'] = cone_radius
 
     airspeed = get_airspeed_average(options)
+    if not vect_op.is_numeric_scalar(airspeed):
+        groundspeed = options['solver']['initialization']['groundspeed']
+        airspeed = groundspeed
     kite_standard = options['user_options']['kite_standard']
     aero_deriv, aero_validity = load_stability_derivatives(kite_standard)
 
     # assuming a level/horizontal turn, with the roll angle = bank angle
     coeff_bounds = options['model']['system_bounds']['x']['coeff']
     roll_angle = coeff_bounds[1][1]
+    if not vect_op.is_numeric_scalar(roll_angle):
+        roll_angle = 20.0 * np.pi / 180. #arbitrary
     gravity = options['model']['scaling']['other']['g']
     aircraft_3dof_radius = airspeed ** 2 / (gravity * np.tan(roll_angle))
 
@@ -1421,6 +1432,8 @@ def estimate_flight_radius(options, architecture, suppress_help_statement=False)
     q = omega_bounds[1][1] / 2.
     r = omega_bounds[1][2] / 2.
     alpha = aero_validity['alpha_max_deg'] * np.pi / 180.
+    if not vect_op.is_numeric_scalar(alpha):
+        alpha = 0.
     cos = cas.cos(alpha)
     sin = cas.sin(alpha)
     aircraft_6dof_radius = airspeed / (q ** 2. + (r * cos - p * sin) ** 2.) ** 0.5
@@ -1432,7 +1445,9 @@ def estimate_flight_radius(options, architecture, suppress_help_statement=False)
         synthesizing_dict['aircraft'] = aircraft_3dof_radius
 
     b_ref = get_geometry(options)['b_ref']
-    anticollision_radius = b_ref * options['model']['model_bounds']['anticollision']['safety_factor']
+    manual_anticollision_radius_scaling_factor = 2.
+    anticollision_diameter = b_ref * options['model']['model_bounds']['anticollision']['safety_factor']
+    anticollision_radius = anticollision_diameter / 2. * manual_anticollision_radius_scaling_factor
     if options['model']['model_bounds']['anticollision']['include']:
         synthesizing_dict['anticollision'] = anticollision_radius
     else:
@@ -1912,7 +1927,7 @@ def estimate_time_period(options, architecture, suppress_help_statement=True):
     # u_conv * T = strouhal * "diameter"
     strouhal_approx = options['model']['aero']['induction']['strouhal_scaling']
     u_altitude = get_u_at_altitude(options, estimate_altitude(options))
-    period1_from_convection = float(strouhal_approx * 2. * radius / u_altitude)
+    period1_from_convection = float(2. * radius / u_altitude / strouhal_approx)
     if not options['user_options']['induction_model'] == 'not_in_use':
         synthesizing_dict['convection'] = period1_from_convection
     else:

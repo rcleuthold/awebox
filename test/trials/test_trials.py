@@ -157,19 +157,19 @@ def test_vortex_3_dof(final_homotopy_step='final', overwrite_options={}):
     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
     return None
 
-#19
-def test_vortex_dual_basic_health(final_homotopy_step='final', overwrite_options={}):
-    trial_name = 'vortex_dual_basic_health_trial'
-    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-    return None
+#
+# def test_vortex_dual_basic_health(final_homotopy_step='final', overwrite_options={}):
+#     trial_name = 'vortex_dual_basic_health_trial'
+#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+#     return None
+#
+#
+# def test_vortex_dual(final_homotopy_step='final', overwrite_options={}):
+#     trial_name = 'vortex_dual_trial'
+#     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+#     return None
 
-#20
-def test_vortex_dual(final_homotopy_step='final', overwrite_options={}):
-    trial_name = 'vortex_dual_trial'
-    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-    return None
-
-# 21
+# 19
 def test_segmented_tether(final_homotopy_step='final', overwrite_options={}):
     trial_name = 'segmented_tether_trial'
     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
@@ -283,11 +283,6 @@ def generate_options_dict():
     single_kite_options['nlp.collocation.u_param'] = 'zoh'
     single_kite_options['nlp.n_k'] = 20
     single_kite_options['quality.raise_exception'] = True
-
-    # rela!!!!!
-    # single_kite_options['solver.ipopt.alpha_for_y'] = 'max'
-    # single_kite_options['solver.ipopt.ma57_pivtol'] = 0.1
-    # single_kite_options['solver.ipopt.ma57_pivtolmax'] = 1.0
     single_kite_options['solver.cost_factor.power'] = 1e1
 
     # # todo:
@@ -298,32 +293,10 @@ def generate_options_dict():
     single_kite_options['solver.homotopy_method.advance_despite_max_iter'] = False
     # single_kite_options['solver.homotopy_method.consider_restoration_as_failure'] = True
 
-    # single_kite_options['model.scaling.other.force_scaling_method'] = 'aero'
-
-    # single_kite_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
-    # # single_kite_options['model.scaling.other.period_estimate'] = 'synthesized'
-    # single_kite_options['model.scaling.other.position_scaling_method'] = 'radius'
-    # # single_kite_options['model.scaling.other.force_scaling_method'] = 'tension'
-    # single_kite_options['model.scaling.other.tension_estimate'] = 'force_summation'
-    # single_kite_options['model.scaling.other.power_estimate'] = 'synthesized'
-    # single_kite_options['model.scaling.other.print_help_with_scaling'] = True
-
-
-    # single_kite_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
-    # single_kite_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
-    # single_kite_options['model.scaling.other.position_scaling_method'] = 'radius'
-    # single_kite_options['model.scaling.other.force_scaling_method'] = 'tension'
-    # single_kite_options['model.scaling.other.tension_estimate'] = 'force_summation'
-    # single_kite_options['model.scaling.other.power_estimate'] = 'synthesized'
-    # single_kite_options['model.scaling.other.print_help_with_scaling'] = True
-
-
-
     single_kite_basic_health_options = make_basic_health_variant(single_kite_options)
 
     single_kite_6_dof_options = copy.deepcopy(single_kite_options)
     single_kite_6_dof_options['user_options.system_model.kite_dof'] = 6
-    # single_kite_6_dof_options['solver.weights.r'] = 1e0
 
     single_kite_6_dof_basic_health_options = make_basic_health_variant(single_kite_6_dof_options)
 
@@ -342,14 +315,11 @@ def generate_options_dict():
     poly_options['model.scaling.other.power_estimate'] = 'synthesized'
     poly_options['model.scaling.other.print_help_with_scaling'] = True
 
-
     drag_mode_options = copy.deepcopy(single_kite_options)
     drag_mode_options['user_options.trajectory.system_type'] = 'drag_mode'
     drag_mode_options['quality.test_param.power_balance_thresh'] = 2.
     drag_mode_options['model.system_bounds.theta.t_f'] = [5., 70.]  # [s]
     drag_mode_options['nlp.n_k'] = 30
-    # drag_mode_options['solver.cost_factor.power'] = 1e0  # 1e4
-
 
     save_trial_options = copy.deepcopy(single_kite_options)
     save_trial_options['solver.save_trial'] = True
@@ -357,15 +327,6 @@ def generate_options_dict():
     dual_kite_options = copy.deepcopy(single_kite_options)
     dual_kite_options['user_options.system_model.architecture'] = {1: 0, 2: 1, 3: 1}
     dual_kite_options['solver.initialization.theta.l_s'] = 75.
-    # dual_kite_options['solver.initialization.check_reference'] = True
-
-    # dual_kite_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
-    # # dual_kite_options['model.scaling.other.period_estimate'] = 'synthesized'
-    # dual_kite_options['model.scaling.other.position_scaling_method'] = 'radius'
-    # # dual_kite_options['model.scaling.other.force_scaling_method'] = 'tension'
-    # dual_kite_options['model.scaling.other.tension_estimate'] = 'force_summation'
-    # dual_kite_options['model.scaling.other.power_estimate'] = 'synthesized'
-    # dual_kite_options['model.scaling.other.print_help_with_scaling'] = True
 
     dual_kite_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
     dual_kite_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
@@ -373,8 +334,6 @@ def generate_options_dict():
     dual_kite_options['model.scaling.other.force_scaling_method'] = 'tension'
     dual_kite_options['model.scaling.other.tension_estimate'] = 'force_summation'
     dual_kite_options['model.scaling.other.power_estimate'] = 'synthesized'
-    # dual_kite_options['solver.cost_factor.power'] = 100.
-    # dual_kite_options['solver.cost.psi.1'] = 100.
 
     dual_kite_basic_health_options = make_basic_health_variant(dual_kite_options)
 
@@ -399,9 +358,6 @@ def generate_options_dict():
     large_kite_options['model.system_bounds.theta.t_f'] = [5., 5. * 60.]
     large_kite_options['solver.initialization.groundspeed'] = 100.
     large_kite_options['params.model_bounds.airspeed_limits'] = np.array([77., 273.])
-    # large_kite_options['model.model_bounds.tether_force.include'] = True
-    # large_kite_options['model.model_bounds.tether_stress.include'] = False
-    # large_kite_options['params.model_bounds.tether_force_limits'] = np.array([1e0, 2e6])
     large_kite_options['solver.initialization.check_reference'] = True
 
     large_kite_basic_health_options = make_basic_health_variant(large_kite_options)
@@ -416,20 +372,6 @@ def generate_options_dict():
     actuator_qaxi_options['visualization.cosmetics.trajectory.actuator'] = True
     actuator_qaxi_options['visualization.cosmetics.trajectory.kite_bodies'] = True
     actuator_qaxi_options['user_options.trajectory.lift_mode.windings'] = 1
-
-    # rela remove me
-    # actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5]
-    # actuator_qaxi_options['solver.cost.gamma.1'] = 1e3
-    # actuator_qaxi_options['solver.cost.fictitious.0'] = 1e5
-    # actuator_qaxi_options['solver.cost.fictitious.1'] = 1e5
-    #
-    # actuator_qaxi_options['solver.cost_factor.power'] = 1e1  # 1e4
-    # # actuator_qaxi_options['solver.cost.psi.1'] = 1e3
-    #
-    # actuator_qaxi_options['model.scaling.other.flight_radius_estimate'] = 'synthesized' #['anticollision', 'centripetal', 'cone', 'synthesized']
-    # actuator_qaxi_options['model.scaling.other.force_scaling_method'] = 'synthesized' #['max_acceleration', 'tension', 'gravity', 'centripetal', 'aero', 'synthesized']
-    # actuator_qaxi_options['model.scaling.other.tension_estimate'] = 'synthesized' #['power', 'max_stress', 'average_force', 'force_summation', 'synthesized']
-    # actuator_qaxi_options['model.scaling.other.position_scaling_method'] = 'b_ref' #['radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']
     actuator_qaxi_options['model.aero.actuator.thrust_scaling_method'] = 'thrust_coeff'  #['thrust_coeff', 'aero', 'tension', 'synthesized']
     actuator_qaxi_options['model.aero.actuator.position_scaling_method'] = 'default' # ['default', 'radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']
 
@@ -460,20 +402,7 @@ def generate_options_dict():
     vortex_options['model.aero.vortex.wake_nodes'] = 2
     vortex_options['quality.raise_exception'] = False
     vortex_options['solver.tol'] = 1e-5
-
     vortex_options['solver.cost_factor.power'] = 1e0
-    # vortex_options['model.scaling.other.period_estimate'] = 'max_acceleration'
-    # vortex_options['model.scaling.other.force_scaling_method'] = 'aero'
-    # vortex_options['model.scaling.other.power_estimate'] = 'loyd'
-
-    # vortex_options['model.scaling.other.flight_radius_estimate'] = 'centripetal'
-    # vortex_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
-    # vortex_options['model.scaling.other.position_scaling_method'] = 'radius'
-    # vortex_options['model.scaling.other.force_scaling_method'] = 'tension'
-    # vortex_options['model.scaling.other.tension_estimate'] = 'force_summation'
-    # vortex_options['model.scaling.other.power_estimate'] = 'synthesized'
-
-
 
     vortex_basic_health_options = make_basic_health_variant(vortex_options)
     vortex_basic_health_options['model.aero.vortex.double_check_wingtip_fixing'] = True
@@ -482,7 +411,6 @@ def generate_options_dict():
     vortex_force_zero_options['model.aero.induction.force_zero'] = True
     vortex_force_zero_options['nlp.collocation.d'] = 4
     vortex_force_zero_options['quality.raise_exception'] = True
-
 
     vortex_force_zero_basic_health_options = make_basic_health_variant(vortex_force_zero_options)
     vortex_force_zero_basic_health_options['model.aero.vortex.double_check_wingtip_fixing'] = True
@@ -617,11 +545,11 @@ if __name__ == "__main__":
     parallel_or_serial = 'serial'
 
     types_of_problems = {'single_kites': True,
-                         'base_alternatives': False,
+                         'base_alternatives': True,
                          'dual_kites': True,
-                         'tracking': False,
+                         'tracking': True,
                          'size_alternatives': False,
-                         'vortex': False,
+                         'vortex': True,
                          'actuator': False}
 
     if parallel_or_serial == 'parallel':
@@ -638,7 +566,7 @@ if __name__ == "__main__":
         # if types_of_problems['size_alternatives']:
         #     list_functions += [test_small_kite_basic_health, test_small_kite, test_large_kite_basic_health, test_large_kite]
         if types_of_problems['vortex']:
-            list_functions += [test_vortex_force_zero_basic_health, test_vortex_force_zero, test_vortex_basic_health, test_vortex, test_vortex_3_dof, test_vortex_dual_basic_health, test_vortex_dual]
+            list_functions += [test_vortex_force_zero, test_vortex_force_zero_basic_health, test_vortex_basic_health, test_vortex, test_vortex_3_dof]
         # if types_of_problems['actuator']:
         #     list_functions += [test_actuator_qaxi, test_actuator_qasym, test_actuator_uaxi, test_actuator_uasym, test_actuator_comparison] #test_actuator_qaxi_basic_health
 
@@ -693,12 +621,12 @@ if __name__ == "__main__":
         #     test_large_kite()
 
         if types_of_problems['vortex']:
-            test_vortex_dual_basic_health()
-            test_vortex_dual()
+            test_vortex_force_zero()
+            # test_vortex_dual_basic_health()
+            # test_vortex_dual()
             test_vortex()
             test_vortex_basic_health()
             test_vortex_force_zero_basic_health()
-            test_vortex_force_zero()
             test_vortex_3_dof()
 
 

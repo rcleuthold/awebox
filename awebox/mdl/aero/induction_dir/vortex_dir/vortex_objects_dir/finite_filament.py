@@ -83,6 +83,7 @@ class FiniteFilament(obj_element.Element):
         # which is the unit-consistent version what's used in
         # A. van Garrel. Development of a Wind Turbine Aerodynamics Simulation Module. Technical report,
         # Energy research Centre of the Netherlands. ECN-C–03-079, aug 2003
+        # https://publications.tno.nl/publication/34628334/xt4R73/c03079.pdf
         length = vect_op.norm(x_1 - x_0)
         epsilon_vortex = r_core ** 2. * length ** 2.
 

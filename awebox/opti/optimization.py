@@ -484,12 +484,14 @@ class Optimization(object):
         usage_entire_step = {}
         for step_name in self.__timings.keys():
             if step_name in self.__cpu_timings.keys():
-                usage_entire_step[step_name] = self.__cpu_timings[step_name] / self.__timings[step_name]
+                if self.__timings[step_name] > 0:
+                    usage_entire_step[step_name] = self.__cpu_timings[step_name] / self.__timings[step_name]
 
         usage_ipopt = {}
         for step_name in self.__t_wall.keys():
             if step_name in self.__t_proc.keys():
-                usage_ipopt[step_name] = self.__t_proc[step_name] / self.__t_wall[step_name]
+                if self.__t_wall[step_name] > 0:
+                    usage_ipopt[step_name] = self.__t_proc[step_name] / self.__t_wall[step_name]
 
         return usage_entire_step, usage_ipopt
 

@@ -244,8 +244,8 @@ class Wind(print_op.PrintableObject):
         # self.taux_opt = taux_opt
         # self.tauy_opt = tauy_opt
 
-        unit_steps_x = vect_op.interpolate_by_unit_stepping(heights, xwind, zz_sym, 0.2)
-        unit_steps_y = vect_op.interpolate_by_unit_stepping(heights, ywind, zz_sym, 0.2)
+        unit_steps_x = vect_op.interpolate_by_unit_stepping(heights, xwind, zz_sym, 1e-5)
+        unit_steps_y = vect_op.interpolate_by_unit_stepping(heights, ywind, zz_sym, 1e-5)
         self.__Lagr_x_fun = cas.Function('Lagr_x_fun', [zz_sym], [unit_steps_x])
         self.__Lagr_y_fun = cas.Function('Lagr_y_fun', [zz_sym], [unit_steps_y])
 

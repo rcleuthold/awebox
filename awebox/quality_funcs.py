@@ -47,17 +47,17 @@ def test_opti_success(trial, test_param_dict, results, printable_summary_dict={}
 
     results['solve_succeeded'] = trial.optimization.solve_succeeded
 
-    printable_summary_dict['solve_succeeded'] = {'found': results['solve_succeeded'], 'threshhold': True, 'units': None,
-                                                 'test_passed': results['solve_succeeded']}
+    printable_summary_dict['solver reports successful solution'] = {'found': results['solve_succeeded'], 'threshhold': True, 'units': None,
+                                                 'test passed': results['solve_succeeded']}
     return results, printable_summary_dict
 
-def add_test_to_printable_summary(name, found, printable_summary_dict, results, test_param_dict, test_units_dict):
-    printable_summary_dict[name] = {'found': found,
+def add_test_to_printable_summary(print_name, name, found, printable_summary_dict, results, test_param_dict, test_units_dict):
+    printable_summary_dict[print_name] = {'found': found,
                                     'threshhold': test_param_dict[name]}
     if test_units_dict is not None:
-        printable_summary_dict[name]['units'] = test_units_dict[name]
+        printable_summary_dict[print_name]['units'] = test_units_dict[name]
 
-    printable_summary_dict[name]['test_passed'] = results[name]
+    printable_summary_dict[print_name]['test passed'] = results[name]
     return printable_summary_dict
 
 def test_numerics(trial, test_param_dict, results, printable_summary_dict, test_units_dict=None):
@@ -74,7 +74,7 @@ def test_numerics(trial, test_param_dict, results, printable_summary_dict, test_
         results['t_f_min'] = False
     else:
         results['t_f_min'] = True
-    printable_summary_dict = add_test_to_printable_summary('t_f_min', t_f, printable_summary_dict, results, test_param_dict, test_units_dict)
+    printable_summary_dict = add_test_to_printable_summary('optimal period above recommended minimum', 't_f_min', t_f, printable_summary_dict, results, test_param_dict, test_units_dict)
 
     # test if t_f/k_k ratio makes sense
     max_control_interval = test_param_dict['max_control_interval']
@@ -84,7 +84,7 @@ def test_numerics(trial, test_param_dict, results, printable_summary_dict, test_
         results['max_control_interval'] = False
     else:
         results['max_control_interval'] = True
-    printable_summary_dict = add_test_to_printable_summary('max_control_interval', t_f / float(n_k), printable_summary_dict, results,
+    printable_summary_dict = add_test_to_printable_summary('control interval shorter than recommended maximum', 'max_control_interval', t_f / float(n_k), printable_summary_dict, results,
                                                                test_param_dict, test_units_dict)
 
     return results, printable_summary_dict
@@ -147,9 +147,10 @@ def include_result_of_allowed_invariant_test(results, name, node, parent, sol_va
     else:
         results[combined_name] = True
 
-    printable_summary_dict[combined_name] = {'found': sol_value, 'threshhold': max_value, 'test_passed': results[combined_name]}
+    print_name = 'physical invariant ' + combined_name + ' remains invariant'
+    printable_summary_dict[print_name] = {'found': sol_value, 'threshhold': max_value, 'test passed': results[combined_name]}
     if test_units_dict is not None:
-        printable_summary_dict[combined_name]['units'] = test_units_dict[name + "_max"]
+        printable_summary_dict[print_name]['units'] = test_units_dict[name + "_max"]
 
     return results, printable_summary_dict
 
@@ -192,10 +193,10 @@ def test_node_altitude(trial, test_param_dict, results, printable_summary_dict, 
             if found_height < z_min:
                 results['min_node_height'] = False
 
-        printable_summary_dict['min_node_height'] = {'found': found_height, 'threshhold': z_min,
-                                                 'test_passed': results['min_node_height']}
+        printable_summary_dict['node heights above recommended minimum'] = {'found': found_height, 'threshhold': z_min,
+                                                 'test passed': results['min_node_height']}
         if test_units_dict is not None:
-            printable_summary_dict['min_node_height']['units'] = test_units_dict['z_min']
+            printable_summary_dict['node heights above recommended minimum']['units'] = test_units_dict['z_min']
 
         if not results['min_node_height']:
             print_op.log_and_raise_error(error_message)
@@ -268,11 +269,11 @@ def test_power_balance(trial, test_param_dict, results, input_values, printable_
         else:
             results['energy_balance' + 'total'] = True
 
-        printable_summary_dict['energy_balance_total'] = {'found': balance['total'],
+        printable_summary_dict['energy balance remains consistent'] = {'found': balance['total'],
                                                               'threshhold': test_param_dict['power_balance_thresh'],
-                                                              'test_passed': results['energy_balance' + 'total']}
+                                                              'test passed': results['energy_balance' + 'total']}
         if test_units_dict is not None:
-            printable_summary_dict['energy_balance_total']['units'] = test_units_dict['power_balance_thresh']
+            printable_summary_dict['energy balance remains consistent']['units'] = test_units_dict['power_balance_thresh']
 
     return results, printable_summary_dict
 
@@ -305,11 +306,11 @@ def summation_check_on_potential_and_kinetic_power(trial, thresh, results, input
         else:
             results['power_summation_check_' + abbreviated_name] = True
 
-        printable_summary_dict['energy_balance' + abbreviated_name] = {'found': error,
+        printable_summary_dict['power based on ' + abbreviated_name + '. is collected'] = {'found': error,
                                                               'threshhold': thresh,
-                                                              'test_passed': results['energy_balance' + abbreviated_name]}
+                                                              'test passed': results['energy_balance' + abbreviated_name]}
         if units is not None:
-            printable_summary_dict['energy_balance' + abbreviated_name]['units'] = units
+            printable_summary_dict['power based on ' + abbreviated_name + '. is collected']['units'] = units
 
 
     return results, printable_summary_dict
@@ -339,8 +340,12 @@ def test_tracked_vortex_periods(trial, test_param_dict, results, input_values, g
             awelogger.logger.warning(message)
             results['vortex_truncation_error'] = False
 
-        printable_summary_dict = add_test_to_printable_summary('vortex_truncation_error', max_trunc_error, printable_summary_dict, results,
-                                                               test_param_dict, test_units_dict)
+        print_name = 'vortex model trunc. error below recommended maximum'
+        printable_summary_dict[print_name] = {'found': max_trunc_error,
+                                                              'threshhold': vortex_truncation_error_thresh,
+                                                              'test passed': results['vortex_truncation_error']}
+        if test_units_dict is not None:
+            printable_summary_dict[print_name]['units'] = test_units_dict['vortex_truncation_error_thresh']
 
     return results, printable_summary_dict
 

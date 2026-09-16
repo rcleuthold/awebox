@@ -39,7 +39,7 @@ def define_homotopy_update_schedule(model, formulation, nlp, solver_options):
     schedule = {}
     schedule['cost'] = define_cost_update_schedule(solver_options['cost'])
     schedule['bounds'] = define_bound_update_schedule(model, nlp, formulation)
-    schedule['homotopy'] = define_homotopy_schedule(model, formulation, solver_options['homotopy_method']['put_fictitious_before_induction'])
+    schedule['homotopy'] = define_homotopy_schedule(model, formulation, solver_options['homotopy_method']['put_induction_step_after'])
     schedule['costs_to_update'] = define_costs_to_update(nlp.P, formulation)
     schedule['bounds_to_update'] = define_bounds_to_update(model, schedule['bounds'], formulation)
     schedule['labels'] = define_step_labels(formulation)
@@ -50,7 +50,7 @@ def define_homotopy_update_schedule(model, formulation, nlp, solver_options):
     
     return schedule
 
-def define_homotopy_schedule(model, formulation, put_fictitious_before_induction=True):
+def define_homotopy_schedule(model, formulation, put_induction_step_after='fictitious'):
 
     initial_schedule = ('initial',)
     fictitious_schedule = ('fictitious',)
@@ -70,16 +70,18 @@ def define_homotopy_schedule(model, formulation, put_fictitious_before_induction
     tether_drag_model = formulation.tether_drag_model
     fix_tether_length = formulation.fix_tether_length
     make_induction_step = not (induction_model in ['not_in_use', 'averaged'])
+    if make_induction_step and not (put_induction_step_after in ['initial', 'fictitious', 'power']):
+        message = 'unexpected request to put induction step after ' + put_induction_step_after + ' homotopy step. skipping induction step entirely.'
+        print_op.base_print(message, level='warning')
 
     homotopy_schedule = ()
-    homotopy_schedule = homotopy_schedule + initial_schedule
 
-    if make_induction_step and not put_fictitious_before_induction:
+    homotopy_schedule = homotopy_schedule + initial_schedule
+    if make_induction_step and (put_induction_step_after == 'initial'):
         homotopy_schedule = homotopy_schedule + induction_schedule
 
     homotopy_schedule = homotopy_schedule + fictitious_schedule
-
-    if make_induction_step and put_fictitious_before_induction:
+    if make_induction_step and (put_induction_step_after == 'fictitious'):
         homotopy_schedule = homotopy_schedule + induction_schedule
 
     if traj_type == 'tracking' and fix_tether_length == False:
@@ -87,6 +89,8 @@ def define_homotopy_schedule(model, formulation, put_fictitious_before_induction
 
     if traj_type == 'power_cycle':
         homotopy_schedule = homotopy_schedule + power_schedule
+        if make_induction_step and (put_induction_step_after == 'power'):
+            homotopy_schedule = homotopy_schedule + induction_schedule
 
     if traj_type == 'nominal_landing':
         homotopy_schedule = homotopy_schedule + nominal_landing_schedule

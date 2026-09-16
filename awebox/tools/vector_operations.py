@@ -1087,7 +1087,7 @@ def spline_interpolation(x_data, y_data, x_points):
 
         n_points = np.prod(x_points.shape)
 
-    elif hasattr(x_points, 'len'):
+    elif isinstance(x_points, list):
         n_points = len(x_points)
     else:
         message = 'unable to count the number of interpolation points'

@@ -415,12 +415,12 @@ class Table:
         opt_cols = [c for c in df.columns if awebox_option_name() in c]
         for col in opt_cols:
             df[col] = df[col].apply(
-                lambda x: r'\aweboxOptions{ ' + x + ' }'
+                lambda x: r'\aweboxOptions{' + x + '}'
             )
         units_cols = [c for c in df.columns if units_name() in c]
         for col in units_cols:
             df[col] = df[col].apply(
-                lambda x: r'\unit{ ' + str(x) + ' }'
+                lambda x: r'\unit{' + str(x) + '}'
             )
 
         if was_originally_two_column:
@@ -437,8 +437,15 @@ class Table:
         if was_originally_two_column:
             df_tex = df_tex.replace(r'& value', r'item & value')
 
+
         df_tex = df_tex.replace(r'\midrule', r'\hline\midrule')
-        df_tex = df_tex.replace(r'\begin{table}', r'\begin{table} \centering')
+        df_tex = df_tex.replace(r'\begin{table}', r'\begin{table} \centering ')
+
+        start_adjustbox = r'\begin{adjustbox}{width=\columnwidth,center}'
+        end_adjustbox = r'\end{adjustbox}'
+        index_of_tabular = df_tex.find(r'\begin{tabular}')
+        df_tex = df_tex[:index_of_tabular] + start_adjustbox + df_tex[index_of_tabular:]
+        df_tex = df_tex.replace(r'\end{table}', end_adjustbox + r'\end{table}')
 
         # thought is that only the single-cell-scalar inf values will be replaced above, so any inf still remaining must be inside a pmatrix
         df_tex = df_tex.replace('inf ', inf_replacement.replace("$", "") + " ")
@@ -622,8 +629,11 @@ def get_depth_of_dict(dict):
     local_dict = dict
     depth = 0
     while hasattr(local_dict, 'keys'):
+        try:
+            local_dict = [value for value in local_dict.values()][0]
+        except:
+            return depth
         depth += 1
-        local_dict = [value for value in local_dict.values()][0]
     return depth
 
 def test_depth_function():

@@ -901,9 +901,9 @@ def tether_stress_inequality(options, variables_si, outputs, parameters, archite
         min_tension = parameters['theta0', 'model_bounds', 'tether_force_limits'][0]
         max_tension = parameters['theta0', 'model_bounds', 'tether_force_limits'][1]
 
-        maximum_allowed_stress = parameters['theta0', 'tether', 'max_stress'] / parameters[
-            'theta0', 'tether', 'stress_safety_factor']
-        stress_address = 'params.tether.max_stress / params.tether.stress_safety_factor'
+        stress_safety_factor  = parameters['theta0', 'tether', 'stress_safety_factor']
+        maximum_allowed_stress = parameters['theta0', 'tether', 'max_stress'] / stress_safety_factor
+        stress_address = 'params.tether.stress_safety_factor'
         characteristic_tension = vect_op.smooth_abs(scaling['z', 'lambda' + node_label] * seg_props['scaling_length'])
 
         if (options_help is not None) and (len(options_help['params']['tether']['max_stress'][0]) > 2):
@@ -915,10 +915,7 @@ def tether_stress_inequality(options, variables_si, outputs, parameters, archite
         # else:
         #     tension_units = None
 
-        stress_param_dict = make_inequality_parameter_dict_entry(options, parameters,
-                                                              'params.model_bounds.tether_force_limits',
-                                                              options_help=options_help, symmetry_options='max')
-
+        stress_param_dict = {stress_address: (stress_safety_factor, '-')}
 
         max_tension_param_dict = make_inequality_parameter_dict_entry(options, parameters,
                                                               'params.model_bounds.tether_force_limits',
@@ -944,7 +941,7 @@ def tether_stress_inequality(options, variables_si, outputs, parameters, archite
             stress_cstr = cstr_op.Constraint(expr=stress_inequality,
                                              name='tether_stress' + node_label,
                                              cstr_type='ineq',
-                                             parameter_dict={stress_address: (maximum_allowed_stress, stress_units)})
+                                             parameter_dict=stress_param_dict)
             cstr_list.append(stress_cstr)
 
         elif node in tether_constraint_includes['force']:
@@ -1255,7 +1252,6 @@ def get_yaw_expr(options, x, n0, n1, parent_map, gamma_max):
 
 def rotation_inequality(options, variables, parameters, architecture, outputs, options_help=None, kite_obj_for_printing_only=None):
     number_of_nodes = architecture.number_of_nodes
-    kite_nodes = architecture.kite_nodes
     parent_map = architecture.parent_map
 
     x = variables['x']
@@ -1263,74 +1259,60 @@ def rotation_inequality(options, variables, parameters, architecture, outputs, o
     cstr_list = cstr_op.MdlConstraintList()
 
     rotation_type = options['model_bounds']['rotation']['type']
+    list_of_angles_to_bound = []
+    if isinstance(rotation_type, str):
+        list_of_angles_to_bound = rotation_type.split('_')
+    dict_address_to_index = {'roll': 0, 'pitch': 1, 'yaw': 2}
 
     kite_has_6_dof = (options['kite_dof'] == 6)
     if kite_has_6_dof:
+        for kite in architecture.kite_nodes:
+            parent = architecture.parent_map[kite]
+            local_performance_rotation_angles = []
 
-        # create bound expressions from angle bounds
-        if rotation_type == 'roll_pitch':
-            max_angles = cas.vertcat(
-                cas.tan(parameters['theta0', 'model_bounds', 'rot_angles', 0]),
-                cas.sin(parameters['theta0', 'model_bounds', 'rot_angles', 1])
-            )
-            min_angles = -1. * max_angles
+            for angle_name in list_of_angles_to_bound:
 
-        for kite in kite_nodes:
-            parent = parent_map[kite]
+                adx = dict_address_to_index[angle_name]
+                angle_max = parameters['theta0', 'model_bounds', 'rot_angles', adx]
+                angle_min = -1. * angle_max
 
-            if rotation_type == 'roll_pitch':
-                rotation_angles = cas.vertcat(
-                    get_roll_expr(x, kite, parent_map[kite], parent_map),
-                    get_pitch_expr(x, kite, parent_map[kite], parent_map)
-                )
-
-                max_roll_pitch_param_dict = {'params.model_bounds.rot_angles (max roll, pitch)': (max_angles,
-                                                                                      options_help['params'][
-                                                                                          'model_bounds']['rot_angles'][
-                                                                                          0][2])}
-                min_roll_pitch_param_dict = {'params.model_bounds.rot_angles (min roll, pitch)': (min_angles,
-                                                                                      options_help['params'][
-                                                                                          'model_bounds']['rot_angles'][
-                                                                                          0][2])}
-
-                if options['model_bounds']['rotation']['include']:
-                    expr_max = rotation_angles - max_angles
-                    expr_min = min_angles - rotation_angles
-
-                    cstr_max = cstr_op.Constraint(expr=expr_max,
-                                                  name='rotation_max' + str(kite) + str(parent),
-                                                  cstr_type='ineq',
-                                                  parameter_dict=max_roll_pitch_param_dict)
-                    cstr_list.append(cstr_max)
-
-                    cstr_min = cstr_op.Constraint(expr=expr_min,
-                                                  name='rotation_min' + str(kite) + str(parent),
-                                                  cstr_type='ineq',
-                                                  parameter_dict=min_roll_pitch_param_dict)
-                    cstr_list.append(cstr_min)
-
-                outputs['local_performance']['rot_angles' + str(kite) + str(parent)] = cas.vertcat(
-                    cas.atan(rotation_angles[0]),
-                    cas.asin(rotation_angles[1])
-                )
-
-            elif rotation_type == 'yaw':
-
-                angle_max = parameters['theta0', 'model_bounds', 'rot_angles', 2]
-                yaw_expr, yaw_angle = get_yaw_expr(options, x, kite, parent_map[kite], parent_map, angle_max)
+                if angle_name == 'roll':
+                    max_angle_expr = cas.tan(angle_max)
+                    min_angle_expr = cas.tan(angle_min)
+                    current_angle_expr = get_roll_expr(x, kite, parent_map[kite], parent_map)
+                    current_angle = cas.atan(current_angle_expr)
+                elif angle_name == 'pitch':
+                    max_angle_expr = cas.sin(angle_max)
+                    min_angle_expr = cas.sin(angle_min)
+                    current_angle_expr = get_pitch_expr(x, kite, parent_map[kite], parent_map)
+                    current_angle = cas.asin(current_angle_expr)
+                elif angle_name == 'yaw':
+                    max_angle_expr = cas.inf
+                    min_angle_expr = cas.DM(0.)
+                    current_angle_expr, current_angle = get_yaw_expr(options, x, kite, parent_map[kite], parent_map,
+                                                                     angle_max)
+                else:
+                    message = 'unexpected angle name (' + angle_name + ') given for rotation inequality.'
+                    print_op.log_and_raise_error(message)
+                local_performance_rotation_angles = cas.vertcat(local_performance_rotation_angles, current_angle)
 
                 rot_param_dict = make_inequality_parameter_dict_entry(options, parameters,
                                                                       'params.model_bounds.rot_angles',
-                                                                      options_help=options_help, symmetry_options=(rotation_type, 2))
+                                                                      options_help=options_help, symmetry_options=(angle_name, adx))
+                ineq_expression = []
+                if isinstance(max_angle_expr, cas.SX) or np.isfinite(float(max_angle_expr)):
+                    ineq_expression = cas.vertcat(ineq_expression, current_angle_expr - max_angle_expr)
+                if isinstance(min_angle_expr, cas.SX) or np.isfinite(float(min_angle_expr)):
+                    ineq_expression = cas.vertcat(ineq_expression, min_angle_expr - current_angle_expr)
 
                 if options['model_bounds']['rotation']['include']:
-                    cstr_min = cstr_op.Constraint(expr=-1. * yaw_expr,
-                                                  name='rotation_max' + str(kite) + str(parent),
+                    cstr_min = cstr_op.Constraint(expr=ineq_expression,
+                                                  name='rotation_' + angle_name + str(kite) + str(parent),
                                                   cstr_type='ineq',
-                                                  parameter_dict=rot_param_dict) #{'max abs ' + rotation_type: (angle_max, rot_angles_units)})
+                                                  parameter_dict=rot_param_dict)
                     cstr_list.append(cstr_min)
 
-                outputs['local_performance']['rot_angles' + str(kite) + str(parent)] = yaw_angle
+            outputs['local_performance']['rot_angles' + str(kite) + str(parent)] = local_performance_rotation_angles
 
         # cross-tether
         if options['cross_tether'] and (number_of_nodes > 2):

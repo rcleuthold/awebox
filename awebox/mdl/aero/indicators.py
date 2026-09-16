@@ -76,7 +76,7 @@ def get_circulation_outputs(model_options, atmos, wind, variables_si, outputs, p
         CL = outputs['aerodynamics']['CL' + str(kite)]
 
         f_aero_wind = outputs['aerodynamics']['f_aero_wind' + str(kite)]
-        f_lift_norm = f_aero_wind[2]
+        f_lift_signed_mag = f_aero_wind[2]
 
         lift_hat_wind = vect_op.zhat_dm()
         lift_hat_earth = frames.from_wind_to_earth(air_velocity, kite_dcm, lift_hat_wind)
@@ -85,8 +85,8 @@ def get_circulation_outputs(model_options, atmos, wind, variables_si, outputs, p
         # vec_lift / span = rho circulation (vec_u_eff \cross \ehat2)
         # lift / span = rho circulation
         # circulation = lift / (rho span) / ((vec_u_eff \cross \ehat2) \dot \lhat)
-        circulation_dot = f_lift_norm / (rho * b_ref) / (cas.mtimes(lift_hat_earth.T, vect_op.cross(air_velocity, ehat_span)))
-        circulation_cross = f_lift_norm / b_ref / rho / vect_op.smooth_norm(vect_op.cross(air_velocity, ehat_span))
+        circulation_dot = f_lift_signed_mag / (rho * b_ref) / (cas.mtimes(lift_hat_earth.T, vect_op.cross(air_velocity, ehat_span)))
+        circulation_cross = f_lift_signed_mag / b_ref / rho / vect_op.smooth_norm(vect_op.cross(air_velocity, ehat_span))
         circulation_cl = 0.5 * airspeed**2. * CL * c_ref / vect_op.smooth_norm(vect_op.cross(air_velocity, ehat_span))
         outputs['aerodynamics']['circulation_dot' + str(kite)] = circulation_dot
         outputs['aerodynamics']['circulation_cross' + str(kite)] = circulation_cross

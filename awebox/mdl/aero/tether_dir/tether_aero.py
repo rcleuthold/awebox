@@ -113,11 +113,33 @@ def get_force_outputs(model_options, variables, parameters, atmos, wind, upper_n
 
     # drag inputs that we need for the kite_only drag model
     kite = upper_node
-    ehat_1 = outputs['aerodynamics']['ehat_chord' + str(kite)]
-    ehat_3 = outputs['aerodynamics']['ehat_up' + str(kite)]
-    alpha = outputs['aerodynamics']['alpha' + str(kite)]
-    kite_dynamic_pressure = outputs['aerodynamics']['dyn_pressure' + str(kite)]
-    air_velocity = outputs['aerodynamics']['air_velocity' + str(kite)]
+    if (tether_drag_model == 'kite_only'):
+        kite_only_necessary_input_base_names = ['ehat_chord', 'ehat_up', 'alpha', 'dyn_pressure', 'air_velocity']
+        kite_only_necessary_inputs_kite_names = [name + str(kite) for name in kite_only_necessary_input_base_names]
+        have_kite_only_necessary_inputs = [name in outputs['aerodynamics'].keys() for name in
+                                           kite_only_necessary_inputs_kite_names]
+        have_all_kite_only_necessary_inputs = all(have_kite_only_necessary_inputs)
+        if have_all_kite_only_necessary_inputs:
+            ehat_1 = outputs['aerodynamics']['ehat_chord' + str(kite)]
+            ehat_3 = outputs['aerodynamics']['ehat_up' + str(kite)]
+            alpha = outputs['aerodynamics']['alpha' + str(kite)]
+            kite_dynamic_pressure = outputs['aerodynamics']['dyn_pressure' + str(kite)]
+            air_velocity = outputs['aerodynamics']['air_velocity' + str(kite)]
+        else:
+            message = 'some (one or more) pieces of kite_only drag information seems to be missing from the aerodynamics outputs. '
+            message += 'if this is not an artificial test case, eg. from test_model in unit tests, something has gone wrong.'
+            print_op.base_print(message, level='warning')
+            ehat_1 = vect_op.xhat_dm()
+            ehat_3 = vect_op.zhat_dm()
+            alpha = cas.DM(0.)
+            kite_dynamic_pressure = cas.DM(1.)
+            air_velocity = ehat_1
+    else: #limit unnecessary information transfer
+        ehat_1 = None
+        ehat_3 = None
+        alpha = None
+        kite_dynamic_pressure = None
+        air_velocity = None
 
     distributed_forces_dict = tether_obj.calculate_distribute_drag_forces_on_nodes(upper_node, model_options, variables, parameters, architecture, ehat_1=ehat_1, ehat_3=ehat_3, alpha=alpha, kite_dynamic_pressure=kite_dynamic_pressure, air_velocity=air_velocity)
     drag_node = distributed_forces_dict['upper']

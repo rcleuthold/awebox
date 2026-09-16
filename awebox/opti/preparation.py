@@ -241,7 +241,7 @@ def generate_default_solver_options(options):
             else:
                 opts['ipopt.linear_system_scaling'] = 'mc19'  # default for ma27, ma57, ma77, and ma86
 
-            opts['ipopt.linear_scaling_on_demand'] = 'yes'
+            opts['ipopt.linear_scaling_on_demand'] = options['ipopt']['linear_scaling_on_demand']
             opts['ipopt.ma57_automatic_scaling'] = 'yes'
             opts['ipopt.ma86_scaling'] = 'mc64'  # default
             # there's an ma97_scaling option, too. but if you turn it on, then ipopt complains about 'invalid options'

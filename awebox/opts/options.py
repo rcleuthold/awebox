@@ -118,7 +118,7 @@ class Options:
         names_to_skip = ['stab_derivs', 'architecture']
 
         for test_name in names_to_skip:
-            if (test_name in base_name) or (test_name in current_name):
+            if (test_name == base_name) or (str(test_name) == str(current_name)):
                 return None
 
         if not isinstance(current_value, dict):
@@ -130,7 +130,7 @@ class Options:
                 else:
                     local_help = current_help
 
-                if (len(current_value.keys()) < 4) or (current_name in list_of_unexpected_subtypes):
+                if (len(current_value.keys()) < 2) or (current_name in list_of_unexpected_subtypes):
                     self.recursively_flatten_dict(str(base_name), str(current_name) + '.' + str(local_name), local_value, local_help)
                 else:
                     self.recursively_flatten_dict(str(base_name) + '.' + str(current_name), local_name, local_value, local_help)
@@ -163,9 +163,9 @@ class Options:
         if flattened_key not in self.__flattened_dict.keys():
             self.__flattened_dict[flattened_key] = {}
 
-        if ('cost' in flattened_key) and (subkey[-1].isdigit()):
-            digitname = subkey[-1]
-            subname = subkey[:-2]
+        if ('cost' in str(flattened_key)) and (str(subkey)[-1].isdigit()):
+            digitname = str(subkey)[-1]
+            subname = str(subkey)[:-2]
         else:
             digitname = None
             subname = subkey
@@ -207,15 +207,15 @@ class Options:
                         for ldx in range(deriv_length):
 
                             if to_echo_or_latex == 'latex':
-                                multiplier = '' # ~ '
-                                dollar = '$'
-                                space = ' '
-                                unspace = '\hspace{-1ex} '
+                                multiplier = r'' # ~ '
+                                dollar = r'$'
+                                space = r' '
+                                unspace = r'\hspace{-1.5ex} '
                             else:
-                                multiplier = ' *'
-                                dollar = ''
-                                space = ''
-                                unspace = ''
+                                multiplier = r' *'
+                                dollar = r''
+                                space = r''
+                                unspace = r''
 
                             subscript = input_name
                             # the really weird spacing thing, is so that print_op's print_as_table's latex replacement

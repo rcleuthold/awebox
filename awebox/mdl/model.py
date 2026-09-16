@@ -40,6 +40,9 @@ import awebox.tools.struct_operations as struct_op
 import awebox.tools.save_operations as save_op
 import casadi.tools as cas
 
+from .architecture import Architecture
+
+
 class Model(object):
     def __init__(self):
         self.__status = 'Model not yet built.'
@@ -62,8 +65,9 @@ class Model(object):
             self.__generate_atmosphere(model_options['atmosphere'])
             self.__generate_wind(model_options['wind'])
             self.__tether_obj = tether_tether.Tether(model_options, self.__parameters, self.__wind, self.__atmos, options_object=options_object)
-            self.__kite_obj_for_printing_only = print_op.PrintableObject(options_object=self.__options_object,
-                                                                         name='kite')
+            self.__kite_obj_for_printing_only = print_op.PrintableObject(options_object=self.__options_object, name='kite')
+            self.__kite_obj_for_printing_only.add_to_applied_params_dict('user_options.kite_standard.name', model_options['system_summary_string'])
+
             self.__generate_system_dynamics(model_options)
             self.generate_scaled_variable_bounds(model_options)
             self.__generate_parameter_bounds(model_options)

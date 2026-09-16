@@ -264,9 +264,9 @@ def get_inverse_equivalence_matrix(tether_length):
     # a + d = Fx
     # b + e = Fy
     # c + f = Fz
-    # (L/2) (b - e) = Mx <- this is what it should be. at present, it says L (a - d) = Mx
-    # (L/2) (a - d) = My <- this is what it should be. at present, it says L (b - e) = My
-    # c - f = 0 <- the line is presently multiplied by a constant L. annoying but not harmful.
+    # (L/2) (b - e) = Mx
+    # (L/2) (a - d) = My
+    # c - f = 0
 
     # A [a, b, c, d, e, f].T = [Fx, Fy, Fz, Mx, My, 0].T
     # [a, b, c, d, e, f].T = Ainv [Fx, Fy, Fz, Mx, My, 0].T

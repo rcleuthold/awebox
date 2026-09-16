@@ -339,6 +339,7 @@ def plot_velocity_distribution(plot_dict, cosmetics, fig_name):
     adx['a_t'] = adx['a_r'] + 1
     adx['alpha_app'] = adx['a_t'] + 1
     adx['alpha_eff'] = adx['alpha_app'] + 1
+    adx['alpha_ind'] = adx['alpha_eff'] + 1
 
     rows = 1 + int(np.max(np.array([val for val in adx.values()])))
     cols = 1
@@ -811,7 +812,7 @@ def get_velocity_distribution_at_spanwise_position_functions(plot_dict, cosmetic
 
         alpha_eff = aero_indicators.get_alpha(vec_u_eff, kite_dcm) * 180. / np.pi
         beta_eff = aero_indicators.get_beta(vec_u_eff, kite_dcm) * 180. / np.pi
-        delta_alpha = (alpha_eff - alpha_app)
+        alpha_ind = (alpha_eff - alpha_app)
         delta_beta = (beta_eff - beta_app)
 
     else:
@@ -821,7 +822,7 @@ def get_velocity_distribution_at_spanwise_position_functions(plot_dict, cosmetic
         a_radial = cas.DM.zeros((1, 1))
         alpha_eff = alpha_app
         beta_eff = beta_app
-        delta_alpha = cas.DM.zeros((1, 1))
+        alpha_ind = cas.DM.zeros((1, 1))
         delta_beta = cas.DM.zeros((1, 1))
 
     outputs = {
@@ -834,7 +835,7 @@ def get_velocity_distribution_at_spanwise_position_functions(plot_dict, cosmetic
         'a_t': a_tangential,
         'alpha_app': alpha_app,
         'alpha_eff': alpha_eff,
-        'd_alpha': delta_alpha,
+        'alpha_ind': alpha_ind,
         'd_beta': delta_beta
         }
     outputs['norm_minus'] = outputs['eff'] - outputs['app']
@@ -1513,7 +1514,7 @@ def plot_induction_contour_on_kmp(plot_dict, cosmetics, fig_name, fig_num=None, 
             haas_levels = [-0.05, 0., 0.2]
             haas_linestyles = ['dashdot', 'solid', 'dashed']
             haas_colors = ['k', 'k', 'k']
-            general_levels = haas_levels #[-1.0, -0.5, -0.2, -0.1, 0., 0.1, 0.2, 0.5, 1.0]
+            general_levels = plot_dict['cosmetics']['induction']['kmp_contour_levels']
             general_colors = 'k'
             general_linestyles = 'solid'
             if this_is_haas_test and ((np.any(aa < haas_levels[0])) and (np.any(aa > haas_levels[-1]))):

@@ -1164,8 +1164,13 @@ def generate_nested_dict_struct(v):
         else:
             if vect_op.is_numeric_scalar(v1):
                 shape = (1,1)
-            else:
+            elif hasattr(v1, 'shape'):
                 shape = v1.shape
+            elif isinstance(v1, float): #this will catch +- inf values
+                shape = (1,1)
+            else:
+                # come back to this list, if anything ever raises an error here.
+                shape = (1,1)
             # append value to entry list
             entry_list.append(cas.entry(k1, shape= shape))
 

@@ -34,6 +34,7 @@ _python-3.5 / casadi-3.4.5
 
 import casadi.tools as cas
 import numpy as np
+from sympy.codegen.ast import continue_
 
 from awebox.logger.logger import Logger as awelogger
 
@@ -48,12 +49,21 @@ import awebox.mdl.aero.tether_dir.reynolds as tether_reynolds
 import awebox.mdl.aero.tether_dir.coefficients as tether_coefficients
 import awebox.mdl.aero.tether_dir.element as tether_element
 import awebox.mdl.aero.tether_dir.segment as tether_segment
+from awebox.mdl.architecture import Architecture
 
 
 class Tether(print_op.PrintableObject):
     def __init__(self, model_options, parameters, wind, atmos, options_object=None):
         super().__init__(options_object=options_object, name='tether')
 
+        self.add_to_applied_params_dict('model.tether.control_var', model_options['tether']['control_var'])
+
+        tether_constraint_includes = model_options['model_bounds']['tether']['tether_constraint_includes']
+        if tether_constraint_includes['stress']:
+            self.add_to_applied_params_dict('params.tether.max_stress', parameters['theta0', 'tether', 'max_stress'])
+
+        model_tether_drag = model_options['tether']['tether_drag']['model_type'] != 'not_in_use'
+        #todo: only add these things if model_tether_drag is true
         self.set_density(parameters)
         self.set_reynolds_number_function(atmos, parameters)
         self.set_drag_coefficient_function(model_options, parameters)
@@ -181,7 +191,7 @@ def construct_test_objects(drag_model_type='not_in_use', cd_model='constant', wi
                          'wind': {'model': wind_model, 'u_ref': u_ref, 'atmosphere_heightsdata': atmosphere_heightsdata, 'atmosphere_featuresdata': atmosphere_featuresdata, 'log_wind': {'z0_air': 0.01}},
                          'tether': {'cd_model': cd_model, 'aero_elements': aero_elements, 'reynolds_smoothing': 1e-8, 'tether_drag':{'model_type': drag_model_type}}},
                'user_options': {'atmosphere': 'uniform', 'wind': u_ref},
-               'params': {'atmosphere': {'rho_ref': rho_ref, 'mu_ref': mu_ref},
+               'params': {'atmosphere': {'rho_ref': rho_ref, 'mu_ref': mu_ref, 'g': 9.81},
                           'tether': {'cd': cd},
                           'wind': {'u_ref': u_ref}
                           }}
@@ -302,12 +312,12 @@ def test_segment_integration_simple(drag_model_type='multi', thresh=1e-3):
     return None
 
 
-def test_segment_integration_varying(aero_elements=100, cd_model='polyfit', drag_model_type='multi', thresh=0.2):
+def test_segment_integration_varying(aero_elements=100, cd_model='polyfit', drag_model_type='multi', thresh=0.3):
     # https://web.mit.edu/shear7/papers/VANDIVER-HOLLER-KIM@OMAE.pdf
     # https://asmedigitalcollection.asme.org/energyresources/article-abstract/108/1/77/427541/Vortex-Induced-Vibration-and-Drag-Coefficients-of
     # Kim1986
     # at ~35 g/kg salinity and 0d C (https://en.wikipedia.org/wiki/Arctic_Ocean)
-    mu_ref = 1.906e3 #kg/m/s page 5, https://web.mit.edu/seawater/2017_MIT_Seawater_Property_Tables_r2b_2023c.pdf
+    mu_ref = 1.906e-3 #kg/m/s page 5, see note on bottom right of page for why e-3 and not e3, https://web.mit.edu/seawater/2017_MIT_Seawater_Property_Tables_r2b_2023c.pdf
     rho_ref = 1028.0 #kg/m^3, page 24 of seawater properties table
     # # # test version
     # atmosphere_heightsdata = np.array([0, 100, 200, 300, 400, 500, 600])
@@ -372,11 +382,11 @@ def test_segment_integration_varying(aero_elements=100, cd_model='polyfit', drag
 
     error = float( (integrated_average_drag_coeff - measured_average_drag_coeff) / measured_average_drag_coeff )
     if np.abs(error) > thresh:
-        message = 'segment varying-drag integration test with model ' + drag_model_type + ' gives a wildly different average drag coefficient than reported in Vandiver/Holler/Kim. '
+        message = 'segment varying-drag integration test with model ' + drag_model_type + ' gives a wildly different average drag coefficient than reported in Kim/Vandiver/Holler (1986). '
         message += 'error at ' + str(aero_elements) + ' aero_elements is ' + str(error) + "."
         print_op.log_and_raise_error(message)
 
-    return integrated_average_drag_coeff, measured_average_drag_coeff, corresponding_rigid_cylinder_drag_coeff, wind_obj, atmosphere_heightsdata
+    return integrated_average_drag_coeff, measured_average_drag_coeff, corresponding_rigid_cylinder_drag_coeff, atmos_obj, wind_obj, atmosphere_heightsdata, atmosphere_featuresdata, inputs, p_fix_num
 
 def make_plots_for_integration_test():
 
@@ -386,13 +396,15 @@ def make_plots_for_integration_test():
 
     fig, ax = plt.subplots()
 
-    aero_elements_list = [1e0, 1e1, 1e2, 1e3, 1e4]
-    for cd_model in ['polyfit', 'constant']:
+    end = 9
+    aero_elements_list = 2**np.linspace(0, end, end+1)
+    for cd_model in ['piecewise', 'polyfit', 'constant']:
         for drag_model_type in ['multi']: #'equivalent', 'equivalent_buggy',
             integrated_drag_list = []
             for aero_elements in aero_elements_list:
-                integrated_average_drag_coeff, measured_average_drag_coeff, corresponding_rigid_cylinder_drag_coeff, wind_obj, atmosphere_heightsdata = test_segment_integration_varying(aero_elements=int(aero_elements), thresh=500., cd_model=cd_model, drag_model_type=drag_model_type)
+                integrated_average_drag_coeff, measured_average_drag_coeff, corresponding_rigid_cylinder_drag_coeff, atmos_obj, wind_obj, atmosphere_heightsdata, atmosphere_featuresdata, inputs, p_fix_num = test_segment_integration_varying(aero_elements=int(aero_elements), thresh=500., cd_model=cd_model, drag_model_type=drag_model_type)
                 integrated_drag_list += [float(integrated_average_drag_coeff)]
+            print(integrated_drag_list)
             plt.semilogx(np.array(aero_elements_list), np.array(integrated_drag_list), 'o', label='awebox integration (' + drag_model_type + ', ' + cd_model + ')')
 
     ax.set_xlim(ax.get_xlim())
@@ -402,13 +414,41 @@ def make_plots_for_integration_test():
                  label='rigid cylinder drag coefficient')
     plt.xlabel('number of aero elements [-]')
     plt.ylabel('average drag coefficient over tether')
-    plt.title('Vandiver/Holler/Kim tether drag integration test')
-    legend = ax.legend(loc='lower right')
+    plt.title('Kim et al. (1986) tether drag integration test')
+    legend = ax.legend(loc='upper right')
 
     wind_obj.plot_velocity_profile(z_min=atmosphere_heightsdata[0], z_max=atmosphere_heightsdata[-1])
 
-    plt.show()
+    inputs_dict = tether_element.unpack_element_info_column(inputs, kite_only=False)
+    reynolds_list = []
+    tether_zz_list = []
+    windspeed_list = []
 
+    for phi in np.linspace(0., 1., 1000)[1:-1]:
+        q_local = inputs_dict['q_lower'] + phi * (inputs_dict['q_upper'] - inputs_dict['q_lower'])
+        tether_zz_list += [q_local[2]]
+        dq_local = inputs_dict['dq_lower'] + phi * (inputs_dict['dq_upper'] - inputs_dict['dq_lower'])
+        wind_velocity = wind_obj.get_velocity(q_local[2])
+        windspeed_list += [wind_velocity[0]]
+        ua_local = wind_velocity - dq_local
+        reynolds = tether_reynolds.get_reynolds_number(q_local=q_local, ua_local=ua_local, diam=inputs_dict['diameter'], mu_infty=p_fix_num['theta0', 'atmosphere', 'mu_ref'], rho_infty=p_fix_num['theta0', 'atmosphere', 'rho_ref'])
+        reynolds_list += [reynolds]
+
+    windspeed_list = np.array(windspeed_list).flatten()
+    tether_zz_list = np.array(tether_zz_list).flatten()
+    reynolds_list = np.array(reynolds_list).flatten()
+    fig, ax = plt.subplots(1, 2, sharey=True)
+    ax[0].plot(windspeed_list, tether_zz_list, label='flow speed')
+    ax[0].plot(atmosphere_featuresdata, atmosphere_heightsdata, 'r*', label='Kim et al. (1986)')
+    ax[0].set_xlabel('flow speed [m/s]')
+    ax[0].set_ylim(tether_zz_list[0], tether_zz_list[-1])
+    ax[0].legend(loc='upper right')
+    ax[1].plot(reynolds_list, tether_zz_list, label='Reynolds number')
+    ax[1].set_xlabel('Reynolds number [-]')
+    ax[0].set_ylabel("'altitude' below sea-level along tether [m]")
+    plt.suptitle('wind speed and Reynolds number for the Kim et al. (1986) test')
+
+    plt.show()
 
 def test():
     tether_reynolds.test()
@@ -417,5 +457,6 @@ def test():
     test_segment_integration_varying()
 
 if __name__ == "__main__":
-    test()
-    make_plots_for_integration_test()
+    # test()
+    # make_plots_for_integration_test()
+    pass
