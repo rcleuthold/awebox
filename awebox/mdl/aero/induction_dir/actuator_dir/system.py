@@ -71,39 +71,41 @@ def extend_actuator_support(options, system_lifted, system_states, architecture)
         parent = architecture.parent_map[kite]
         system_lifted.extend([('varrho' + str(kite) + str(parent), (1, 1))])
         system_lifted.extend([('psi' + str(kite) + str(parent), (1, 1))])
-        # system_lifted.extend([('cospsi' + str(kite) + str(parent), (1, 1))])
-        # system_lifted.extend([('sinpsi' + str(kite) + str(parent), (1, 1))])
 
     for layer_node in architecture.layer_nodes:
         system_lifted.extend([('bar_varrho' + str(layer_node), (1, 1))])
         system_lifted.extend([('area' + str(layer_node), (1, 1))])
 
-        system_lifted.extend([('act_q' + str(layer_node), (3, 1))])
-        system_lifted.extend([('act_dq' + str(layer_node), (3, 1))])
+        system_lifted.extend([('actuator_center' + str(layer_node), (3, 1))])
+        system_lifted.extend([('dactuator_center' + str(layer_node), (3, 1))])
 
         system_lifted.extend([('gamma' + str(layer_node), (1, 1))])
-        # system_lifted.extend([(get_actuator_vector_length_name('g', layer_node), (1, 1))])
-        # system_lifted.extend([('cosgamma' + str(layer_node), (1, 1))])
-        # system_lifted.extend([('singamma' + str(layer_node), (1, 1))])
 
-        for dir in get_list_of_directions():
-            system_lifted.extend([(get_actuator_vector_unit_name(dir, layer_node), (3, 1))])
-            # system_lifted.extend([(get_actuator_vector_length_name(dir, layer_node), (1, 1))])
+        for dir in get_list_of_directions_that_define_actuator_dcms():
+            system_lifted.extend([(get_actuator_dcm_name(dir, layer_node), (9, 1))])
+
+        for dir in get_list_of_directions_that_have_length_variables():
+            system_lifted.extend([(get_actuator_vector_length_name(dir, layer_node), (1, 1))])
 
         system_lifted.extend([('thrust' + str(layer_node), (1, 1))])
 
     return system_lifted, system_states
 
-def get_list_of_directions():
-    return ['n', 'uzero']
+def get_list_of_directions_that_define_actuator_dcms():
+    return ['n', 'u']
+
+def get_list_of_directions_that_have_length_variables():
+    return ['n', 'u', 'z']
 
 def add_system_bounds_of_support_variables(options, help_options, options_tree):
-    for dir in get_list_of_directions() + ['g']:
-        options_tree.append(('model', 'system_bounds', 'z', get_actuator_vector_length_name_base(dir), [0., cas.inf], ('positive-direction parallel for actuator orientation [-]', None), 'x')),
 
-    psi_epsilon = np.pi
-    options_tree.append(('model', 'system_bounds', 'z', 'psi', [0. - psi_epsilon, 2. * np.pi + psi_epsilon],
-                         ('azimuth-jumping bounds on the azimuthal angle derivative', None), 'x'))
+    for dir in get_list_of_directions_that_have_length_variables():
+        var_name = get_actuator_vector_length_name_stripped_of_node(dir)
+        options_tree.append(('model', 'system_bounds', 'z', var_name, [0., cas.inf], ('length-value for actuator orientation vectors must be positive [-]', None), 'x')),
+    #
+    # psi_epsilon = np.pi
+    # options_tree.append(('model', 'system_bounds', 'z', 'psi', [0. - psi_epsilon, 2. * np.pi + psi_epsilon],
+    #                      ('azimuth-jumping bounds on the azimuthal angle derivative', None), 'x'))
 
     return options_tree
 
@@ -127,16 +129,17 @@ def add_scaling_of_support_variables(options, architecture, u_at_altitude, optio
     else:
         n_vec_length_ref = 1.
     scaling_dict['n'] = n_vec_length_ref
+
     scaling_dict['z'] = cas.DM(1.)
-
-    scaling_dict['uzero'] = u_at_altitude
-
+    scaling_dict['u'] = u_at_altitude
     scaling_dict['g'] = cas.DM(1.)
 
-    for dir, val in scaling_dict.items():
-        var_name = get_actuator_vector_length_name_base(dir)
-        options_tree.append(('model', 'scaling', 'z', var_name, val, ('descript', None), 'x'))
-        options_tree.append(('solver', 'initialization', 'induction', var_name, val, ('descript', None), 'x'))
+    for dir in get_list_of_directions_that_have_length_variables():
+        var_name = get_actuator_vector_length_name_stripped_of_node(dir)
+        if dir in scaling_dict.keys():
+            val = scaling_dict[dir]
+            options_tree.append(('model', 'scaling', 'z', var_name, val, ('descript', None), 'x'))
+            options_tree.append(('solver', 'initialization', 'induction', var_name, val, ('descript', None), 'x'))
 
     psi_scale = 2. * np.pi
     options_tree.append(('model', 'scaling', 'z', 'psi', psi_scale, ('descript', None), 'x'))
@@ -146,24 +149,43 @@ def add_scaling_of_support_variables(options, architecture, u_at_altitude, optio
     return options_tree
 
 def get_actuator_direction_name_base(direction):
-    return 'act_' + direction
+    for act_dir in ['n', 'y', 'z']:
+        if act_dir in direction:
+            return 'act_'
+    for wind_dir in ['u', 'v', 'w']:
+        if wind_dir in direction:
+            return 'wind_'
 
-def get_actuator_vector_unit_name_base(direction):
-    return get_actuator_direction_name_base(direction) + '_hat'
+def get_actuator_dcm_name(direction, layer_node):
+    dcm_name = get_actuator_direction_name_base(direction)
+    return dcm_name + 'dcm' + str(layer_node)
 
-def get_actuator_vector_unit_name(direction, layer_node):
-    return get_actuator_vector_unit_name_base(direction) + str(layer_node)
+def get_actuator_dcm_var(variables_si, direction, layer_node):
+    var_type = 'z'
+    dcm_name = get_actuator_dcm_name(direction, layer_node)
+    dcm_var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, dcm_name)
+    return dcm_var
 
-def get_actuator_vector_length_name_base(direction):
-    return get_actuator_direction_name_base(direction) + '_vec_length'
+def get_actuator_vector_length_name_stripped_of_node(direction):
+    base = get_actuator_direction_name_base(direction)
+    return base + direction
 
 def get_actuator_vector_length_name(direction, layer_node):
-    return get_actuator_vector_length_name_base(direction) + str(layer_node)
+    stripped_of_node = get_actuator_vector_length_name_stripped_of_node(direction)
+    return stripped_of_node + str(layer_node)
 
 def get_actuator_vector_unit_var(variables_si, direction, layer_node):
-    var_type = 'z'
-    var_name = get_actuator_vector_unit_name(direction, layer_node)
-    var_val = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
+    dcm_var = get_actuator_dcm_var(variables_si, direction, layer_node).reshape((3, 3))
+    if direction in ['n', 'u']:
+        index = 0
+    elif direction in ['y', 'v']:
+        index = 1
+    elif direction in ['z', 'w']:
+        index = 2
+    else:
+        message = 'unexpected actuator direction: ' + direction
+        print_op.log_and_raise_error(message)
+    var_val = dcm_var[:, index]
     return var_val
 
 def get_actuator_vector_length_var(variables_si, direction, layer_node):

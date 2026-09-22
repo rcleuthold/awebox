@@ -195,6 +195,8 @@ def initial_guess_actuator_support(init_options, model, V_init):
         n_hat_act = vect_op.normalize(n_vec_act)
         z_hat_act = w_hat
         y_hat_act = vect_op.normed_cross(z_hat_act, n_hat_act)
+        act_dcm = cas.horzcat(n_hat_act, y_hat_act, z_hat_act)
+        act_dcm_cols = cas.reshape(act_dcm, (9, 1))
 
         if parent == 0:
             parent_position = np.zeros((3, 1))
@@ -208,20 +210,20 @@ def initial_guess_actuator_support(init_options, model, V_init):
         q_infty = init_options['induction']['dynamic_pressure']
         u_infty = init_options['induction']['u_at_altitude']
 
-        dict['act_q' + str(parent)] = center
-        dict['act_dq' + str(parent)] = cas.DM.zeros((3, 1))
+        dict['actuator_center' + str(parent)] = center
+        dict['dactuator_center' + str(parent)] = cas.DM.zeros((3, 1))
 
-        normal_vectors = {'n': n_hat_act, 'uzero': u_hat}
-        # vector_lengths = {'n': vect_op.norm(n_vec_act), 'uzero': u_infty}
-        for dir in actuator_system.get_list_of_directions():
-            dict[actuator_system.get_actuator_vector_unit_name(dir, parent)] = normal_vectors[dir]
-            # dict[actuator_system.get_actuator_vector_length_name(dir, parent)] = vector_lengths[dir]
+        init_lengths = {'n': vect_op.norm(n_vec_act), 'z': cas.DM(1.), 'u': u_infty, 'g': cas.DM(1.)}
+        for dir in actuator_system.get_list_of_directions_that_have_length_variables():
+            dict[actuator_system.get_actuator_vector_length_name(dir, parent)] = init_lengths[dir]
+
+        dict[actuator_system.get_actuator_dcm_name('n', parent)] = act_dcm_cols
+        dict[actuator_system.get_actuator_dcm_name('u', parent)] = wind_dcm_cols
 
         uzero_hat = model.wind.get_wind_direction()
         gamma = vect_op.angle_between(n_rot_hat, uzero_hat)
 
         dict['gamma' + str(parent)] = gamma
-        dict[actuator_system.get_actuator_vector_length_name('g', parent)] = 1.
         dict['cosgamma' + str(parent)] = np.cos(gamma)
         dict['singamma' + str(parent)] = np.sin(gamma)
 
@@ -232,14 +234,14 @@ def initial_guess_actuator_support(init_options, model, V_init):
         a_ref = cas.DM(init_options['z']['a'])
         dict['thrust' + str(parent)] = 4. * a_ref * (1. - a_ref) * dict['area' + str(parent)] * q_infty
 
-    var_type = 'z'
-    for name in struct_op.subkeys(model.variables, var_type):
-        name_stripped, _ = struct_op.split_name_and_node_identifier(name)
+    for var_type in ['x', 'xdot', 'z']:
+        for name in struct_op.subkeys(model.variables, var_type):
+            name_stripped, _ = struct_op.split_name_and_node_identifier(name)
 
-        if name in dict.keys():
-            V_init = tools_init.insert_dict(dict, var_type, name, name, V_init)
-        elif name_stripped in dict.keys():
-            V_init = tools_init.insert_dict(dict, var_type, name, name_stripped, V_init)
+            if name in dict.keys():
+                V_init = tools_init.insert_dict(dict, var_type, name, name, V_init)
+            elif name_stripped in dict.keys():
+                V_init = tools_init.insert_dict(dict, var_type, name, name_stripped, V_init)
 
     return V_init
 

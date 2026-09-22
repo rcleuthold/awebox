@@ -742,12 +742,19 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
         overwrite_position_scaling_method = None
     else:
         overwrite_position_scaling_method = options['model']['aero']['actuator']['position_scaling_method']
-    act_q = get_position_scaling(options, architecture, suppress_help_statement=True, overwrite_method=overwrite_position_scaling_method)
-    act_dq = estimate_reelout_speed(options)
-    options_tree.append(('model', 'scaling', 'z', 'act_q', act_q, ('descript', None), 'x'))
-    options_tree.append(('model', 'scaling', 'z', 'act_dq', act_dq, ('descript', None), 'x'))
-    q_bounds = [np.array([-cas.inf, -cas.inf, 10.0]), np.array([cas.inf, cas.inf, cas.inf])]
-    options_tree.append(('model', 'system_bounds', 'z', 'act_q', q_bounds, ('??', None), 'x')),
+    actuator_center = get_position_scaling(options, architecture, suppress_help_statement=True, overwrite_method=overwrite_position_scaling_method)
+    # u_ref = get_u_ref(options['user_options'])
+    # u_at_altitude = get_u_at_altitude(options, estimate_altitude(options))
+    # groundspeed = options['solver']['initialization']['groundspeed']
+    u_reelout = estimate_reelout_speed(options)
+    dact_center = u_reelout
+    actuator_center_var_type = 'z'
+    options_tree.append(('model', 'scaling', actuator_center_var_type, 'actuator_center', actuator_center, ('descript', None), 'x'))
+    options_tree.append(
+        ('model', 'scaling', actuator_center_var_type, 'dactuator_center', dact_center, ('descript', None), 'x'))
+    print_op.warn_about_temporary_functionality_alteration()
+    # q_bounds = [np.array([-cas.inf, -cas.inf, 0.]), np.array([cas.inf, cas.inf, cas.inf])] #need this when evaluating freestream flow velocity at actuator center
+    # options_tree.append(('model', 'system_bounds', actuator_center_var_type, 'actuator_center', q_bounds, ('??', None), 'x')),
 
 
     options_tree.append(('formulation', 'induction', None, 'steadyness', actuator_steadyness, ('actuator steadyness', None), 'x')),
@@ -781,7 +788,10 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
 
     gamma_range = options['model']['aero']['actuator']['gamma_range']
     options_tree.append(('model', 'system_bounds', 'z', 'gamma', gamma_range, ('tilt angle bounds [rad]', None), 'x')),
-    gamma_ref = gamma_range[1] * 0.5
+    if vect_op.is_numeric_scalar(gamma_range[1]):
+        gamma_ref = gamma_range[1] * 0.5
+    else:
+        gamma_ref = np.pi/4.
     options_tree.append(('model', 'scaling', 'z', 'gamma', gamma_ref, ('tilt angle bounds [rad]', None), 'x')),
     options_tree.append(('model', 'scaling', 'z', 'cosgamma', 0.5, ('tilt angle bounds [rad]', None), 'x')),
     options_tree.append(('model', 'scaling', 'z', 'singamma', 0.5, ('tilt angle bounds [rad]', None), 'x')),

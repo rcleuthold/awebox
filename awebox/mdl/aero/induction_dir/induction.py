@@ -62,7 +62,7 @@ def get_model_constraints(model_options, wake, scaling, atmos, wind, system_vari
         cstr_list.append(induction_cstr)
 
         if actuator.model_is_included_in_comparison(model_options):
-            actuator_cstr = actuator.get_model_constraints(model_options, atmos, wind, variables_si, parameters, outputs,
+            actuator_cstr = actuator.get_model_constraints(model_options, atmos, wind, system_variables, parameters, outputs,
                                                        architecture, scaling)
             cstr_list.append(actuator_cstr)
 
@@ -92,7 +92,6 @@ def get_induction_cstr(model_options, wind, system_variables, parameters, archit
         resi_final = (vec_u_ind_var - vec_u_ind_final)
 
         resi_homotopy = (iota * resi_trivial + (1. - iota) * resi_final)
-
         general_cstr = cstr_op.Constraint(expr=resi_homotopy,
                                           name='induction_' + str(kite),
                                           cstr_type='eq')

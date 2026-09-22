@@ -40,6 +40,8 @@ import awebox.tools.constraint_operations as cstr_op
 import awebox.tools.struct_operations as struct_op
 import awebox.tools.print_operations as print_op
 
+import awebox.mdl.lagr_dyn_dir.tools as lagr_tools
+
 import awebox.mdl.aero.geometry_dir.geometry as geom
 import awebox.mdl.aero.geometry_dir.unit_normal as unit_normal
 import awebox.mdl.aero.induction_dir.general_dir.tools as general_tools
@@ -59,13 +61,13 @@ def get_mu_radial_ratio(variables, kite, parent):
 
 def get_actuator_velocity_var(variables_si, parent):
     var_type = 'z'
-    var_name = 'act_dq' + str(parent)
+    var_name = 'dactuator_center' + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
 def get_actuator_position_var(variables_si, parent):
     var_type = 'z'
-    var_name = 'act_q' + str(parent)
+    var_name = 'actuator_center' + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
@@ -96,26 +98,14 @@ def get_psi_var(variables_si, kite, parent):
 
 
 def get_cospsi_var(variables_si, kite, parent):
-    var_type = 'z'
-    var_name = 'cospsi' + str(kite) + str(parent)
-    # var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
-
-    print_op.warn_about_temporary_functionality_alteration()
     psi = get_psi_var(variables_si, kite, parent)
     var = cas.cos(psi)
-
     return var
 
 
 def get_sinpsi_var(variables_si, kite, parent):
-    var_type = 'z'
-    var_name = 'sinpsi' + str(kite) + str(parent)
-    # var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
-
-    print_op.warn_about_temporary_functionality_alteration()
     psi = get_psi_var(variables_si, kite, parent)
     var = cas.sin(psi)
-
     return var
 
 
@@ -148,7 +138,9 @@ def get_area_ref(model_options, parameters):
 
 # residuals
 
-def get_center_cstr(model_options, parent, variables_si, architecture, scaling):
+def get_center_cstr(model_options, parent, system_variables, architecture, scaling):
+
+    variables_si = system_variables['SI']
 
     cstr_list = cstr_op.ConstraintList()
 
@@ -156,7 +148,7 @@ def get_center_cstr(model_options, parent, variables_si, architecture, scaling):
     q_center_val = geom.get_center_position(model_options, parent, variables_si, architecture)
 
     pos_resi_unscaled = q_center_var - q_center_val
-    pos_resi_scaled = struct_op.var_si_to_scaled('z', 'act_q' + str(parent), pos_resi_unscaled, scaling)
+    pos_resi_scaled = struct_op.var_si_to_scaled('z', 'actuator_center' + str(parent), pos_resi_unscaled, scaling)
 
     name = 'actuator_center_position_' + str(parent)
     pos_cstr = cstr_op.Constraint(expr=pos_resi_scaled,
@@ -165,10 +157,10 @@ def get_center_cstr(model_options, parent, variables_si, architecture, scaling):
     cstr_list.append(pos_cstr)
 
     dq_center_var = get_actuator_velocity_var(variables_si, parent)
-    dq_center_val = geom.get_center_velocity(model_options, parent, variables_si, architecture)
+    dq_center_val = lagr_tools.time_derivative(q_center_val, system_variables['scaled'], architecture, scaling)
 
     vel_resi_unscaled = dq_center_var - dq_center_val
-    vel_resi_scaled = struct_op.var_si_to_scaled('z', 'act_dq' + str(parent), vel_resi_unscaled, scaling)
+    vel_resi_scaled = struct_op.var_si_to_scaled('z', 'dactuator_center' + str(parent), vel_resi_unscaled, scaling)
 
     name = 'actuator_center_velocity_' + str(parent)
     vel_cstr = cstr_op.Constraint(expr=vel_resi_scaled,
@@ -185,11 +177,6 @@ def get_area_cstr(parent, variables_si, parameters, scaling):
     area_val = get_actuator_area(parent, variables_si, parameters)
 
     resi_unscaled = area_var - area_val
-
-    # print_op.warn_about_temporary_functionality_alteration()
-    # b_ref = 5.5
-    # radius = 7. * b_ref
-    # resi_unscaled = area_var - (2. * np.pi * radius * b_ref)
 
     resi_scaled = struct_op.var_si_to_scaled('z', 'area' + str(parent), resi_unscaled, scaling)
 
@@ -216,13 +203,7 @@ def get_bar_varrho_cstr(parent, variables, architecture, scaling):
     bar_varrho_var = get_bar_varrho_var(variables, parent)
 
     resi_si = bar_varrho_var - bar_varrho_val
-
-    # print_op.warn_about_temporary_functionality_alteration()
-    # resi_si = bar_varrho_var - 7.
-
     resi_scaled = struct_op.var_si_to_scaled('z', 'bar_varrho' + str(parent), resi_si, scaling)
-    # print_op.warn_about_temporary_functionality_alteration()
-    # resi_scaled = resi_si
 
     name = 'actuator_bar_varrho_' + str(parent)
     cstr = cstr_op.Constraint(expr=resi_scaled,
@@ -251,9 +232,8 @@ def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architec
     q_center = get_actuator_position_var(variables, parent)
     vec_from_center_to_kite = q_kite - q_center
 
-    act_dcm = get_act_dcm_var(variables, parent)
-    y_rotor_hat_var = act_dcm[:, 1]
-    z_rotor_hat_var = act_dcm[:, 2]
+    y_rotor_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'y', parent)
+    z_rotor_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'z', parent)
 
     psi_var = get_psi_var(variables, kite, parent)
     varrho_var = get_varrho_var(variables, kite, parent)
@@ -269,30 +249,6 @@ def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architec
     varrho_ref = get_varrho_ref(model_options)
     radius_ref = b_ref * varrho_ref
     resi_combi = resi_si / radius_ref
-
-    # y_rotor_comp = cas.mtimes(vec_from_center_to_kite.T, y_rotor_hat_var)
-    # z_rotor_comp = cas.mtimes(vec_from_center_to_kite.T, z_rotor_hat_var)
-    #
-    # psi_var = get_psi_var(variables, kite, parent)
-    # cospsi_var = get_cospsi_var(variables, kite, parent)
-    # sinpsi_var = get_sinpsi_var(variables, kite, parent)
-    #
-    # f_sin = cas.sin(psi_var) - sinpsi_var
-    # f_cos = cas.cos(psi_var) - cospsi_var
-    #
-    # varrho_var = get_varrho_var(variables, kite, parent)
-    # radius = varrho_var * b_ref
-    #
-    # varrho_ref = get_varrho_ref(model_options)
-    # radius_ref = b_ref * varrho_ref
-    #
-    # f_cos_proj = (radius * cospsi_var - z_rotor_comp) / radius_ref
-    # f_sin_proj = (radius * sinpsi_var + y_rotor_comp) / radius_ref
-    #
-    # resi_combi = cas.vertcat(f_cos, f_sin, f_cos_proj, f_sin_proj)
-
-    # print_op.warn_about_temporary_functionality_alteration()
-    # resi_combi = cas.vertcat(psi_var, cospsi_var - 1, sinpsi_var, varrho_var - 7.)
 
     name = 'actuator_varrho_and_psi_' + str(kite)
     cstr = cstr_op.Constraint(expr=resi_combi,
@@ -319,9 +275,8 @@ def get_kite_radial_vector(kite, variables, architecture):
 
     parent = architecture.parent_map[kite]
 
-    act_dcm = get_act_dcm_var(variables, parent)
-    y_rotor_hat_var = act_dcm[:, 1]
-    z_rotor_hat_var = act_dcm[:, 2]
+    y_rotor_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'y', parent)
+    z_rotor_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'z', parent)
 
     cospsi_var = get_cospsi_var(variables, kite, parent)
     sinpsi_var = get_sinpsi_var(variables, kite, parent)
@@ -421,15 +376,12 @@ def get_average_exterior_radius(model_options, variables, parent, parameters, ar
 
 
 def get_act_dcm_var(variables_si, parent):
-    n_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
-    z_hat = general_tools.get_act_z_vec_val(variables_si, parent)
-    y_hat = vect_op.normed_cross(z_hat, n_hat)
-    act_dcm = cas.horzcat(n_hat, y_hat, z_hat)
-    return act_dcm
+    return actuator_system.get_actuator_dcm_var(variables_si, 'n', parent)
 
-def get_act_dcm_ortho_cstr(parent, variables):
+
+def get_act_dcm_ortho_cstr(parent, variables_si):
     # rotation matrix is in SO3 = 6 constraints
-    act_dcm_var = get_act_dcm_var(variables, parent)
+    act_dcm_var = get_act_dcm_var(variables_si, parent).reshape((3, 3))
     ortho_matr = cas.mtimes(act_dcm_var.T, act_dcm_var) - np.eye(3)
     f_ortho = vect_op.upper_triangular_inclusive(ortho_matr)
 
@@ -440,54 +392,14 @@ def get_act_dcm_ortho_cstr(parent, variables):
 
     return cstr
 
-def get_act_y_hat_right_hand_rule(variables_si, parent):
-
-    n_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
-    y_rotor_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'y', parent)
-    z_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
-    y_vec_val = vect_op.cross(z_hat, n_hat)
-
-    y_length_var = actuator_system.get_actuator_vector_length_var(variables_si, 'y', parent)
-
-    resi_align = y_vec_val - y_rotor_hat_var * y_length_var
-    resi_length = cas.mtimes(y_rotor_hat_var.T, y_rotor_hat_var) - 1.
-    resi = cas.vertcat(resi_align, resi_length)
-
-    name = 'actuator_yhat' + str(parent)
-    cstr = cstr_op.Constraint(expr=resi,
-                              name=name,
-                              cstr_type='eq')
-    return cstr
-
-
-def get_act_dcm_z_along_wind_dcm_w_cstr(variables_si, parent, scaling):
-
-    z_rotor_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
-    z_rotor_vec_val = general_tools.get_act_z_vec_val(variables_si, parent)
-    z_length_var = actuator_system.get_actuator_vector_length_var(variables_si, 'z', parent)
-
-    resi_align = z_rotor_vec_val - z_rotor_hat_var * z_length_var
-    resi_length = cas.mtimes(z_rotor_hat_var.T, z_rotor_hat_var) - 1.
-    resi = cas.vertcat(resi_align, resi_length)
-
-    name = 'actuator_zhat_and_wind_what' + str(parent)
-    cstr = cstr_op.Constraint(expr=resi,
-                              name=name,
-                              cstr_type='eq')
-    return cstr
-
 def get_act_dcm_n_along_normal_cstr(model_options, parent, variables, architecture, scaling):
 
     n_vec_val = unit_normal.get_n_vec(model_options, parent, variables, architecture)
     n_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'n', parent)
+    n_length_var = actuator_system.get_actuator_vector_length_var(variables, 'n', parent)
 
-    # n_length_var = actuator_system.get_actuator_vector_length_var(variables, 'n', parent)
-
-    print_op.warn_about_temporary_functionality_alteration()
-    # resi_align = n_vec_val - n_hat_var * n_length_var
-    # resi_length = cas.mtimes(n_hat_var.T, n_hat_var) - 1.
-    # resi = cas.vertcat(resi_align, resi_length)
-    resi = n_hat_var - vect_op.normalize(n_vec_val)
+    resi_align = n_vec_val - n_hat_var * n_length_var
+    resi = resi_align
 
     name = 'actuator_nhat_' + str(parent)
     cstr = cstr_op.Constraint(expr=resi,
@@ -537,10 +449,9 @@ def draw_actuator_dcm(ax, side, plot_dict, cosmetics, index):
 
     architecture = plot_dict['architecture']
     for parent in architecture.layer_nodes:
-        act_dcm = get_act_dcm_var(variables_si, parent)
-        n_hat = act_dcm[:, 0]
-        rotor_y_hat = act_dcm[:, 1]
-        rotor_z_hat = act_dcm[:, 2]
+        n_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
+        rotor_y_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'y', parent)
+        rotor_z_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
 
         avg_radius = plot_dict['outputs']['actuator']['avg_radius' + str(parent)][0][index]
         visibility_scaling = avg_radius
@@ -566,9 +477,8 @@ def draw_average_radius(ax, side, plot_dict, cosmetics, index):
     architecture = plot_dict['architecture']
     for parent in architecture.layer_nodes:
 
-        act_dcm = get_act_dcm_var(variables_si, parent)
-        rotor_y_hat = act_dcm[:, 1]
-        rotor_z_hat = act_dcm[:, 2]
+        rotor_y_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'y', parent)
+        rotor_z_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
 
         psi = 0.
         rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, np.cos(psi), np.sin(psi))
@@ -615,9 +525,8 @@ def draw_radial_segment_around_actuator_center(ax, side, plot_dict, cosmetics, i
     architecture = plot_dict['architecture']
     if parent in architecture.layer_nodes:
 
-        act_dcm = get_act_dcm_var(variables_si, parent)
-        rotor_y_hat = act_dcm[:, 1]
-        rotor_z_hat = act_dcm[:, 2]
+        rotor_y_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'y', parent)
+        rotor_z_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
 
         x_center = get_actuator_position_var(variables_si, parent)
 
@@ -649,9 +558,8 @@ def draw_arc_around_actuator_center(ax, side, plot_dict, cosmetics, index, paren
     architecture = plot_dict['architecture']
     if parent in architecture.layer_nodes:
 
-        act_dcm = get_act_dcm_var(variables_si, parent)
-        rotor_y_hat = act_dcm[:, 1]
-        rotor_z_hat = act_dcm[:, 2]
+        rotor_y_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'y', parent)
+        rotor_z_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
 
         x_center = get_actuator_position_var(variables_si, parent)
 

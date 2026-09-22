@@ -33,6 +33,7 @@ import awebox.mdl.aero.geometry_dir.geometry as geom
 
 import casadi.tools as cas
 import awebox.tools.vector_operations as vect_op
+import awebox.tools.print_operations as print_op
 
 def get_kite_apparent_velocity(variables, wind, kite, parent):
     u_infty = get_kite_vec_u_infty(variables, wind, kite, parent)
@@ -50,8 +51,9 @@ def get_vec_u_zero(model_options, wind, parent, variables, architecture):
 
     u_infty = get_actuator_freestream_velocity(model_options, wind, parent, variables, architecture)
 
-    if 'act' in model_options['aero']['induction']['comparison']:
-        u_actuator = variables['z']['act_dq' + str(parent)]
+    possible_dq_center_var_name = 'dactuator_center' + str(parent)
+    if possible_dq_center_var_name in variables['z'].keys():
+        u_actuator = variables['z'][possible_dq_center_var_name]
     else:
         u_actuator = geom.get_center_velocity(model_options, parent, variables, architecture)
 

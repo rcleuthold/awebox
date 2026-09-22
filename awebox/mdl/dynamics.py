@@ -28,6 +28,7 @@ that generates the dynamics residual
 python-3.5 / casadi-3.4.5
 - authors: jochem de schutter, rachel leuthold alu-fr 2017-20
 '''
+import copy
 
 import casadi.tools as cas
 import numpy as np
@@ -1069,7 +1070,7 @@ def generate_scaling(scaling_options, variables):
 
             else:
                 scaling_value = cas.DM(1.)
-                unset_set += [var_type + var_name]
+                unset_set += [var_type + ',' + var_name]
 
             checked_and_rearranged_value = struct_op.check_and_rearrange_scaling_value_before_assignment(var_type,
                                                                                                          var_name,
@@ -1097,16 +1098,15 @@ def generate_scaling(scaling_options, variables):
             print_op.log_and_raise_error(message)
 
     # warn about potentially missing scaling information
-    for local_label in unset_set:
-
+    unset_set_copy = copy.deepcopy(unset_set) #if you don't deep-copy this, then removing elements from unset_set will shorten the loop.
+    for local_label in unset_set_copy:
         is_tf = 't_f' in local_label
         is_dcm = ('[x,r' in local_label) or ('dcm' in local_label)
         is_deriv_dcm = '[xdot,dr' in local_label
         is_a_cosine_or_a_sine = ('[z,cos' in local_label) or ('[z,sin' in local_label)
         leave_unscaled = is_tf or is_dcm or is_deriv_dcm or is_a_cosine_or_a_sine
-
         if leave_unscaled:
-            unset_set.pop(local_label)
+            unset_set.remove(local_label)
 
     if len(unset_set) > 0:
         message = 'only unit-scaling information found for the following variables: \n' + repr(

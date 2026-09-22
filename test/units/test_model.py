@@ -875,8 +875,6 @@ def test_idas_dae_integration(epsilon=1.e-2):
 def get_integration_test_setup(frictionless=True, rod_has_mass=False, pendulum_or_pseudo_atwood='pendulum'):
 
     make_plot = False
-    print_op.warn_about_temporary_functionality_alteration()
-
     problem_name = pendulum_or_pseudo_atwood + '_rod_has_mass_' + str(rod_has_mass) + '_frictionless_' + str(frictionless)
 
     system_parameters = get_arbitary_system_parameters(rod_has_mass=rod_has_mass,

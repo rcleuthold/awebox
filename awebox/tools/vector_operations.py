@@ -277,6 +277,18 @@ def upper_triangular_inclusive(matrix):
                 elements = cas.vertcat(elements, matrix_resquared[r, c])
     return elements
 
+def test_upper_triangular_inclusive():
+    xhat = xhat_dm()
+    yhat = yhat_dm()
+    zhat = zhat_dm()
+    aa = cas.horzcat(1. * xhat + 2. * yhat + 3. * zhat, 4. * xhat + 5. * yhat + 6. * zhat, 7. * xhat + 8. * yhat + 9. * zhat)
+    found = upper_triangular_inclusive(aa)
+    expected = [1, 4, 7, 5, 8, 9]
+    if norm(cas.DM(found) - cas.DM(expected)) > 1e-8:
+        message = 'something went wrong with the upper-triangular-inclusive function in vect-op'
+        print_op.log_and_raise_error(message)
+    return None
+
 def upper_triangular_exclusive(matrix):
 
     matrix_resquared = resquare(matrix)
@@ -1139,6 +1151,7 @@ def test_spline_interpolation(epsilon=1.e-6):
     return None
 
 def test():
+    test_upper_triangular_inclusive()
     test_altitude()
     test_elliptic_e()
     test_elliptic_k()

@@ -56,15 +56,16 @@ def model_is_included_in_comparison(options):
     return any_vor
 
 
-def get_model_constraints(model_options, atmos, wind, variables, parameters, outputs, architecture, scaling):
+def get_model_constraints(model_options, atmos, wind, system_variables, parameters, outputs, architecture, scaling):
 
+    variables_si = system_variables['SI']
     cstr_list = cstr_op.ConstraintList()
 
-    support_cstr = get_all_model_support_constraints(model_options, wind, variables, parameters, outputs, architecture, scaling)
+    support_cstr = get_all_model_support_constraints(model_options, wind, system_variables, parameters, outputs, architecture, scaling)
     cstr_list.append(support_cstr)
 
     if not model_options['aero']['actuator']['support_only']:
-        a_cstr = get_all_model_induction_factor_constraints(model_options, atmos, wind, variables, parameters, outputs, architecture, scaling)
+        a_cstr = get_all_model_induction_factor_constraints(model_options, atmos, wind, variables_si, parameters, outputs, architecture, scaling)
         cstr_list.append(a_cstr)
 
     return cstr_list
@@ -90,35 +91,34 @@ def get_all_model_induction_factor_constraints(model_options, atmos, wind, varia
     return cstr_list
 
 
-def get_all_model_support_constraints(model_options, wind, variables, parameters, outputs, architecture, scaling):
+def get_all_model_support_constraints(model_options, wind, system_variables, parameters, outputs, architecture, scaling):
+
+    variables_si = system_variables['SI']
 
     cstr_list = cstr_op.ConstraintList()
 
-    layer_parent_map = architecture.layer_nodes
-    for parent in layer_parent_map:
+    for kite in architecture.kite_nodes:
+        varrho_and_psi_cstr = actuator_geom.get_varrho_and_psi_cstr(model_options, kite, variables_si, parameters, architecture)
+        cstr_list.append(varrho_and_psi_cstr)
 
-        actuator_orientation_cstr = get_actuator_orientation_cstr(model_options, wind, parent, variables, parameters, architecture, scaling)
-        cstr_list.append(actuator_orientation_cstr)
-
-        thrust_cstr = actuator_force.get_thrust_constraint(variables, outputs, parent, architecture, scaling)
-        cstr_list.append(thrust_cstr)
-
-        gamma_cstr = actuator_flow.get_gamma_cstr(parent, variables, scaling)
-        cstr_list.append(gamma_cstr)
-
-        children = architecture.kites_map[parent]
-        for kite in children:
-            varrho_and_psi_cstr = actuator_geom.get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architecture)
-            cstr_list.append(varrho_and_psi_cstr)
-
-        act_center_cstr = actuator_geom.get_center_cstr(model_options, parent, variables, architecture, scaling)
-        cstr_list.append(act_center_cstr)
-
-        bar_varrho_cstr = actuator_geom.get_bar_varrho_cstr(parent, variables, architecture, scaling)
+    for parent in architecture.layer_nodes:
+        bar_varrho_cstr = actuator_geom.get_bar_varrho_cstr(parent, variables_si, architecture, scaling)
         cstr_list.append(bar_varrho_cstr)
 
-        area_cstr = actuator_geom.get_area_cstr(parent, variables, parameters, scaling)
+        area_cstr = actuator_geom.get_area_cstr(parent, variables_si, parameters, scaling)
         cstr_list.append(area_cstr)
+
+        act_center_cstr = actuator_geom.get_center_cstr(model_options, parent, system_variables, architecture, scaling)
+        cstr_list.append(act_center_cstr)
+
+        gamma_cstr = actuator_flow.get_gamma_cstr(parent, variables_si, scaling)
+        cstr_list.append(gamma_cstr)
+
+        actuator_orientation_cstr = get_actuator_orientation_cstr(model_options, wind, parent, variables_si, parameters, architecture, scaling)
+        cstr_list.append(actuator_orientation_cstr)
+
+        thrust_cstr = actuator_force.get_thrust_constraint(variables_si, outputs, parent, architecture, scaling)
+        cstr_list.append(thrust_cstr)
 
     return cstr_list
 
@@ -154,22 +154,17 @@ def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs,
 
     a_var = actuator_flow.get_a_var(variables, parent, label)
 
-    thrust = actuator_force.get_thrust_var(variables, parent)
+    thrust = actuator_force.get_actuator_thrust_var(variables, parent)
 
     area = actuator_geom.get_area_var(variables, parent)
     qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
-
     thrust_den = qzero * area
-    thrust_ref = actuator_coeff.get_thrust_ref(model_options, atmos, wind, parameters)
-    c_t = thrust / thrust_den
+    # thrust_ref = actuator_coeff.get_thrust_ref(model_options, atmos, wind, parameters)
+    # c_t = thrust / thrust_den
 
     corr_val = actuator_flow.get_corr_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     rhs = 4. * a_var * corr_val
 
-    resi_si = c_t - rhs
-    resi = resi_si
-
-    print_op.warn_about_temporary_functionality_alteration()
     resi_si = thrust - rhs * thrust_den
     var_type = 'z'
     var_name = 'thrust' + str(parent)
@@ -184,7 +179,7 @@ def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables,
     da_dt = actuator_flow.get_da_var(variables, parent, label)
     a_ref = actuator_flow.get_a_ref(model_options)
 
-    thrust = actuator_force.get_thrust_var(variables, parent)
+    thrust = actuator_force.get_actuator_thrust_var(variables, parent)
     area = actuator_geom.get_area_var(variables, parent)
     qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
 
@@ -300,50 +295,34 @@ def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, 
 
 def get_actuator_orientation_cstr(model_options, wind, parent, variables_si, parameters, architecture, scaling):
 
-    # system_lifted.extend([('act_n_hat' + str(layer_node), (3, 1))])
-    # system_lifted.extend([('act_uzero_hat' + str(layer_node), (3, 1))])
-    # system_lifted.extend([('act_z_hat' + str(layer_node), (3, 1))])
-    #
-    #
     # --------------------
-    # 6 variables total
+    # 2 * dcms (18 vars) + 3 * lengths (3 vars)
+    # = 21 variables total
     # --------------------
-    # 6 constraints total
+    # 21 constraints total
 
     cstr_list = cstr_op.ConstraintList()
 
-    nhat_cstr = actuator_geom.get_act_dcm_n_along_normal_cstr(model_options, parent, variables_si, architecture,
-                                                              scaling)
-    cstr_list.append(nhat_cstr)
-
-    # # zhat_cstr = actuator_geom.get_act_dcm_z_along_wind_dcm_w_cstr(variables_si, parent, scaling)
-    # # cstr_list.append(zhat_cstr)
-    #
+    # 9
     uhat_cstr = actuator_flow.get_wind_dcm_u_along_uzero_cstr(model_options, wind, parent, variables_si, architecture, scaling)
     cstr_list.append(uhat_cstr)
-    # #
-    # # vhat_cstr = actuator_flow.get_act_v_hat_right_hand_rule(variables_si, parent)
-    # # cstr_list.append(vhat_cstr)
+    wind_dcm_ortho_cstr = actuator_flow.get_wind_dcm_ortho_cstr(parent, variables_si)
+    cstr_list.append(wind_dcm_ortho_cstr)
 
-    # print_op.warn_about_temporary_functionality_alteration()
-    # nhat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
-    # uhat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'uzero', parent)
-    # temp_angle = 5. * np.pi/ 180.
-    # uhat_expr = uhat_var - (cas.cos(temp_angle) * vect_op.xhat_dm() + cas.sin(temp_angle) * vect_op.zhat_dm())
-    # nhat_expr = nhat_var - vect_op.xhat_dm()
-    # expr = cas.vertcat(uhat_expr, nhat_expr)
-    # cstr = cstr_op.Constraint(expr=expr,
-    #                           name='ori' + str(parent),
-    #                           cstr_type='eq')
-    # cstr_list.append(cstr)
+    # 9
+    nhat_cstr = actuator_geom.get_act_dcm_n_along_normal_cstr(model_options, parent, variables_si, architecture, scaling)
+    cstr_list.append(nhat_cstr)
+    act_dcm_ortho_cstr = actuator_geom.get_act_dcm_ortho_cstr(parent, variables_si)
+    cstr_list.append(act_dcm_ortho_cstr)
 
+    # 3
+    what_cstr = actuator_flow.get_wind_dcm_w_along_act_dcm_z_cstr(model_options, wind, parent, variables_si, architecture, scaling)
+    cstr_list.append(what_cstr)
 
-
-    print_op.warn_about_temporary_functionality_alteration()
-    # number_constraints = cstr_list.get_expression_list('eq').shape[0]
-    # if number_constraints != 6:
-    #     message = 'there are an inappropriate number of actuator orientation constraints (' + str(number_constraints) + ')'
-    #     print_op.log_and_raise_error(message)
+    number_constraints = cstr_list.get_expression_list('eq').shape[0]
+    if number_constraints != 21:
+        message = 'there are an inappropriate number of actuator orientation constraints (' + str(number_constraints) + ')'
+        print_op.log_and_raise_error(message)
 
     return cstr_list
 
@@ -404,7 +383,7 @@ def collect_actuator_support_outputs(model_options, atmos, wind, variables, outp
         velocity = geom.get_center_velocity(model_options, parent, variables, architecture)
         area = actuator_geom.get_area_var(variables, parent)
         avg_radius = actuator_geom.get_average_radius(variables, parent, architecture, parameters)
-        nhat = general_tools.get_n_hat_var(variables, parent)
+        nhat = actuator_system.get_actuator_vector_unit_var(variables, 'n', parent)
         yaw_angle = actuator_flow.get_gamma_var(variables, parent)
         q_app = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
 
@@ -418,7 +397,7 @@ def collect_actuator_support_outputs(model_options, atmos, wind, variables, outp
         outputs['actuator']['yaw_deg' + str(parent)] = yaw_angle * 180. / np.pi
         outputs['actuator']['dyn_pressure' + str(parent)] = q_app
 
-        thrust = actuator_force.get_thrust_var(variables, parent)
+        thrust = actuator_force.get_actuator_thrust_var(variables, parent)
         ct = actuator_coeff.get_ct_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture)
         outputs['actuator']['thrust' + str(parent)] = thrust
         outputs['actuator']['ct' + str(parent)] = ct

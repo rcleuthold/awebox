@@ -54,7 +54,6 @@ def generate_structure(options, architecture):
     parent_map = architecture.parent_map
 
     # _states, generalized coordinates and controls related to the tether
-    # connection points
     # connection points only have position and velocity
     tether_states = [('q', (3, 1)), ('dq', (3, 1))]
     tether_gc = ['q']  # generalized coordinates
@@ -62,7 +61,6 @@ def generate_structure(options, architecture):
     tether_multipliers = [('lambda', (1, 1))]
 
     # _states, generalized coordinates and controls related to kites
-
     kite_states = [('q', (3, 1)), ('dq', (3, 1))]
     kite_controls = [('f_fict', (3, 1))]
     kite_multipliers = [('lambda', (1, 1))]

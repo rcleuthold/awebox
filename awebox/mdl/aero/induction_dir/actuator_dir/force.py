@@ -36,6 +36,7 @@ import numpy as np
 
 import awebox.mdl.aero.geometry_dir.geometry as geom
 import awebox.mdl.aero.induction_dir.actuator_dir.geom as actuator_geom
+import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
 import awebox.mdl.aero.induction_dir.general_dir.tools as general_tools
 
 import awebox.tools.vector_operations as vect_op
@@ -62,7 +63,7 @@ def get_actuator_moment(model_options, variables, outputs, parent, architecture)
     total_moment_aero = np.zeros((3, 1))
     for kite in children:
         aero_force = outputs['aerodynamics']['f_aero_earth' + str(kite)]
-        kite_radius = geom.geom.get_vector_from_center_to_kite(model_options, variables, architecture, kite)
+        kite_radius = geom.get_vector_from_center_to_kite(model_options, variables, architecture, kite)
         aero_moment = vect_op.cross(kite_radius, aero_force)
 
         total_moment_aero = total_moment_aero + aero_moment
@@ -73,13 +74,13 @@ def get_actuator_moment(model_options, variables, outputs, parent, architecture)
 def get_actuator_thrust_val(variables, outputs, parent, architecture):
 
     total_force_aero = get_actuator_force(outputs, parent, architecture)
-    nhat = general_tools.get_n_hat_var(variables, parent)
-    thrust = cas.mtimes(total_force_aero.T, nhat)
+    n_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'n', parent)
+    thrust = cas.mtimes(total_force_aero.T, n_hat_var)
 
     return thrust
 
 
-def get_thrust_var(variables_si, parent):
+def get_actuator_thrust_var(variables_si, parent):
     var_type = 'z'
     var_name = 'thrust' + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
@@ -87,13 +88,10 @@ def get_thrust_var(variables_si, parent):
 
 
 def get_thrust_constraint(variables, outputs, parent, architecture, scaling):
-    thrust_var = get_thrust_var(variables, parent)
+    thrust_var = get_actuator_thrust_var(variables, parent)
     thrust_val = get_actuator_thrust_val(variables, outputs, parent, architecture)
 
     resi_si = thrust_val - thrust_var
-
-    # print_op.warn_about_temporary_functionality_alteration()
-    # resi_si = thrust_var - 5e3
 
     var_type = 'z'
     var_name = 'thrust' + str(parent)

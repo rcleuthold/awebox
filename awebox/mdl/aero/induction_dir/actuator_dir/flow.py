@@ -125,11 +125,7 @@ def get_da_all_var(variables, parent, label):
     return da_all
 
 def get_wind_dcm_var(variables_si, parent):
-    uzero_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'uzero', parent)
-    w_hat = get_wzero_hat_var(variables_si, parent)
-    v_hat = vect_op.normed_cross(w_hat, uzero_hat)
-    wind_dcm = cas.horzcat(uzero_hat, v_hat, w_hat)
-    return wind_dcm
+    return actuator_system.get_actuator_dcm_var(variables_si, 'u', parent)
 
 def get_wzero_hat_var(variables_si, parent):
     z_hat = general_tools.get_act_z_vec_val(variables_si, parent)
@@ -144,20 +140,12 @@ def get_gamma_var(variables, parent):
 
 
 def get_cosgamma_var(variables, parent):
-    var_type = 'z'
-    var_name = 'cosgamma' + str(parent)
-    # var = struct_op.get_variable_from_model_or_reconstruction(variables, var_type, var_name)
-
     gamma = get_gamma_var(variables, parent)
     var = cas.cos(gamma)
     return var
 
 
 def get_singamma_var(variables, parent):
-    var_type = 'z'
-    var_name = 'singamma' + str(parent)
-    # var = struct_op.get_variable_from_model_or_reconstruction(variables, var_type, var_name)
-
     gamma = get_gamma_var(variables, parent)
     var = cas.sin(gamma)
     return var
@@ -171,33 +159,16 @@ def get_gamma_cstr(parent, variables, scaling):
     # sin = v / hypotenuse
     # tan = sin / cos = v / u
 
-    wind_dcm = get_wind_dcm_var(variables, parent)
-    uzero_hat_var = wind_dcm[:, 0]
-    vzero_hat_var = wind_dcm[:, 1]
+    uzero_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'u', parent)
+    vzero_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'v', parent)
 
-    n_hat_var = general_tools.get_n_hat_var(variables, parent)
+    n_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'n', parent)
+
     u_comp = cas.mtimes(n_hat_var.T, uzero_hat_var)
     v_comp = cas.mtimes(n_hat_var.T, vzero_hat_var)
 
     gamma_var = get_gamma_var(variables, parent)
-
-    print_op.warn_about_temporary_functionality_alteration()
     resi = u_comp * cas.sin(gamma_var) - v_comp * cas.cos(gamma_var)
-
-    # cosgamma_var = get_cosgamma_var(variables, parent)
-    # singamma_var = get_singamma_var(variables, parent)
-    # g_vec_length_var = actuator_system.get_actuator_vector_length_var(variables, 'g', parent)
-    #
-    # f_cosproj = g_vec_length_var * cosgamma_var - u_comp
-    # f_sinproj = g_vec_length_var * singamma_var - v_comp
-    #
-    # f_cos = cas.cos(gamma_var) - cosgamma_var
-    # f_sin = cas.sin(gamma_var) - singamma_var
-    #
-    # resi = cas.vertcat(f_cos, f_sin, f_cosproj, f_sinproj)
-    #
-    # print_op.warn_about_temporary_functionality_alteration()
-    # resi = cas.vertcat(gamma_var, cosgamma_var - 1., singamma_var, g_vec_length_var - 1.)
 
     name = 'actuator_gamma_' + str(parent)
     cstr = cstr_op.Constraint(expr=resi,
@@ -215,8 +186,8 @@ def check_that_gamma_is_consistent(variables_si, parent, epsilon=1.e-4):
     cos_check = (cosgamma_var - cas.cos(gamma_var))**2. < epsilon**2.
     sin_check = (singamma_var - cas.sin(gamma_var))**2. < epsilon**2.
 
-    n_hat_var = general_tools.get_n_hat_var(variables_si, parent)
-    uzero_hat_var = general_tools.get_uzero_hat_var(variables_si, parent)
+    n_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
+    uzero_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'u', parent)
     angle_check = (gamma_var - vect_op.angle_between(n_hat_var, uzero_hat_var))**2. < epsilon**2.
 
     if not (cos_check and sin_check and angle_check):
@@ -226,10 +197,10 @@ def check_that_gamma_is_consistent(variables_si, parent, epsilon=1.e-4):
     return None
 
 
-def get_wind_dcm_ortho_cstr(parent, variables):
+def get_wind_dcm_ortho_cstr(parent, variables_si):
 
     # rotation matrix is in SO3 = 6 constraints
-    wind_dcm_var = get_wind_dcm_var(variables, parent)
+    wind_dcm_var = get_wind_dcm_var(variables_si, parent).reshape((3, 3))
     ortho_matr = cas.mtimes(wind_dcm_var.T, wind_dcm_var) - np.eye(3)
     f_ortho = vect_op.upper_triangular_inclusive(ortho_matr)
 
@@ -240,48 +211,39 @@ def get_wind_dcm_ortho_cstr(parent, variables):
 
     return cstr
 
-def get_act_v_hat_right_hand_rule(variables_si, parent):
-
-    uzero_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'uzero', parent)
-    v_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'vzero', parent)
-    w_hat = get_wzero_hat_var(variables_si, parent)
-
-    v_vec_val = vect_op.cross(w_hat, uzero_hat)
-
-    v_length_var = actuator_system.get_actuator_vector_length_var(variables_si, 'vzero', parent)
-
-    resi_align = v_vec_val - v_hat_var * v_length_var
-    resi_length = cas.mtimes(v_hat_var.T, v_hat_var) - 1.
-    resi = cas.vertcat(resi_align, resi_length)
-
-    name = 'actuator_vzero_hat' + str(parent)
-    cstr = cstr_op.Constraint(expr=resi,
-                              name=name,
-                              cstr_type='eq')
-    return cstr
-
 
 def get_wind_dcm_u_along_uzero_cstr(model_options, wind, parent, variables, architecture, scaling):
 
     u_vec_val = general_flow.get_vec_u_zero(model_options, wind, parent, variables, architecture)
-    u_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'uzero', parent)
-    # u_length_var = actuator_system.get_actuator_vector_length_var(variables, 'uzero', parent)
+    u_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'u', parent)
+    u_length_var = actuator_system.get_actuator_vector_length_var(variables, 'u', parent)
 
-    print_op.warn_about_temporary_functionality_alteration()
-    # resi_align = u_vec_val - u_hat_var * u_length_var
-    # resi_length = cas.mtimes(u_hat_var.T, u_hat_var) - 1.
-    # resi = cas.vertcat(resi_align, resi_length)
-    resi = u_hat_var - vect_op.normalize(u_vec_val)
+    resi_align = u_vec_val - u_hat_var * u_length_var
 
     name = 'actuator_uhat_' + str(parent)
-    cstr = cstr_op.Constraint(expr=resi,
+    cstr = cstr_op.Constraint(expr=resi_align,
+                              name=name,
+                              cstr_type='eq')
+
+    return cstr
+
+def get_wind_dcm_w_along_act_dcm_z_cstr(model_options, wind, parent, variables_si, architecture, scaling):
+
+    w_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'w', parent)
+    z_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
+    z_length_var = actuator_system.get_actuator_vector_length_var(variables_si, 'z', parent)
+
+    resi_align = w_hat_var - z_hat_var * z_length_var
+
+    name = 'actuator_what_parallel_zhat_' + str(parent)
+    cstr = cstr_op.Constraint(expr=resi_align,
                               name=name,
                               cstr_type='eq')
     return cstr
 
 
 def check_that_uzero_has_positive_component_in_dominant_wind_direction(wind, variables_si, parent, epsilon=1e-5):
-    u_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'uzero', parent)
+    u_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'u', parent)
     wind_dir = wind.get_wind_direction()
 
     if cas.mtimes(u_hat_var.T, wind_dir) < epsilon:
@@ -295,8 +257,8 @@ def get_wzero_parallel_z_rotor_check(variables_si, parent):
     wind_dcm = get_wind_dcm_var(variables_si, parent)
     act_dcm = actuator_geom.get_act_dcm_var(variables_si, parent)
 
-    z_rotor_hat = act_dcm[:, 2]
-    w_hat_var = wind_dcm[:, 2]
+    z_rotor_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
+    w_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'w', parent)
 
     check = cas.mtimes(w_hat_var.T, z_rotor_hat) - 1.
     return check
@@ -316,9 +278,6 @@ def get_induction_factor_assignment_cstr(model_options, variables, kite, parent,
 
     resi_si = a_var - a_val
 
-    # print_op.warn_about_temporary_functionality_alteration()
-    # resi_si = a_var - 0.3
-
     var_type = get_a_var_type(label)
     var_name = 'a_' + label + str(parent)
     resi_scaled = struct_op.var_si_to_scaled(var_type, var_name, resi_si, scaling)
@@ -333,7 +292,7 @@ def get_induction_factor_assignment_cstr(model_options, variables, kite, parent,
 ## values
 
 def get_gamma_val(model_options, wind, parent, variables, architecture, scaling):
-    u_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'uzero', parent)
+    u_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'u', parent)
     n_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'n', parent)
     gamma = vect_op.angle_between(n_hat_var, u_hat_var)
     return gamma
@@ -396,11 +355,8 @@ def get_local_induction_factor(model_options, variables, kite, parent, label):
 
 def get_local_induced_velocity(model_options, variables, parameters, architecture, wind, kite, parent, label):
 
-    print_op.warn_about_temporary_functionality_alteration()
     vec_u_zero_val = general_flow.get_vec_u_zero(model_options, wind, parent, variables, architecture)
     u_zero = vect_op.norm(vec_u_zero_val)
-
-    # u_vec_norm = actuator_system.get_actuator_vector_length_var(variables, 'uzero', parent)
     n_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'n', parent)
 
     a_val = get_local_induction_factor(model_options, variables, kite, parent, label)
@@ -426,9 +382,6 @@ def get_kite_effective_velocity(model_options, variables, parameters, architectu
 
 def get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture):
 
-    center = geom.get_center_position(model_options, parent, variables, architecture)
-
-    print_op.warn_about_temporary_functionality_alteration()
     center = actuator_geom.get_actuator_position_var(variables, parent)
     rho_infty = atmos.get_density(center[2])
 

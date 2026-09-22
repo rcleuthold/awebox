@@ -38,6 +38,7 @@ import numpy as np
 import awebox.mdl.aero.induction_dir.actuator_dir.geom as actuator_geom
 import awebox.mdl.aero.induction_dir.actuator_dir.flow as actuator_flow
 import awebox.mdl.aero.induction_dir.actuator_dir.force as actuator_force
+import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
 
 import awebox.tools.vector_operations as vect_op
 import awebox.tools.print_operations as print_op
@@ -81,7 +82,7 @@ def get_MM_matrix():
 
 
 def get_ct_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture):
-    thrust = actuator_force.get_thrust_var(variables, parent)
+    thrust = actuator_force.get_actuator_thrust_var(variables, parent)
     area = actuator_geom.get_area_var(variables, parent)
     qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
 
@@ -91,19 +92,15 @@ def get_ct_val(model_options, atmos, wind, variables, outputs, parameters, paren
 
 
 def get_actuator_moment_y_rotor(model_options, variables, outputs, parent, architecture):
-
     total_moment_aero = actuator_force.get_actuator_moment(model_options, variables, outputs, parent, architecture)
-    y_rotor = actuator_geom.get_y_rotor_hat_var(variables, parent)
-    moment = cas.mtimes(total_moment_aero.T, y_rotor)
-
+    y_hat_rotor = actuator_system.get_actuator_vector_unit_var(variables, 'y', parent)
+    moment = cas.mtimes(total_moment_aero.T, y_hat_rotor)
     return moment
 
 def get_actuator_moment_z_rotor(model_options, variables, outputs, parent, architecture):
-
     total_moment_aero = actuator_force.get_actuator_moment(model_options, variables, outputs, parent, architecture)
-    z_rotor = actuator_geom.get_z_rotor_hat_var(variables, parent)
-    moment = cas.mtimes(total_moment_aero.T, z_rotor)
-
+    z_hat_rotor = actuator_system.get_actuator_vector_unit_var(variables, 'z', parent)
+    moment = cas.mtimes(total_moment_aero.T, z_hat_rotor)
     return moment
 
 
