@@ -48,6 +48,8 @@ import awebox.mdl.aero.induction_dir.vortex_dir.vortex as vortex
 
 
 import awebox.mdl.aero.induction_dir.vortex_dir.tools as vortex_tools
+from awebox.mdl import architecture
+
 
 def initial_guess_induction(init_options, nlp, model, V_init_si, p_fix_num):
 
@@ -89,14 +91,14 @@ def initial_guess_vortex(init_options, nlp, model, V_init_si, p_fix_num):
     return V_init_si
 
 
-def initial_guess_actuator(init_options, nlp, model, V_init):
-    V_init = initial_guess_actuator_a_values(init_options, model, V_init)
-    V_init = initial_guess_actuator_support(init_options, model, V_init)
-    V_init = set_azimuth_variables(V_init, init_options, model, nlp)
+def initial_guess_actuator(init_options, nlp, model, V_init_si):
+    V_init_si = initial_guess_actuator_a_values(init_options, model, V_init_si)
+    V_init_si = initial_guess_actuator_support(init_options, model, V_init_si)
+    V_init_si = set_azimuth_variables(V_init_si, init_options, model, nlp)
 
-    sanity_check_actuator_variables(init_options, model, nlp, V_init, epsilon=1.e-5)
+    sanity_check_actuator_variables(init_options, model, nlp, V_init_si, epsilon=1.e-5)
 
-    return V_init
+    return V_init_si
 
 
 def sanity_check_actuator_variables(init_options, model, nlp, V_init, epsilon=1.e-5):
@@ -184,6 +186,7 @@ def initial_guess_actuator_support(init_options, model, V_init):
     wind_dcm_cols = cas.reshape(wind_dcm, (9, 1))
 
     b_ref = init_options['sys_params_num']['geometry']['b_ref']
+    varrho_ref = cas.DM(init_options['precompute']['radius'] / b_ref)
 
     dict = {}
 
@@ -227,12 +230,14 @@ def initial_guess_actuator_support(init_options, model, V_init):
         dict['cosgamma' + str(parent)] = np.cos(gamma)
         dict['singamma' + str(parent)] = np.sin(gamma)
 
-        dict['varrho' + str(parent)] = cas.DM(init_options['precompute']['radius'] / b_ref)
-        dict['bar_varrho' + str(parent)] = dict['varrho' + str(parent)]
+        dict['bar_varrho' + str(parent)] = varrho_ref
         dict['area' + str(parent)] = 2. * np.pi * init_options['precompute']['radius'] * b_ref
 
         a_ref = cas.DM(init_options['z']['a'])
         dict['thrust' + str(parent)] = 4. * a_ref * (1. - a_ref) * dict['area' + str(parent)] * q_infty
+
+    for node in range(1, model.architecture.number_of_nodes):
+        dict['varrho' + str(node) + str(model.architecture.parent_map[node])] = varrho_ref
 
     for var_type in ['x', 'xdot', 'z']:
         for name in struct_op.subkeys(model.variables, var_type):

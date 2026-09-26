@@ -187,6 +187,24 @@ def get_area_cstr(parent, variables_si, parameters, scaling):
 
     return cstr
 
+def check_that_varrho_initialization_is_set_and_averages_correctly(architecture, variables_si, parent):
+    varrho_tresh = 0.1
+    minimum_anticipated_local_varrho_init = 1. #todo, put something in that's larger than the scaling varrho value, since that is what the variable will be set to, if the initialization doesn't work as expected
+    expected_bar_varrho = variables_si['z', 'bar_varrho' + str(parent)]
+    calculated_bar_varrho = 0.
+    set_of_kite_children = architecture.get_kite_children(parent)
+    for kite_child in set_of_kite_children:
+        local_varrho = variables_si['z', 'varrho' + str(kite_child) + str(parent)]
+        if local_varrho < minimum_anticipated_local_varrho_init:
+            message = 'initialization varrho on kite ' + str(kite_child) + ' seems low (' + str(
+                local_varrho) + '). consider double-checking the intended radius.'
+            print_op.base_print(message, level='warning')
+        calculated_bar_varrho += local_varrho / len(set_of_kite_children)
+
+    if (calculated_bar_varrho - expected_bar_varrho) ** 2. > varrho_tresh ** 2.:
+        message = 'something went wrong when averaging the bar_varrho nondimensional radius'
+        print_op.log_and_raise_error(message)
+    return None
 
 def check_that_actuator_center_is_above_minimum_altitude(init_options, variables_si, parent):
     q_center_var = get_actuator_position_var(variables_si, parent)

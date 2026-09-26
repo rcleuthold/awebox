@@ -137,8 +137,8 @@ def get_t_star_numerator_ref(model_options, parameters):
     t_star_num = b_ref * (varrho_ref + 0.5)
     return t_star_num
 
-def get_t_star_denominator_val(variables, parent):
-    uzero_mag = actuator_flow.get_uzero_vec_length_var(variables, parent)
+def get_t_star_denominator_val(variables_si, parent):
+    uzero_mag = actuator_system.get_actuator_vector_length_var(variables_si, 'u', parent)
     t_star_den = uzero_mag
     return t_star_den
 

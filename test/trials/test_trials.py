@@ -262,7 +262,7 @@ def make_basic_health_variant(base_options):
     basic_health_options['solver.health_check.raise_exception'] = True
     basic_health_options['solver.initialization.check_reference'] = True
     basic_health_options['solver.initialization.check_feasibility.raise_exception'] = True
-    basic_health_options['solver.max_iter'] = 500
+    # basic_health_options['solver.max_iter'] = 500
     basic_health_options['solver.ipopt.autoscale'] = False
     basic_health_options['solver.health_check.spy_matrices'] = False
     basic_health_options['quality.when'] = 'never'
@@ -289,7 +289,7 @@ def generate_options_dict():
     single_kite_options['user_options.trajectory.lift_mode.windings'] = 1
     single_kite_options['model.tether.aero_elements'] = 1
     single_kite_options['user_options.induction_model'] = 'not_in_use'
-    single_kite_options['solver.linear_solver'] = 'ma57' # do not use a non-repeatable solver here.
+    single_kite_options['solver.linear_solver'] = 'ma27' # 'ma57' # do not use a non-repeatable solver here.
     single_kite_options['nlp.collocation.u_param'] = 'zoh'
     single_kite_options['nlp.n_k'] = 20
     single_kite_options['quality.raise_exception'] = True
@@ -384,18 +384,22 @@ def generate_options_dict():
     actuator_qaxi_options['user_options.trajectory.lift_mode.windings'] = 1
     actuator_qaxi_options['model.aero.actuator.thrust_scaling_method'] = 'thrust_coeff'  #['thrust_coeff', 'aero', 'tension', 'synthesized']
     actuator_qaxi_options['model.aero.actuator.position_scaling_method'] = 'default' # ['default', 'radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']
+    actuator_qaxi_options['model.aero.actuator.gamma_range'] = [-np.pi / 2., np.pi / 2.]  # cas.inf, cas.inf] #5. * np.pi, 5. * np.pi]
+    actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-0.2, 0.2] #0., cas.inf] #cas.inf, cas.inf] #0.2, 0.2]
+    actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5] #-cas.inf, cas.inf] #0.5]
+    actuator_qaxi_options['solver.cost_factor.power'] = 1e1
 
     actuator_qaxi_basic_health_options = make_basic_health_variant(actuator_qaxi_options)
 
     actuator_support_only_options = copy.deepcopy(actuator_qaxi_options)
     actuator_support_only_options['model.aero.actuator.support_only'] = True
-    actuator_support_only_options['model.aero.actuator.gamma_range'] = [-cas.inf, cas.inf] #5. * np.pi, 5. * np.pi]
 
     actuator_support_only_basic_health_options = make_basic_health_variant(actuator_support_only_options)
 
     actuator_uaxi_options = copy.deepcopy(actuator_qaxi_options)
     actuator_uaxi_options['model.aero.actuator.steadyness'] = 'unsteady'
-    # actuator_uaxi_options['model.model_bounds.tether_stress.scaling'] = 10.
+    print_op.warn_about_temporary_functionality_alteration()
+    actuator_uaxi_options = make_basic_health_variant(actuator_uaxi_options)
 
     actuator_qasym_options = copy.deepcopy(actuator_qaxi_options)
     actuator_qasym_options['model.aero.actuator.symmetry'] = 'asymmetric'
@@ -403,6 +407,7 @@ def generate_options_dict():
     actuator_uasym_options = copy.deepcopy(actuator_qaxi_options)
     actuator_uasym_options['model.aero.actuator.steadyness'] = 'unsteady'
     actuator_uasym_options['model.aero.actuator.symmetry'] = 'asymmetric'
+    actuator_uasym_options['solver.cost_factor.power'] = 1e2
 
     actuator_comparison_options = copy.deepcopy(actuator_qaxi_options)
     actuator_comparison_options['model.aero.actuator.steadyness_comparison'] = ['q', 'u']
@@ -651,7 +656,7 @@ if __name__ == "__main__":
             # test_actuator_support_only()
             # test_actuator_qaxi_basic_health()
             # test_actuator_qaxi()
-            test_actuator_qasym()
+            # test_actuator_qasym()
             test_actuator_uaxi()
             test_actuator_uasym()
             test_actuator_comparison()

@@ -783,6 +783,7 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
     local_label = actuator_flow.get_label({'induction': {'steadyness': actuator_steadyness, 'symmetry': actuator_symmetry}})
     options_tree.append(('model', 'system_bounds', a_labels_dict[local_label], 'a_' + local_label, a_range,
                          ('local induction factor', None), 'x')),
+    print_op.warn_about_temporary_functionality_alteration()
     for a_name in ['acos', 'asin']:
         options_tree.append(('model', 'system_bounds', a_labels_dict[local_label], a_name + '_' + local_label, a_fourier_range, ('??', None), 'x')),
 
