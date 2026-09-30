@@ -53,17 +53,17 @@ def extend_actuator_induction_factors(options, system_lifted, system_states, arc
     for layer_node in architecture.layer_nodes:
         for label in actuator_comp_labels:
             if label[0] == 'q':
-                system_lifted.extend([('a_' + label + str(layer_node), (1, 1))])
+                system_lifted.extend([('wa_' + label + str(layer_node), (1, 1))])
             elif label[0] == 'u':
-                system_states.extend([('a_' + label + str(layer_node), (1, 1))])
+                system_states.extend([('wa_' + label + str(layer_node), (1, 1))])
 
             if label == 'qasym':
-                system_lifted.extend([('acos_' + label + str(layer_node), (1, 1))])
-                system_lifted.extend([('asin_' + label + str(layer_node), (1, 1))])
+                system_lifted.extend([('wacos_' + label + str(layer_node), (1, 1))])
+                system_lifted.extend([('wasin_' + label + str(layer_node), (1, 1))])
 
             if label == 'uasym':
-                system_states.extend([('acos_' + label + str(layer_node), (1, 1))])
-                system_states.extend([('asin_' + label + str(layer_node), (1, 1))])
+                system_states.extend([('wacos_' + label + str(layer_node), (1, 1))])
+                system_states.extend([('wasin_' + label + str(layer_node), (1, 1))])
     return system_lifted, system_states
 
 def extend_actuator_support(options, system_lifted, system_states, architecture):
@@ -141,7 +141,7 @@ def add_scaling_of_support_variables(options, architecture, u_at_altitude, optio
             options_tree.append(('model', 'scaling', 'z', var_name, val, ('descript', None), 'x'))
             options_tree.append(('solver', 'initialization', 'induction', var_name, val, ('descript', None), 'x'))
 
-    psi_scale = 2. * np.pi
+    psi_scale = 0.5 * np.pi
     options_tree.append(('model', 'scaling', 'z', 'psi', psi_scale, ('descript', None), 'x'))
     options_tree.append(('model', 'scaling', 'z', 'cospsi', 0.5, ('descript', None), 'x'))
     options_tree.append(('model', 'scaling', 'z', 'sinpsi', 0.5, ('descript', None), 'x'))

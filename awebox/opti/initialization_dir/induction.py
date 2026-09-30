@@ -113,15 +113,15 @@ def sanity_check_actuator_variables(init_options, model, nlp, V_init, epsilon=1.
 
 def initial_guess_actuator_a_values(init_options, model, V_init):
 
-    a_ref = cas.DM(init_options['z']['a'])
+    a_ref = cas.DM(init_options['z']['wa'])
 
     dict = {}
 
     dict['local_a'] = cas.DM(a_ref)
     for label in ['qaxi', 'qasym', 'uaxi', 'uasym']:
-        dict['a_' + label] = cas.DM(a_ref)
+        dict['wa_' + label] = cas.DM(a_ref)
         for a_name in ['acos', 'asin']:
-            dict[a_name + '_' + label] = cas.DM(0.)
+            dict['w' + a_name + '_' + label] = cas.DM(0.)
 
     for var_type in ['x', 'z']:
         for name in struct_op.subkeys(model.variables, var_type):
@@ -233,7 +233,7 @@ def initial_guess_actuator_support(init_options, model, V_init):
         dict['bar_varrho' + str(parent)] = varrho_ref
         dict['area' + str(parent)] = 2. * np.pi * init_options['precompute']['radius'] * b_ref
 
-        a_ref = cas.DM(init_options['z']['a'])
+        a_ref = cas.DM(init_options['z']['wa'])
         dict['thrust' + str(parent)] = 4. * a_ref * (1. - a_ref) * dict['area' + str(parent)] * q_infty
 
     for node in range(1, model.architecture.number_of_nodes):

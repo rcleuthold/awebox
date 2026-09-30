@@ -97,19 +97,19 @@ def construct_test_model_variable_structures(element_type='finite_filament', wak
 
             for ndx in range(3):
                 wake_type = 'near'
-                options['scaling']['z']['wu_' + wake_type + '_finite_filament_' + str(near_count) + '_' + str(kite_obs)] = 0
+                options['scaling']['z']['wvu_' + wake_type + '_finite_filament_' + str(near_count) + '_' + str(kite_obs)] = 0
                 near_count += 1
 
             for bdx in range(1):
                 wake_type = 'bound'
                 options['scaling']['z'][
-                    'wu_' + wake_type + '_finite_filament_' + str(bound_count) + '_' + str(kite_obs)] = 0
+                    'wvu_' + wake_type + '_finite_filament_' + str(bound_count) + '_' + str(kite_obs)] = 0
                 bound_count += 1
 
             for fdx in range(2):
                 wake_type = 'far'
                 options['scaling']['z'][
-                    'wu_' + wake_type + '_finite_filament_' + str(far_count) + '_' + str(kite_obs)] = 0
+                    'wvu_' + wake_type + '_finite_filament_' + str(far_count) + '_' + str(kite_obs)] = 0
                 far_count += 1
 
     options['induction'] = {}

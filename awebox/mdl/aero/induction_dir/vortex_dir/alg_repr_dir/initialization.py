@@ -480,8 +480,8 @@ def get_collocation_overstepping_ndx(n_k, ndx):
 #     average_circulation = definite_integrated_circulation / delta_t
 #
 #     expected_strength = average_circulation
-#     found_strength = V_init_si['coll_var', ndx_test, ddx_test, 'z', 'wg_' + str(kite_test) + '_0']
-#     non_coll_found = V_init_si['z', ndx_test+1, 'wg_' + str(kite_test) + '_0']
+#     found_strength = V_init_si['coll_var', ndx_test, ddx_test, 'z', 'wvg_' + str(kite_test) + '_0']
+#     non_coll_found = V_init_si['z', ndx_test+1, 'wvg_' + str(kite_test) + '_0']
 #
 #     cond1 = (found_strength/expected_strength - 1.)**2. < epsilon**2.
 #     cond2 = (non_coll_found/expected_strength - 1.)**2. < epsilon**2.
@@ -639,13 +639,13 @@ def get_specific_local_initialization(abbreviated_var_name, init_options, V_init
         ddx_find = ddx
 
     # look-up the actual value from the Outputs. Keep the computing here minimal.
-    if abbreviated_var_name == 'wx':
+    if abbreviated_var_name == 'wvx':
         var_val_si = alg_fixing.get_local_convected_position_value(init_options, V_init_scaled, Outputs, model, time_grids, kite_shed_or_parent_shed, tip, wake_node_or_ring, ndx_find, ddx_find)
-    elif abbreviated_var_name == 'wg':
+    elif abbreviated_var_name == 'wvg':
         var_val_si = alg_fixing.get_local_average_circulation_value(init_options, V_init_scaled, Integral_outputs_scaled, model, time_grids, kite_shed_or_parent_shed, wake_node_or_ring, ndx_find, ddx_find)
-    elif abbreviated_var_name == 'wh':
+    elif abbreviated_var_name == 'wvh':
         var_val_si = alg_fixing.get_local_cylinder_pitch_value(init_options, Outputs, kite_shed_or_parent_shed, wake_node_or_ring, ndx_find, ddx_find)
-    elif abbreviated_var_name == 'wx_center':
+    elif abbreviated_var_name == 'wvx_center':
         var_val_si = alg_fixing.get_local_cylinder_center_value(init_options, Outputs, kite_shed_or_parent_shed, wake_node_or_ring, ndx_find, ddx_find)
     else:
         message = 'get_specific_local_constraint function is not set up for this abbreviation (' + abbreviated_var_name + ') yet.'

@@ -99,7 +99,7 @@ def plot_wake(plot_dict, cosmetics, fig_name, side, ref=False):
         parent = plot_dict['architecture'].parent_map[kite]
         list_of_x_position_variable_names += ['q' + str(kite) + str(parent)]
     for var_name in plot_dict['variables_dict']['z'].keys():
-        if var_name[0:2] == 'wx':
+        if var_name[0:2] == 'wvx':
             list_of_z_position_variable_names += [var_name]
 
     for position_var_name in list_of_x_position_variable_names:
@@ -1407,7 +1407,7 @@ def plot_induction_contour_on_kmp(plot_dict, cosmetics, fig_name, fig_num=None, 
             parent_test = architecture.parent_map[kite_test]
             q_kite_test = variables_si['x', 'q' + str(kite_test) + str(parent_test)]
             a_computed_at_kite = a_fun(q_kite_test)
-            ui_var_computed = variables_si['z', 'wu_ind_' + str(kite_test)]
+            ui_var_computed = variables_si['z', 'wvu_ind_' + str(kite_test)]
             ui_var_applied = variables_si['z', 'wui' + str(kite_test)]
             if direction_induction == 'normal':
                 a_at_kite_from_outputs = plot_dict['interpolation_si']['outputs']['vortex']['local_a_normal' + str(kite_test)][0][idx_at_eval]

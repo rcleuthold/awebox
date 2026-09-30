@@ -118,7 +118,7 @@ def get_wingtip_position_cstr(model_options, variables_si, outputs, architecture
             resi_expr = cas.vertcat(resi_expr, local_resi_scaled)
 
     local_cstr = cstr_op.Constraint(expr=resi_expr,
-                                    name='wx_wingtip_shed',
+                                    name='wvx_wingtip_shed',
                                     cstr_type='eq')
     print_op.close_progress()
 
@@ -153,7 +153,7 @@ def get_unlifted_cstr(wake, system_variables, parameters, architecture, scaling)
         resi_scaled = resi_si / scaling_val
 
         local_cstr = cstr_op.Constraint(expr=resi_scaled,
-                                        name='wu_ind_induced_velocity' + str(kite_obs),
+                                        name='wvu_ind_induced_velocity' + str(kite_obs),
                                         cstr_type='eq')
         cstr_list.append(local_cstr)
 
@@ -193,7 +193,7 @@ def get_superposition_cstr(model_options, wake, system_variables, architecture, 
         resi_scaled = resi_si / scaling_val
 
         local_cstr = cstr_op.Constraint(expr=resi_scaled,
-                                        name='wu_ind_superposition_' + str(kite_obs),
+                                        name='wvu_ind_superposition_' + str(kite_obs),
                                         cstr_type='eq')
         cstr_list.append(local_cstr)
 
@@ -266,7 +266,7 @@ def get_biot_savart_cstr(wake, model_options, system_variables, parameters, arch
                     if vortex_tools.not_bound_and_shed_is_obs(model_options, substructure_type, element_type, element_number,
                                                               kite_obs, architecture):
 
-                        cstr_name = 'wu_ind_biot_savart_' + str(substructure_type) + '_' + str(element_type) + '_' + str(element_number) + '_' + str(kite_obs)
+                        cstr_name = 'wvu_ind_biot_savart_' + str(substructure_type) + '_' + str(element_type) + '_' + str(element_number) + '_' + str(kite_obs)
 
                         local_resi_si = resi_si[:, element_number]
 
@@ -417,7 +417,7 @@ def test_that_wake_related_ocp_variables_are_all_constrained_using_cstr_names(nl
         message = 'double-checking that all vortex variables are constrained...'
         print_op.base_print(message, level='info')
 
-        identifying_strings = ['wx', 'wg', 'wu']
+        identifying_strings = ['wvx', 'wvg', 'wvu']
 
         count_variable = 0
         for label in V.labels():

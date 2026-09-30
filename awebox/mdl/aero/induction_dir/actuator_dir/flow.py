@@ -72,21 +72,21 @@ def get_local_a_var(variables, kite, parent):
 
 def get_a_var(variables_si, parent, label):
     var_type = get_a_var_type(label)
-    var_name = 'a_' + label + str(parent)
+    var_name = 'wa_' + label + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
 
 def get_acos_var(variables_si, parent, label):
     var_type = get_a_var_type(label)
-    var_name = 'acos_' + label + str(parent)
+    var_name = 'wacos_' + label + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
 
 def get_asin_var(variables_si, parent, label):
     var_type = get_a_var_type(label)
-    var_name = 'asin_' + label + str(parent)
+    var_name = 'wasin_' + label + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
@@ -103,15 +103,15 @@ def get_a_all_var(variables, parent, label):
     return a_all
 
 def get_da_var(variables, parent, label):
-    da_var = variables['xdot']['da_' + label + str(parent)]
+    da_var = variables['xdot']['dwa_' + label + str(parent)]
     return da_var
 
 def get_dacos_var(variables, parent, label):
-    dacos_var = variables['xdot']['dacos_' + label + str(parent)]
+    dacos_var = variables['xdot']['dwacos_' + label + str(parent)]
     return dacos_var
 
 def get_dasin_var(variables, parent, label):
-    dasin_var = variables['xdot']['dasin_' + label + str(parent)]
+    dasin_var = variables['xdot']['dwasin_' + label + str(parent)]
     return dasin_var
 
 def get_da_all_var(variables, parent, label):
@@ -279,7 +279,7 @@ def get_induction_factor_assignment_cstr(model_options, variables, kite, parent,
     resi_si = a_var - a_val
 
     var_type = get_a_var_type(label)
-    var_name = 'a_' + label + str(parent)
+    var_name = 'wa_' + label + str(parent)
     resi_scaled = struct_op.var_si_to_scaled(var_type, var_name, resi_si, scaling)
 
     name = 'actuator_a_assignment_' + str(kite)

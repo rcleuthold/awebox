@@ -41,11 +41,11 @@ import awebox.tools.vector_operations as vect_op
 import awebox.tools.print_operations as print_op
 
 def get_list_of_abbreviated_variables(model_options):
-    abbreviated_variables = ['wx', 'wg']
+    abbreviated_variables = ['wvx', 'wvg']
     far_wake_element_type = general_tools.get_option_from_possible_dicts(model_options, 'far_wake_element_type',
                                                                          'vortex')
     if far_wake_element_type == 'semi_infinite_right_cylinder':
-        abbreviated_variables += ['wx_center', 'wh']
+        abbreviated_variables += ['wvx_center', 'wvh']
 
     return abbreviated_variables
 
@@ -117,14 +117,14 @@ def get_number_of_algebraic_variables_set_outside_dynamics(nlp_options, model):
             for tip in tip_list:
                 for wake_node_or_ring in wake_node_or_ring_list:
 
-                    if (abbreviated_var_name[:2] == 'wx'):
+                    if (abbreviated_var_name[:3] == 'wvx'):
                         if (wake_node_or_ring > 0):
                             count += 3
 
-                    elif abbreviated_var_name[:2] == 'wg':
+                    elif abbreviated_var_name[:3] == 'wvg':
                         count += 1
 
-                    elif abbreviated_var_name[:2] == 'wh':
+                    elif abbreviated_var_name[:3] == 'wvh':
                         count += 1
 
                     else:
@@ -137,12 +137,12 @@ def extend_specific_geometric_variable(abbreviated_var_name, model_options, syst
     kite_shed_or_parent_shed_list, tip_list, wake_node_or_ring_list = get_kite_or_parent_and_tip_and_node_or_ring_list_for_abbreviated_vars(
         abbreviated_var_name, model_options, architecture)
 
-    if abbreviated_var_name == 'wx':
+    if abbreviated_var_name == 'wvx':
         var_type = get_wake_node_position_var_type(model_options)
     else:
         var_type = 'z'
 
-    if abbreviated_var_name[:2] == 'wx':
+    if abbreviated_var_name[:3] == 'wvx':
         var_shape = (3, 1)
     else:
         var_shape = (1, 1)
@@ -514,7 +514,8 @@ def get_wake_node_position_si(model_options, kite_shed, tip, wake_node, variable
     if vortex_representation in ['alg', 'state']:
         var_name = get_wake_node_position_name(kite_shed, tip, wake_node)
         var_type = get_wake_node_position_var_type(model_options)
-        return get_variable_si(var_type, var_name, variables_si=variables_si, variables_scaled=variables_scaled, scaling=scaling)
+        local_var = get_variable_si(var_type, var_name, variables_si=variables_si, variables_scaled=variables_scaled, scaling=scaling)
+        return local_var
     else:
         log_and_raise_unknown_representation_error(vortex_representation)
     return None
@@ -562,19 +563,19 @@ def get_kite_or_parent_and_tip_and_node_or_ring_list_for_abbreviated_vars(abbrev
     kite_parents = set([architecture.parent_map[kite] for kite in kite_nodes])
     wingtips = ['ext', 'int']
 
-    if abbreviated_var_name == 'wx':
+    if abbreviated_var_name == 'wvx':
         kite_shed_or_parent_shed_list = kite_nodes
         tip_list = wingtips
         wake_node_or_ring_list = range(wake_nodes)
-    elif abbreviated_var_name == 'wg':
+    elif abbreviated_var_name == 'wvg':
         kite_shed_or_parent_shed_list = kite_nodes
         tip_list = [None]
         wake_node_or_ring_list = range(rings)
-    elif abbreviated_var_name == 'wh':
+    elif abbreviated_var_name == 'wvh':
         kite_shed_or_parent_shed_list = kite_parents
         tip_list = [None]
         wake_node_or_ring_list = [wake_nodes - 1]
-    elif abbreviated_var_name == 'wx_center':
+    elif abbreviated_var_name == 'wvx_center':
         kite_shed_or_parent_shed_list = kite_parents
         tip_list = [None]
         wake_node_or_ring_list = [wake_nodes - 1]
@@ -585,53 +586,53 @@ def get_kite_or_parent_and_tip_and_node_or_ring_list_for_abbreviated_vars(abbrev
     return kite_shed_or_parent_shed_list, tip_list, wake_node_or_ring_list
 
 def get_var_name(abbreviated_var_name, kite_shed_or_parent_shed=None, tip=None, wake_node_or_ring=None):
-    if abbreviated_var_name == 'wx':
+    if abbreviated_var_name == 'wvx':
         return get_wake_node_position_name(kite_shed=kite_shed_or_parent_shed, tip=tip, wake_node=wake_node_or_ring)
-    elif abbreviated_var_name == 'wx_center':
+    elif abbreviated_var_name == 'wvx_center':
         return get_far_wake_cylinder_center_position_name(parent_shed=kite_shed_or_parent_shed)
-    elif abbreviated_var_name == 'wg':
+    elif abbreviated_var_name == 'wvg':
         return get_vortex_ring_strength_name(kite_shed=kite_shed_or_parent_shed, ring=wake_node_or_ring)
-    elif abbreviated_var_name == 'wh':
+    elif abbreviated_var_name == 'wvh':
         return get_far_wake_cylinder_pitch_name(parent_shed=kite_shed_or_parent_shed)
     else:
         message = 'get_var_name function is not set up for this abbreviation (' + abbreviated_var_name + ') yet.'
         print_op.log_and_raise_error(message)
 
 def get_wake_node_position_name(kite_shed, tip, wake_node):
-    var_name = 'wx_' + str(kite_shed) + '_' + tip + '_' + str(wake_node)
+    var_name = 'wvx_' + str(kite_shed) + '_' + tip + '_' + str(wake_node)
     return var_name
 
 def get_vortex_ring_strength_name(kite_shed, ring):
-    var_name = 'wg_' + str(kite_shed) + '_' + str(ring)
+    var_name = 'wvg_' + str(kite_shed) + '_' + str(ring)
     return var_name
 
 
 def get_element_biot_savart_numerator_name(wake_type, element_type, element_number, kite_obs):
-    var_name = 'wu_' + wake_type + '_' + element_type + '_num_' + str(element_number) + '_' + str(kite_obs)
+    var_name = 'wvu_' + wake_type + '_' + element_type + '_num_' + str(element_number) + '_' + str(kite_obs)
     return var_name
 
 def get_element_biot_savart_denominator_name(wake_type, element_type, element_number, kite_obs):
-    var_name = 'wu_' + wake_type + '_' + element_type + '_den_' + str(element_number) + '_' + str(kite_obs)
+    var_name = 'wvu_' + wake_type + '_' + element_type + '_den_' + str(element_number) + '_' + str(kite_obs)
     return var_name
 
 def get_element_induced_velocity_name(wake_type, element_type, element_number, kite_obs):
-    var_name = 'wu_' + wake_type + '_' + element_type + '_' + str(element_number) + '_' + str(kite_obs)
+    var_name = 'wvu_' + wake_type + '_' + element_type + '_' + str(element_number) + '_' + str(kite_obs)
     return var_name
 
 def get_induced_velocity_at_kite_name(kite_obs):
-    var_name = 'wu_ind_' + str(kite_obs)
+    var_name = 'wvu_ind_' + str(kite_obs)
     return var_name
 
 def get_far_wake_finite_filament_pathwise_convection_velocity_name(kite_shed):
-    var_name = 'wu_pathwise_' + str(kite_shed)
+    var_name = 'wvu_pathwise_' + str(kite_shed)
     return var_name
 
 def get_far_wake_cylinder_center_position_name(parent_shed):
-    var_name = 'wx_center_' + str(parent_shed)
+    var_name = 'wvx_center_' + str(parent_shed)
     return var_name
 
 def get_far_wake_cylinder_pitch_name(parent_shed):
-    var_name = 'wh_' + str(parent_shed)
+    var_name = 'wvh_' + str(parent_shed)
     return var_name
 
 
@@ -847,7 +848,7 @@ def check_particular_wake_node_0_on_wingtip(inputs):
     vortex_representation = general_tools.get_option_from_possible_dicts(model.options, 'representation', 'vortex')
     if vortex_representation in ['alg', 'state']:
         var_type = get_wake_node_position_var_type(model.options)
-        var_name = get_var_name('wx', kite_shed_or_parent_shed=kite_shed, tip=tip, wake_node_or_ring=wake_node)
+        var_name = get_var_name('wvx', kite_shed_or_parent_shed=kite_shed, tip=tip, wake_node_or_ring=wake_node)
         if ddx == None:
             position_from_variables = V_si[var_type, ndx, var_name]
         else:

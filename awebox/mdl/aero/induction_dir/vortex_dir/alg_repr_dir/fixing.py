@@ -52,9 +52,9 @@ def get_constraint(nlp_options, V, P, Xdot, Outputs, Integral_outputs, model, ti
     abbreviated_variables = vortex_tools.get_list_of_abbreviated_variables(nlp_options)
     for abbreviated_var_name in abbreviated_variables:
 
-        if 'wx' in abbreviated_var_name:
+        if 'wvx' in abbreviated_var_name:
             cstr_list.append(get_node_position_constraint(nlp_options, V, P, Xdot, Outputs, model, time_grids))
-        elif 'wg' in abbreviated_var_name:
+        elif 'wvg' in abbreviated_var_name:
             cstr_list.append(get_circulation_strength_constraint(nlp_options, V, Outputs, Integral_outputs, model, time_grids))
         else:
             cstr_list.append(get_specific_constraint(abbreviated_var_name, nlp_options, V, Outputs, Integral_outputs, model, time_grids))
@@ -105,7 +105,7 @@ def get_node_position_constraint(nlp_options, V, P, Xdot, Outputs, model, time_g
                     print_op.print_progress(edx, expected_number)
 
     local_cstr = cstr_op.Constraint(expr=resi_expr,
-                                    name='wx_convection',
+                                    name='wvx_convection',
                                     cstr_type='eq')
 
     print_op.close_progress()
@@ -185,7 +185,7 @@ def get_circulation_strength_constraint(nlp_options, V, Outputs, Integral_output
                 print_op.print_progress(edx, expected_number)
 
     local_cstr = cstr_op.Constraint(expr=resi_expr,
-                                    name='wg_fixing',
+                                    name='wvg_fixing',
                                     cstr_type='eq')
 
     print_op.close_progress()
@@ -248,9 +248,9 @@ def get_specific_local_constraint(abbreviated_var_name, nlp_options, V, Outputs,
         var_symbolic_si = struct_op.var_scaled_to_si('z', var_name, var_symbolic_scaled, model.scaling)
 
         # look-up the actual value from the Outputs. Keep the computing here minimal.
-        if abbreviated_var_name == 'wh':
+        if abbreviated_var_name == 'wvh':
             resi_scaled = get_local_cylinder_pitch_residual(nlp_options, V, Outputs, model, kite_shed_or_parent_shed, wake_node_or_ring, ndx, ddx)
-        elif abbreviated_var_name == 'wx_center':
+        elif abbreviated_var_name == 'wvx_center':
             var_value_si = get_local_cylinder_center_value(nlp_options, Outputs, kite_shed_or_parent_shed, wake_node_or_ring, ndx, ddx)
             resi_scaled = get_simple_residual(var_name, var_symbolic_si, var_value_si, model.scaling)
         else:
@@ -361,7 +361,7 @@ def get_shedding_circulation_value(nlp_options, V, Outputs, Integral_outputs, mo
 
     if use_circulation_equality_pattern and ring > 0:
         arbitrary_tip = 'ext'
-        pattern_var_name = vortex_tools.get_var_name('wg', kite_shed_or_parent_shed=kite_shed,
+        pattern_var_name = vortex_tools.get_var_name('wvg', kite_shed_or_parent_shed=kite_shed,
                                              tip=arbitrary_tip, wake_node_or_ring=0)
         ndx_shed, ddx_shed, _ = get_the_shedding_indices_from_the_current_indices_and_wake_node(nlp_options, ring,
                                                                                                 ndx, ddx)
@@ -446,7 +446,7 @@ def get_the_cylinder_center_at_shedding_indices(Outputs, parent_shed, ndx_shed, 
 ################ cylinder pitch
 
 def get_local_cylinder_pitch_residual(nlp_options, V, Outputs, model, parent_shed, wake_node, ndx, ddx=None):
-    var_name = vortex_tools.get_var_name('wh', kite_shed_or_parent_shed=parent_shed,
+    var_name = vortex_tools.get_var_name('wvh', kite_shed_or_parent_shed=parent_shed,
                                          tip=None, wake_node_or_ring=wake_node)
     var_local_scaled = V['coll_var', ndx, ddx, 'z', var_name]
     pitch_si = struct_op.var_scaled_to_si('z', var_name, var_local_scaled, model.scaling)

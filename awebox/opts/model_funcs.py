@@ -773,19 +773,24 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
         awelogger.logger.warning(message)
         a_ref = a_ref_new
 
+    a_fourier_scaling = copy.deepcopy(a_ref)
+    if vect_op.is_numeric_scalar(a_fourier_range[1]):
+        a_fourier_scaling = a_fourier_range[1] / 2.
+
     a_labels_dict = {'qaxi': 'z', 'qasym': 'z', 'uaxi': 'x', 'uasym' : 'x'}
     for label in a_labels_dict.keys():
-        for a_name in ['a', 'acos', 'asin']:
-            options_tree.append(('model', 'scaling', a_labels_dict[label], a_name + '_' + label, a_ref, ('descript', None), 'x'))
+        options_tree.append(('model', 'scaling', a_labels_dict[label], 'wa_' + label, a_ref, ('descript', None), 'x'))
+        for a_name in ['acos', 'asin']:
+            options_tree.append(('model', 'scaling', a_labels_dict[label], 'w' + a_name + '_' + label, a_fourier_scaling, ('descript', None), 'x'))
     options_tree.append(('model', 'scaling', 'z', 'local_a', a_ref, ('???', None), 'x')),
-    options_tree.append(('solver', 'initialization', 'z', 'a', a_ref, ('???', None), 'x')),
+    options_tree.append(('solver', 'initialization', 'z', 'wa', a_ref, ('???', None), 'x')),
 
     local_label = actuator_flow.get_label({'induction': {'steadyness': actuator_steadyness, 'symmetry': actuator_symmetry}})
-    options_tree.append(('model', 'system_bounds', a_labels_dict[local_label], 'a_' + local_label, a_range,
+    options_tree.append(('model', 'system_bounds', a_labels_dict[local_label], 'wa_' + local_label, a_range,
                          ('local induction factor', None), 'x')),
     print_op.warn_about_temporary_functionality_alteration()
     for a_name in ['acos', 'asin']:
-        options_tree.append(('model', 'system_bounds', a_labels_dict[local_label], a_name + '_' + local_label, a_fourier_range, ('??', None), 'x')),
+        options_tree.append(('model', 'system_bounds', a_labels_dict[local_label], 'w' + a_name + '_' + local_label, a_fourier_range, ('??', None), 'x')),
 
     gamma_range = options['model']['aero']['actuator']['gamma_range']
     options_tree.append(('model', 'system_bounds', 'z', 'gamma', gamma_range, ('tilt angle bounds [rad]', None), 'x')),

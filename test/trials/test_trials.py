@@ -149,7 +149,8 @@ def test_vortex_basic_health(final_homotopy_step='final', overwrite_options={}):
 # 17
 def test_vortex(final_homotopy_step='final', overwrite_options={}):
     trial_name = 'vortex_trial'
-    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    # run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    run_test(trial_name, final_homotopy_step='initial_guess', overwrite_options=overwrite_options)
     return None
 
 # 18
@@ -384,6 +385,7 @@ def generate_options_dict():
     actuator_qaxi_options['user_options.trajectory.lift_mode.windings'] = 1
     actuator_qaxi_options['model.aero.actuator.thrust_scaling_method'] = 'thrust_coeff'  #['thrust_coeff', 'aero', 'tension', 'synthesized']
     actuator_qaxi_options['model.aero.actuator.position_scaling_method'] = 'default' # ['default', 'radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']
+    # actuator_qaxi_options['model.scaling.other.flight_radius_estimate'] = 'cone'
     actuator_qaxi_options['model.aero.actuator.gamma_range'] = [-np.pi / 2., np.pi / 2.]  # cas.inf, cas.inf] #5. * np.pi, 5. * np.pi]
     actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-0.2, 0.2] #0., cas.inf] #cas.inf, cas.inf] #0.2, 0.2]
     actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5] #-cas.inf, cas.inf] #0.5]
@@ -399,6 +401,7 @@ def generate_options_dict():
     actuator_uaxi_options = copy.deepcopy(actuator_qaxi_options)
     actuator_uaxi_options['model.aero.actuator.steadyness'] = 'unsteady'
     print_op.warn_about_temporary_functionality_alteration()
+    actuator_uaxi_options['solver.cost_factor.power'] = 1e2
     actuator_uaxi_options = make_basic_health_variant(actuator_uaxi_options)
 
     actuator_qasym_options = copy.deepcopy(actuator_qaxi_options)
@@ -423,7 +426,9 @@ def generate_options_dict():
     vortex_options['model.aero.vortex.wake_nodes'] = 2
     vortex_options['quality.raise_exception'] = False
     vortex_options['solver.tol'] = 1e-5
-    vortex_options['solver.cost_factor.power'] = 1e0
+    # vortex_options['solver.cost_factor.power'] = 1e2
+    # vortex_options['solver.cost.u_regularisation.0'] = 1e-4
+    vortex_options['solver.weights.vortex'] = 1e-1
 
     vortex_basic_health_options = make_basic_health_variant(vortex_options)
     vortex_basic_health_options['model.aero.vortex.double_check_wingtip_fixing'] = True
@@ -569,8 +574,8 @@ if __name__ == "__main__":
                          'dual_kites': False,
                          'tracking': False,
                          'size_alternatives': False,
-                         'vortex': False,
-                         'actuator': True}
+                         'vortex': True,
+                         'actuator': False}
 
     if parallel_or_serial == 'parallel':
 
@@ -642,7 +647,7 @@ if __name__ == "__main__":
         #     test_large_kite()
 
         if types_of_problems['vortex']:
-            test_vortex_force_zero()
+            # test_vortex_force_zero()
             # test_vortex_dual_basic_health()
             # test_vortex_dual()
             test_vortex()
@@ -652,11 +657,11 @@ if __name__ == "__main__":
 
 
         if types_of_problems['actuator']:
-            # test_actuator_support_only_basic_health()
-            # test_actuator_support_only()
-            # test_actuator_qaxi_basic_health()
-            # test_actuator_qaxi()
-            # test_actuator_qasym()
+            test_actuator_support_only_basic_health()
+            test_actuator_support_only()
+            test_actuator_qaxi_basic_health()
+            test_actuator_qaxi()
+            test_actuator_qasym()
             test_actuator_uaxi()
             test_actuator_uasym()
             test_actuator_comparison()
