@@ -149,8 +149,7 @@ def test_vortex_basic_health(final_homotopy_step='final', overwrite_options={}):
 # 17
 def test_vortex(final_homotopy_step='final', overwrite_options={}):
     trial_name = 'vortex_trial'
-    # run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
-    run_test(trial_name, final_homotopy_step='initial_guess', overwrite_options=overwrite_options)
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
     return None
 
 # 18
@@ -263,7 +262,7 @@ def make_basic_health_variant(base_options):
     basic_health_options['solver.health_check.raise_exception'] = True
     basic_health_options['solver.initialization.check_reference'] = True
     basic_health_options['solver.initialization.check_feasibility.raise_exception'] = True
-    # basic_health_options['solver.max_iter'] = 500
+    basic_health_options['solver.max_iter'] = 500
     basic_health_options['solver.ipopt.autoscale'] = False
     basic_health_options['solver.health_check.spy_matrices'] = False
     basic_health_options['quality.when'] = 'never'
@@ -290,7 +289,7 @@ def generate_options_dict():
     single_kite_options['user_options.trajectory.lift_mode.windings'] = 1
     single_kite_options['model.tether.aero_elements'] = 1
     single_kite_options['user_options.induction_model'] = 'not_in_use'
-    single_kite_options['solver.linear_solver'] = 'ma27' # 'ma57' # do not use a non-repeatable solver here.
+    single_kite_options['solver.linear_solver'] = 'ma27'  # do not use a parallelized (non-repeatable) solver here. it may be faster, but it will drive you crazy trying to figure out what changed
     single_kite_options['nlp.collocation.u_param'] = 'zoh'
     single_kite_options['nlp.n_k'] = 20
     single_kite_options['quality.raise_exception'] = True
@@ -385,7 +384,6 @@ def generate_options_dict():
     actuator_qaxi_options['user_options.trajectory.lift_mode.windings'] = 1
     actuator_qaxi_options['model.aero.actuator.thrust_scaling_method'] = 'thrust_coeff'  #['thrust_coeff', 'aero', 'tension', 'synthesized']
     actuator_qaxi_options['model.aero.actuator.position_scaling_method'] = 'default' # ['default', 'radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']
-    # actuator_qaxi_options['model.scaling.other.flight_radius_estimate'] = 'cone'
     actuator_qaxi_options['model.aero.actuator.gamma_range'] = [-np.pi / 2., np.pi / 2.]  # cas.inf, cas.inf] #5. * np.pi, 5. * np.pi]
     actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-0.2, 0.2] #0., cas.inf] #cas.inf, cas.inf] #0.2, 0.2]
     actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5] #-cas.inf, cas.inf] #0.5]
@@ -401,7 +399,6 @@ def generate_options_dict():
     actuator_uaxi_options = copy.deepcopy(actuator_qaxi_options)
     actuator_uaxi_options['model.aero.actuator.steadyness'] = 'unsteady'
     print_op.warn_about_temporary_functionality_alteration()
-    actuator_uaxi_options['solver.cost_factor.power'] = 1e2
     actuator_uaxi_options = make_basic_health_variant(actuator_uaxi_options)
 
     actuator_qasym_options = copy.deepcopy(actuator_qaxi_options)
@@ -410,7 +407,6 @@ def generate_options_dict():
     actuator_uasym_options = copy.deepcopy(actuator_qaxi_options)
     actuator_uasym_options['model.aero.actuator.steadyness'] = 'unsteady'
     actuator_uasym_options['model.aero.actuator.symmetry'] = 'asymmetric'
-    actuator_uasym_options['solver.cost_factor.power'] = 1e2
 
     actuator_comparison_options = copy.deepcopy(actuator_qaxi_options)
     actuator_comparison_options['model.aero.actuator.steadyness_comparison'] = ['q', 'u']
@@ -426,9 +422,7 @@ def generate_options_dict():
     vortex_options['model.aero.vortex.wake_nodes'] = 2
     vortex_options['quality.raise_exception'] = False
     vortex_options['solver.tol'] = 1e-5
-    # vortex_options['solver.cost_factor.power'] = 1e2
-    # vortex_options['solver.cost.u_regularisation.0'] = 1e-4
-    vortex_options['solver.weights.vortex'] = 1e-1
+    vortex_options['solver.cost_factor.power'] = 1e0
 
     vortex_basic_health_options = make_basic_health_variant(vortex_options)
     vortex_basic_health_options['model.aero.vortex.double_check_wingtip_fixing'] = True
@@ -647,7 +641,7 @@ if __name__ == "__main__":
         #     test_large_kite()
 
         if types_of_problems['vortex']:
-            # test_vortex_force_zero()
+            test_vortex_force_zero()
             # test_vortex_dual_basic_health()
             # test_vortex_dual()
             test_vortex()
