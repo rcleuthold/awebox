@@ -121,10 +121,10 @@ def add_weights_and_refs_to_opti_parameters(p_fix_num, V_ref, nlp, model, V_init
             # set weights
             var_name, _ = struct_op.split_name_and_node_identifier(name)
 
-            if var_name[0] == 'wv':
+            if var_name[0:2] == 'wv':
                 # then, this is a vortex wake variable
                 var_name = 'vortex'
-            if var_name[0] == 'wa':
+            if var_name[0:2] == 'wa':
                 # then, this is a actuator wake variable
                 var_name = 'actuator'
 

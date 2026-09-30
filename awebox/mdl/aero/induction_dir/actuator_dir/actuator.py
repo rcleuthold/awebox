@@ -425,5 +425,6 @@ def sanity_check(init_options, variables_si, wind, architecture, epsilon=1e-5):
         if init_options['induction']['normal_vector_model'] != 'xhat':
             actuator_flow.check_that_gamma_is_consistent(variables_si, parent, epsilon)
         actuator_geom.check_that_actuator_center_is_above_minimum_altitude(init_options, variables_si, parent)
+        actuator_geom.check_that_varrho_initialization_is_set_and_averages_correctly(architecture, variables_si, parent)
 
     return None

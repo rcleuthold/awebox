@@ -562,14 +562,15 @@ def this_test_is_intended_to_fail():
 if __name__ == "__main__":
 
     parallel_or_serial = 'serial'
+    # DO NOT USE PARALLEL if consider_restoration_as_failure is ever True, because with current casadi versions, this option answers "did solver enter restoration mode?" by reading back logged awebox solutions, and there is only one log-file per folder.
 
     types_of_problems = {'single_kites': False,
                          'base_alternatives': False,
                          'dual_kites': False,
                          'tracking': False,
                          'size_alternatives': False,
-                         'vortex': True,
-                         'actuator': False}
+                         'vortex': False,
+                         'actuator': True}
 
     if parallel_or_serial == 'parallel':
 
@@ -587,13 +588,12 @@ if __name__ == "__main__":
         if types_of_problems['vortex']:
             list_functions += [test_vortex_force_zero, test_vortex_force_zero_basic_health, test_vortex_basic_health, test_vortex, test_vortex_3_dof]
         if types_of_problems['actuator']:
-            list_functions += [test_actuator_qaxi, test_actuator_qasym, test_actuator_uaxi, test_actuator_uasym, test_actuator_comparison] #test_actuator_qaxi_basic_health
-        # test_actuator_support_only_basic_health, test_actuator_support_only,
+            list_functions += [test_actuator_support_only_basic_health, test_actuator_support_only, test_actuator_qaxi_basic_health, test_actuator_qaxi, test_actuator_qasym, test_actuator_uaxi, test_actuator_uasym, test_actuator_comparison]
 
         from concurrent.futures import ProcessPoolExecutor, wait, FIRST_EXCEPTION
         import multiprocessing
 
-        max_workers = multiprocessing.cpu_count() - 1
+        max_workers = multiprocessing.cpu_count() - 2
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(f) for f in list_functions]
 
@@ -649,7 +649,6 @@ if __name__ == "__main__":
             test_vortex_force_zero_basic_health()
             test_vortex_3_dof()
 
-
         if types_of_problems['actuator']:
             test_actuator_support_only_basic_health()
             test_actuator_support_only()
@@ -659,7 +658,6 @@ if __name__ == "__main__":
             test_actuator_uaxi()
             test_actuator_uasym()
             test_actuator_comparison()
-
 
     else:
         message = 'unexpected method of running test_trials trials'
