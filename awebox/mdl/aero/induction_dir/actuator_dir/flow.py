@@ -67,51 +67,57 @@ def get_a_var_type(label):
 
 
 def get_local_a_var(variables, kite, parent):
-    local_a = variables['z']['local_a' + str(kite) + str(parent)]
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    local_a = variables['z'][prefix + 'local_a' + str(kite) + str(parent)]
     return local_a
 
-def get_a_var(variables_si, parent, label):
+def get_a0_var(variables_si, parent, label):
     var_type = get_a_var_type(label)
-    var_name = 'wa_' + label + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'a0_' + label + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
 
 def get_acos_var(variables_si, parent, label):
     var_type = get_a_var_type(label)
-    var_name = 'wacos_' + label + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'acos_' + label + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
 
 def get_asin_var(variables_si, parent, label):
     var_type = get_a_var_type(label)
-    var_name = 'wasin_' + label + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'asin_' + label + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
 
 def get_a_all_var(variables, parent, label):
-
+    a0_var = get_a0_var(variables, parent, label)
     if 'asym' in label:
-        a_var = get_a_var(variables, parent, label)
         acos_var = get_acos_var(variables, parent, label)
         asin_var = get_asin_var(variables, parent, label)
-        a_all = cas.vertcat(a_var, acos_var, asin_var)
+        a_all = cas.vertcat(a0_var, acos_var, asin_var)
     else:
-        a_all = get_a_var(variables, parent, label)
+        a_all = a0_var
     return a_all
 
 def get_da_var(variables, parent, label):
-    da_var = variables['xdot']['dwa_' + label + str(parent)]
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    da_var = variables['xdot']['d' + prefix + 'a0_' + label + str(parent)]
     return da_var
 
 def get_dacos_var(variables, parent, label):
-    dacos_var = variables['xdot']['dwacos_' + label + str(parent)]
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    dacos_var = variables['xdot']['d' + prefix + 'acos_' + label + str(parent)]
     return dacos_var
 
 def get_dasin_var(variables, parent, label):
-    dasin_var = variables['xdot']['dwasin_' + label + str(parent)]
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    dasin_var = variables['xdot']['d' + prefix + 'asin_' + label + str(parent)]
     return dasin_var
 
 def get_da_all_var(variables, parent, label):
@@ -127,14 +133,10 @@ def get_da_all_var(variables, parent, label):
 def get_wind_dcm_var(variables_si, parent):
     return actuator_system.get_actuator_dcm_var(variables_si, 'u', parent)
 
-def get_wzero_hat_var(variables_si, parent):
-    z_hat = general_tools.get_act_z_vec_val(variables_si, parent)
-    w_hat = z_hat
-    return w_hat
-
 def get_gamma_var(variables, parent):
     var_type = 'z'
-    var_name = 'gamma' + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'gamma' + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables, var_type, var_name)
     return var
 
@@ -220,8 +222,12 @@ def get_wind_dcm_u_along_uzero_cstr(model_options, wind, parent, variables, arch
 
     resi_align = u_vec_val - u_hat_var * u_length_var
 
+    var_name = actuator_system.get_actuator_vector_length_name('u', parent)
+    factor = struct_op.var_si_to_scaled('z', var_name, cas.DM(1.), scaling)
+    resi_scaled = resi_align * factor
+
     name = 'actuator_uhat_' + str(parent)
-    cstr = cstr_op.Constraint(expr=resi_align,
+    cstr = cstr_op.Constraint(expr=resi_scaled,
                               name=name,
                               cstr_type='eq')
 
@@ -235,8 +241,12 @@ def get_wind_dcm_w_along_act_dcm_z_cstr(model_options, wind, parent, variables_s
 
     resi_align = w_hat_var - z_hat_var * z_length_var
 
+    var_name = actuator_system.get_actuator_vector_length_name('z', parent)
+    factor = struct_op.var_si_to_scaled('z', var_name, cas.DM(1.), scaling)
+    resi_scaled = resi_align * factor
+
     name = 'actuator_what_parallel_zhat_' + str(parent)
-    cstr = cstr_op.Constraint(expr=resi_align,
+    cstr = cstr_op.Constraint(expr=resi_scaled,
                               name=name,
                               cstr_type='eq')
     return cstr
@@ -253,10 +263,6 @@ def check_that_uzero_has_positive_component_in_dominant_wind_direction(wind, var
     return None
 
 def get_wzero_parallel_z_rotor_check(variables_si, parent):
-
-    wind_dcm = get_wind_dcm_var(variables_si, parent)
-    act_dcm = actuator_geom.get_act_dcm_var(variables_si, parent)
-
     z_rotor_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
     w_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'w', parent)
 
@@ -278,8 +284,9 @@ def get_induction_factor_assignment_cstr(model_options, variables, kite, parent,
 
     resi_si = a_var - a_val
 
-    var_type = get_a_var_type(label)
-    var_name = 'wa_' + label + str(parent)
+    var_type = 'z'
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'local_a' + str(kite) + str(parent)
     resi_scaled = struct_op.var_si_to_scaled(var_type, var_name, resi_si, scaling)
 
     name = 'actuator_a_assignment_' + str(kite)
@@ -318,9 +325,9 @@ def get_a_ref(model_options):
     a_ref = model_options['aero']['actuator']['a_ref']
     return a_ref
 
-def get_uzero_vec_length_ref(wind):
-    return wind.get_speed_ref()
-
+def get_uzero_vec_length_ref(parent, scaling):
+    var_name = actuator_system.get_actuator_vector_length_name('u', parent)
+    return scaling['z', var_name, 0]
 
 def get_local_induction_factor(model_options, variables, kite, parent, label):
 
@@ -338,13 +345,13 @@ def get_local_induction_factor(model_options, variables, kite, parent, label):
             # for motivation for evaluating at the edges of the "annulus"
             # also: seems to lead to less optimizer-trickery.
 
-        a_uni = get_a_var(variables, parent, label)
+        a_uni = get_a0_var(variables, parent, label)
         acos = get_acos_var(variables, parent, label)
         asin = get_asin_var(variables, parent, label)
         a_local = a_uni + acos * cospsi * mu + asin * sinpsi * mu
 
     elif 'axi' in label:
-        a_local = get_a_var(variables, parent, label)
+        a_local = get_a0_var(variables, parent, label)
 
     else:
         message = 'an unfamiliar actuator model label was entered when computing the local induction factor'
@@ -398,7 +405,7 @@ def get_wake_angle_chi_equal(model_options, parent, variables, label):
 
 def get_wake_angle_chi_coleman(parent, variables, label):
     gamma = get_gamma_var(variables, parent)
-    a = get_a_var(variables, parent, label)
+    a = get_a0_var(variables, parent, label)
 
     chi = (0.6 * a + 1.) * gamma
 
@@ -468,19 +475,19 @@ def get_label(model_options):
 
 
 def get_corr_val_axisym(model_options, variables, parent, label):
-    a_var = get_a_var(variables, parent, label)
+    a_var = get_a0_var(variables, parent, label)
     corr_val = (1. - a_var)
     return corr_val
 
 def get_corr_val_glauert(model_options, variables, parent, label):
-    a_var = get_a_var(variables, parent, label)
+    a_var = get_a0_var(variables, parent, label)
     cosgamma_var = get_cosgamma_var(variables, parent)
 
     corr_val = cas.sqrt( (1. - a_var * (2. * cosgamma_var - a_var)) )
     return corr_val
 
 def get_corr_val_coleman(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
-    a = get_a_var(variables, parent, label)
+    a = get_a0_var(variables, parent, label)
     singamma = get_singamma_var(variables, parent)
     cosgamma = get_cosgamma_var(variables, parent)
     chi = get_wake_angle_chi(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
@@ -489,7 +496,7 @@ def get_corr_val_coleman(model_options, atmos, wind, variables, outputs, paramet
     return corr_val
 
 def get_corr_val_simple(model_options, variables, parent, label):
-    a_var = get_a_var(variables, parent, label)
+    a_var = get_a0_var(variables, parent, label)
     cosgamma = get_cosgamma_var(variables, parent)
     corr_val = (cosgamma - a_var)
     return corr_val

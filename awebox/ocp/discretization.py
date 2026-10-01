@@ -424,6 +424,7 @@ def check_the_dimension_of_xdot(nlp_options, V, model):
     condition2 = ('xdot' not in V.keys()) or (number_of_dae_variables == number_of_dynamics_equations)
     if not condition2:
         message = 'number of dynamics-determined variables in V (' + str(number_of_dae_variables) + ') does not match the number of modelled dynamics equations (' + str(number_of_dynamics_equations) + ')'
+        import pdb; pdb.set_trace()
         print_op.log_and_raise_error(message)
 
     return None

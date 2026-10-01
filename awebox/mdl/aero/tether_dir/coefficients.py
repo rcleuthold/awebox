@@ -325,8 +325,6 @@ def get_cd_piecewise_info_list(re_sym, cd_outside_bounds=1e3):
             cdp_dict['cd'] = cas.DM(cdp_dict['cd'])
         cdp_dict['cd_fun'] = cas.Function('cd_fun', [re_sym], [cdp_dict['cd']])
 
-    # import pdb; pdb.set_trace()
-
     return cd_piecewise_list
 
 def get_roshko_unitstep(reynolds, eps=1e-4):

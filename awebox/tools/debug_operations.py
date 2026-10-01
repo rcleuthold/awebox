@@ -53,7 +53,11 @@ from awebox.logger.logger import Logger as awelogger
 
 def health_check(trial_name, solver_options, nlp, model, solution, arg, stats, iterations, step_name, cumulative_max_memory):
 
-    awelogger.logger.info('Checking health...')
+    # include trial name and step name in output, so that if we solve problems in parallel (eg, in test_trials), we get
+    # an interpretable signal of which problem had the health/ill-health issue
+    problem_name = 'OCP (trial: ' + trial_name + ', at step: ' + step_name + ')'
+
+    awelogger.logger.info('Checking health of ' + problem_name + '...')
 
     local_cumulative_max_memory = {'setup': cumulative_max_memory['setup'], 'optimization': cumulative_max_memory['optimization']}
     if platform == 'linux':
@@ -100,10 +104,14 @@ def health_check(trial_name, solver_options, nlp, model, solution, arg, stats, i
 
     if problem_is_healthy:
         awelogger.logger.info('')
-        message = 'OCP appears to be healthy'
+        message = problem_name + ' appears to be healthy'
         awelogger.logger.info(message)
 
     elif (not problem_is_healthy) and health_solver_options['help_with_debugging']:
+
+        awelogger.logger.warning('')
+        message = problem_name + ' appears NOT to be healthy.'
+        print_op.base_print(message, level='warning')
 
         if 'power' in step_name:
             awelogger.logger.warning('')
@@ -143,8 +151,7 @@ def health_check(trial_name, solver_options, nlp, model, solution, arg, stats, i
 
     if not problem_is_healthy:
         awelogger.logger.info('')
-        message = 'OCP appears to be unhealthy (step: ' + step_name + ')'
-
+        message = problem_name + ' appears NOT to be healthy'
         if health_solver_options['raise_exception']:
             print_op.log_and_raise_error(message)
         else:

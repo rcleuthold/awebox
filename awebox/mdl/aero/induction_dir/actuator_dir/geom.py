@@ -61,38 +61,44 @@ def get_mu_radial_ratio(variables, kite, parent):
 
 def get_actuator_velocity_var(variables_si, parent):
     var_type = 'z'
-    var_name = 'dactuator_center' + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'dactuator_center' + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
 def get_actuator_position_var(variables_si, parent):
     var_type = 'z'
-    var_name = 'actuator_center' + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'actuator_center' + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
 
 def get_area_var(variables_si, parent):
     var_type = 'z'
-    var_name = 'area' + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'area' + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
 def get_bar_varrho_var(variables_si, parent):
     var_type = 'z'
-    var_name = 'bar_varrho' + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'bar_varrho' + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
 def get_varrho_var(variables_si, kite, parent):
     var_type = 'z'
-    var_name = 'varrho' + str(kite) + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'varrho' + str(kite) + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
 def get_psi_var(variables_si, kite, parent):
     var_type = 'z'
-    var_name = 'psi' + str(kite) + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'psi' + str(kite) + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
@@ -107,22 +113,6 @@ def get_sinpsi_var(variables_si, kite, parent):
     psi = get_psi_var(variables_si, kite, parent)
     var = cas.sin(psi)
     return var
-
-
-def get_n_vec_length_var(variables, parent):
-    len_var = variables['z']['act_n_vec_length' + str(parent)]
-    return len_var
-
-def get_y_vec_length_var(variables, parent):
-    len_var = variables['z']['act_y_vec_length' + str(parent)]
-    return len_var
-# references
-
-def get_tstar_ref(parameters, wind):
-    b_ref = parameters['theta0', 'geometry', 'b_ref']
-    uinfty_ref = wind.get_speed_ref()
-    tstar = b_ref / uinfty_ref
-    return tstar
 
 
 def get_varrho_ref(model_options):
@@ -148,7 +138,8 @@ def get_center_cstr(model_options, parent, system_variables, architecture, scali
     q_center_val = geom.get_center_position(model_options, parent, variables_si, architecture)
 
     pos_resi_unscaled = q_center_var - q_center_val
-    pos_resi_scaled = struct_op.var_si_to_scaled('z', 'actuator_center' + str(parent), pos_resi_unscaled, scaling)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    pos_resi_scaled = struct_op.var_si_to_scaled('z', prefix + 'actuator_center' + str(parent), pos_resi_unscaled, scaling)
 
     name = 'actuator_center_position_' + str(parent)
     pos_cstr = cstr_op.Constraint(expr=pos_resi_scaled,
@@ -160,7 +151,7 @@ def get_center_cstr(model_options, parent, system_variables, architecture, scali
     dq_center_val = lagr_tools.time_derivative(q_center_val, system_variables['scaled'], architecture, scaling)
 
     vel_resi_unscaled = dq_center_var - dq_center_val
-    vel_resi_scaled = struct_op.var_si_to_scaled('z', 'dactuator_center' + str(parent), vel_resi_unscaled, scaling)
+    vel_resi_scaled = struct_op.var_si_to_scaled('z', prefix + 'dactuator_center' + str(parent), vel_resi_unscaled, scaling)
 
     name = 'actuator_center_velocity_' + str(parent)
     vel_cstr = cstr_op.Constraint(expr=vel_resi_scaled,
@@ -178,7 +169,8 @@ def get_area_cstr(parent, variables_si, parameters, scaling):
 
     resi_unscaled = area_var - area_val
 
-    resi_scaled = struct_op.var_si_to_scaled('z', 'area' + str(parent), resi_unscaled, scaling)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    resi_scaled = struct_op.var_si_to_scaled('z', prefix + 'area' + str(parent), resi_unscaled, scaling)
 
     name = 'actuator_area_' + str(parent)
     cstr = cstr_op.Constraint(expr=resi_scaled,
@@ -190,11 +182,13 @@ def get_area_cstr(parent, variables_si, parameters, scaling):
 def check_that_varrho_initialization_is_set_and_averages_correctly(architecture, variables_si, parent):
     varrho_tresh = 0.1
     minimum_anticipated_local_varrho_init = 1. #todo, put something in that's larger than the scaling varrho value, since that is what the variable will be set to, if the initialization doesn't work as expected
-    expected_bar_varrho = variables_si['z', 'bar_varrho' + str(parent)]
+
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    expected_bar_varrho = variables_si['z', prefix + 'bar_varrho' + str(parent)]
     calculated_bar_varrho = 0.
     set_of_kite_children = architecture.get_kite_children(parent)
     for kite_child in set_of_kite_children:
-        local_varrho = variables_si['z', 'varrho' + str(kite_child) + str(parent)]
+        local_varrho = variables_si['z', prefix + 'varrho' + str(kite_child) + str(parent)]
         if local_varrho < minimum_anticipated_local_varrho_init:
             message = 'initialization varrho on kite ' + str(kite_child) + ' seems low (' + str(
                 local_varrho) + '). consider double-checking the intended radius.'
@@ -221,7 +215,8 @@ def get_bar_varrho_cstr(parent, variables, architecture, scaling):
     bar_varrho_var = get_bar_varrho_var(variables, parent)
 
     resi_si = bar_varrho_var - bar_varrho_val
-    resi_scaled = struct_op.var_si_to_scaled('z', 'bar_varrho' + str(parent), resi_si, scaling)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    resi_scaled = struct_op.var_si_to_scaled('z', prefix + 'bar_varrho' + str(parent), resi_si, scaling)
 
     name = 'actuator_bar_varrho_' + str(parent)
     cstr = cstr_op.Constraint(expr=resi_scaled,
@@ -417,10 +412,13 @@ def get_act_dcm_n_along_normal_cstr(model_options, parent, variables, architectu
     n_length_var = actuator_system.get_actuator_vector_length_var(variables, 'n', parent)
 
     resi_align = n_vec_val - n_hat_var * n_length_var
-    resi = resi_align
+
+    var_name = actuator_system.get_actuator_vector_length_name('n', parent)
+    factor = struct_op.var_si_to_scaled('z', var_name, cas.DM(1.), scaling)
+    resi_scaled = resi_align * factor
 
     name = 'actuator_nhat_' + str(parent)
-    cstr = cstr_op.Constraint(expr=resi,
+    cstr = cstr_op.Constraint(expr=resi_scaled,
                               name=name,
                               cstr_type='eq')
 

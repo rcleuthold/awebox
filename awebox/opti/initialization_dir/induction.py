@@ -111,15 +111,17 @@ def sanity_check_actuator_variables(init_options, model, nlp, V_init, epsilon=1.
 
 def initial_guess_actuator_a_values(init_options, model, V_init):
 
-    a_ref = cas.DM(init_options['z']['wa'])
+    prefix = actuator_system.get_actuator_var_name_prefix()
+
+    a_ref = cas.DM(init_options['z'][prefix + 'a0'])
 
     dict = {}
 
-    dict['local_a'] = cas.DM(a_ref)
+    dict[prefix + 'local_a'] = cas.DM(a_ref)
     for label in ['qaxi', 'qasym', 'uaxi', 'uasym']:
-        dict['wa_' + label] = cas.DM(a_ref)
+        dict[prefix + 'a0_' + label] = cas.DM(a_ref)
         for a_name in ['acos', 'asin']:
-            dict['w' + a_name + '_' + label] = cas.DM(0.)
+            dict[prefix + a_name + '_' + label] = cas.DM(0.)
 
     for var_type in ['x', 'z']:
         for name in struct_op.subkeys(model.variables, var_type):
@@ -145,6 +147,7 @@ def set_azimuth_variables(V_init, init_options, model, nlp):
 
 def set_psi_variables(init_options, V_init, kite_parent, model, nlp, level_siblings, omega_norm):
     kite, parent = struct_op.split_kite_and_parent(kite_parent, model.architecture)
+    prefix = actuator_system.get_actuator_var_name_prefix()
 
     time_final = init_options['precompute']['time_final']
     tgrid_x = nlp.time_grids['x'](time_final)
@@ -158,7 +161,7 @@ def set_psi_variables(init_options, V_init, kite_parent, model, nlp, level_sibli
         if 'z' in list(V_init.keys()):
 
             label_start = '[z,' + str(ndx) + ','
-            repdict = {'psi': psi, 'cospsi': np.cos(psi), 'sinpsi': np.sin(psi)}
+            repdict = {prefix + 'psi': psi, prefix + 'cospsi': np.cos(psi), prefix + 'sinpsi': np.sin(psi)}
             for name, val in repdict.items():
                 if label_start + name + str(kite_parent) + ',0]' in V_init.labels():
                     V_init['z', ndx, name + str(kite_parent)] = val
@@ -168,7 +171,7 @@ def set_psi_variables(init_options, V_init, kite_parent, model, nlp, level_sibli
             psi = tools_init.get_azimuthal_angle(t, init_options, level_siblings, kite, parent, omega_norm)
 
             label_start = '[coll_var,' + str(ndx) + ',' + str(ddx) + ',z,'
-            repdict = {'psi': psi, 'cospsi': np.cos(psi), 'sinpsi': np.sin(psi)}
+            repdict = {prefix + 'psi': psi, prefix + 'cospsi': np.cos(psi), prefix + 'sinpsi': np.sin(psi)}
 
             for name, val in repdict.items():
                 if label_start + name + str(kite_parent) + ',0]' in V_init.labels():
@@ -178,6 +181,8 @@ def set_psi_variables(init_options, V_init, kite_parent, model, nlp, level_sibli
 
 
 def initial_guess_actuator_support(init_options, model, V_init):
+
+    prefix = actuator_system.get_actuator_var_name_prefix()
 
     u_hat, v_hat, w_hat = get_local_wind_reference_frame(init_options)
     wind_dcm = cas.horzcat(u_hat, v_hat, w_hat)
@@ -211,8 +216,8 @@ def initial_guess_actuator_support(init_options, model, V_init):
         q_infty = init_options['induction']['dynamic_pressure']
         u_infty = init_options['induction']['u_at_altitude']
 
-        dict['actuator_center' + str(parent)] = center
-        dict['dactuator_center' + str(parent)] = cas.DM.zeros((3, 1))
+        dict[prefix + 'actuator_center' + str(parent)] = center
+        dict[prefix + 'dactuator_center' + str(parent)] = cas.DM.zeros((3, 1))
 
         init_lengths = {'n': vect_op.norm(n_vec_act), 'z': cas.DM(1.), 'u': u_infty, 'g': cas.DM(1.)}
         for dir in actuator_system.get_list_of_directions_that_have_length_variables():
@@ -224,18 +229,18 @@ def initial_guess_actuator_support(init_options, model, V_init):
         uzero_hat = model.wind.get_wind_direction()
         gamma = vect_op.angle_between(n_rot_hat, uzero_hat)
 
-        dict['gamma' + str(parent)] = gamma
-        dict['cosgamma' + str(parent)] = np.cos(gamma)
-        dict['singamma' + str(parent)] = np.sin(gamma)
+        dict[prefix + 'gamma' + str(parent)] = gamma
+        dict[prefix + 'cosgamma' + str(parent)] = np.cos(gamma)
+        dict[prefix + 'singamma' + str(parent)] = np.sin(gamma)
 
-        dict['bar_varrho' + str(parent)] = varrho_ref
-        dict['area' + str(parent)] = 2. * np.pi * init_options['precompute']['radius'] * b_ref
+        dict[prefix + 'bar_varrho' + str(parent)] = varrho_ref
+        dict[prefix + 'area' + str(parent)] = 2. * np.pi * init_options['precompute']['radius'] * b_ref
 
-        a_ref = cas.DM(init_options['z']['wa'])
-        dict['thrust' + str(parent)] = 4. * a_ref * (1. - a_ref) * dict['area' + str(parent)] * q_infty
+        a_ref = cas.DM(init_options['z'][prefix + 'a0'])
+        dict[prefix + 'thrust' + str(parent)] = 4. * a_ref * (1. - a_ref) * dict[prefix + 'area' + str(parent)] * q_infty
 
     for node in range(1, model.architecture.number_of_nodes):
-        dict['varrho' + str(node) + str(model.architecture.parent_map[node])] = varrho_ref
+        dict[prefix + 'varrho' + str(node) + str(model.architecture.parent_map[node])] = varrho_ref
 
     for var_type in ['x', 'xdot', 'z']:
         for name in struct_op.subkeys(model.variables, var_type):
@@ -245,6 +250,12 @@ def initial_guess_actuator_support(init_options, model, V_init):
                 V_init = tools_init.insert_dict(dict, var_type, name, name, V_init)
             elif name_stripped in dict.keys():
                 V_init = tools_init.insert_dict(dict, var_type, name, name_stripped, V_init)
+
+    print_op.warn_about_temporary_functionality_alteration()
+    temp_dict = {}
+    for var_name in model.variables_dict['z'].keys():
+        temp_dict[var_name] = model.variables_dict['z'](model.scaling['z'])[var_name]
+    print_op.print_dict_as_table(temp_dict)
 
     return V_init
 

@@ -40,6 +40,7 @@ import awebox.tools.print_operations as print_op
 def extend_actuator_induction_factors(options, system_lifted, system_states, architecture):
 
     comparison_labels = options['aero']['induction']['comparison_labels']
+    prefix = get_actuator_var_name_prefix()
 
     actuator_comp_labels = []
     for label in comparison_labels:
@@ -48,38 +49,40 @@ def extend_actuator_induction_factors(options, system_lifted, system_states, arc
 
     for kite in architecture.kite_nodes:
         parent = architecture.parent_map[kite]
-        system_lifted.extend([('local_a' + str(kite) + str(parent), (1, 1))])
+        system_lifted.extend([(prefix + 'local_a' + str(kite) + str(parent), (1, 1))])
 
     for layer_node in architecture.layer_nodes:
         for label in actuator_comp_labels:
             if label[0] == 'q':
-                system_lifted.extend([('wa_' + label + str(layer_node), (1, 1))])
+                system_lifted.extend([(prefix + 'a0_' + label + str(layer_node), (1, 1))])
             elif label[0] == 'u':
-                system_states.extend([('wa_' + label + str(layer_node), (1, 1))])
+                system_states.extend([(prefix + 'a0_' + label + str(layer_node), (1, 1))])
 
             if label == 'qasym':
-                system_lifted.extend([('wacos_' + label + str(layer_node), (1, 1))])
-                system_lifted.extend([('wasin_' + label + str(layer_node), (1, 1))])
+                system_lifted.extend([(prefix + 'acos_' + label + str(layer_node), (1, 1))])
+                system_lifted.extend([(prefix + 'asin_' + label + str(layer_node), (1, 1))])
 
             if label == 'uasym':
-                system_states.extend([('wacos_' + label + str(layer_node), (1, 1))])
-                system_states.extend([('wasin_' + label + str(layer_node), (1, 1))])
+                system_states.extend([(prefix + 'acos_' + label + str(layer_node), (1, 1))])
+                system_states.extend([(prefix + 'asin_' + label + str(layer_node), (1, 1))])
     return system_lifted, system_states
 
 def extend_actuator_support(options, system_lifted, system_states, architecture):
+    prefix = get_actuator_var_name_prefix()
+
     for kite in architecture.kite_nodes:
         parent = architecture.parent_map[kite]
-        system_lifted.extend([('varrho' + str(kite) + str(parent), (1, 1))])
-        system_lifted.extend([('psi' + str(kite) + str(parent), (1, 1))])
+        system_lifted.extend([(prefix + 'varrho' + str(kite) + str(parent), (1, 1))])
+        system_lifted.extend([(prefix + 'psi' + str(kite) + str(parent), (1, 1))])
 
     for layer_node in architecture.layer_nodes:
-        system_lifted.extend([('bar_varrho' + str(layer_node), (1, 1))])
-        system_lifted.extend([('area' + str(layer_node), (1, 1))])
+        system_lifted.extend([(prefix + 'bar_varrho' + str(layer_node), (1, 1))])
+        system_lifted.extend([(prefix + 'area' + str(layer_node), (1, 1))])
 
-        system_lifted.extend([('actuator_center' + str(layer_node), (3, 1))])
-        system_lifted.extend([('dactuator_center' + str(layer_node), (3, 1))])
+        system_lifted.extend([(prefix + 'actuator_center' + str(layer_node), (3, 1))])
+        system_lifted.extend([(prefix + 'dactuator_center' + str(layer_node), (3, 1))])
 
-        system_lifted.extend([('gamma' + str(layer_node), (1, 1))])
+        system_lifted.extend([(prefix + 'gamma' + str(layer_node), (1, 1))])
 
         for dir in get_list_of_directions_that_define_actuator_dcms():
             system_lifted.extend([(get_actuator_dcm_name(dir, layer_node), (9, 1))])
@@ -87,7 +90,7 @@ def extend_actuator_support(options, system_lifted, system_states, architecture)
         for dir in get_list_of_directions_that_have_length_variables():
             system_lifted.extend([(get_actuator_vector_length_name(dir, layer_node), (1, 1))])
 
-        system_lifted.extend([('thrust' + str(layer_node), (1, 1))])
+        system_lifted.extend([(prefix + 'thrust' + str(layer_node), (1, 1))])
 
     return system_lifted, system_states
 
@@ -98,7 +101,6 @@ def get_list_of_directions_that_have_length_variables():
     return ['n', 'u', 'z']
 
 def add_system_bounds_of_support_variables(options, help_options, options_tree):
-
     for dir in get_list_of_directions_that_have_length_variables():
         var_name = get_actuator_vector_length_name_stripped_of_node(dir)
         options_tree.append(('model', 'system_bounds', 'z', var_name, [0., cas.inf], ('length-value for actuator orientation vectors must be positive [-]', None), 'x')),
@@ -111,17 +113,22 @@ def add_system_bounds_of_support_variables(options, help_options, options_tree):
 
 
 def add_scaling_of_support_variables(options, architecture, u_at_altitude, options_tree):
-
+    prefix = get_actuator_var_name_prefix()
     scaling_dict = {}
 
     normal_vector_model = options['model']['aero']['actuator']['normal_vector_model']
     l_t = options['solver']['initialization']['l_t']
+    l_s = options['solver']['initialization']['theta']['l_s']
     number_of_kites = architecture.number_of_kites
     if normal_vector_model == 'least_squares':
-        length = options['solver']['initialization']['theta']['l_s']
-        n_vec_length_ref = length**2.
+        n_vec_length_ref = l_s**2.
+    elif normal_vector_model == 'dual':
+        len_diff = l_s
+        len_tether = l_t
+        len_out = len_diff * len_tether
+        n_vec_length_ref = len_out * len_diff
     elif normal_vector_model == 'binormal':
-        n_vec_length_ref = number_of_kites * l_t**2.
+        n_vec_length_ref = 1.
     elif normal_vector_model == 'tether_parallel':
         n_vec_length_ref = l_t
     elif normal_vector_model == 'xhat':
@@ -142,11 +149,14 @@ def add_scaling_of_support_variables(options, architecture, u_at_altitude, optio
             options_tree.append(('solver', 'initialization', 'induction', var_name, val, ('descript', None), 'x'))
 
     psi_scale = 0.5 * np.pi
-    options_tree.append(('model', 'scaling', 'z', 'psi', psi_scale, ('descript', None), 'x'))
-    options_tree.append(('model', 'scaling', 'z', 'cospsi', 0.5, ('descript', None), 'x'))
-    options_tree.append(('model', 'scaling', 'z', 'sinpsi', 0.5, ('descript', None), 'x'))
+    options_tree.append(('model', 'scaling', 'z', prefix + 'psi', psi_scale, ('descript', None), 'x'))
+    options_tree.append(('model', 'scaling', 'z', prefix + 'cospsi', 0.5, ('descript', None), 'x'))
+    options_tree.append(('model', 'scaling', 'z', prefix + 'sinpsi', 0.5, ('descript', None), 'x'))
 
     return options_tree
+
+def get_actuator_var_name_prefix():
+    return 'wa_'
 
 def get_actuator_direction_name_base(direction):
     for act_dir in ['n', 'y', 'z']:
@@ -157,8 +167,9 @@ def get_actuator_direction_name_base(direction):
             return 'wind_'
 
 def get_actuator_dcm_name(direction, layer_node):
+    prefix = get_actuator_var_name_prefix()
     dcm_name = get_actuator_direction_name_base(direction)
-    return dcm_name + 'dcm' + str(layer_node)
+    return prefix + dcm_name + 'dcm' + str(layer_node)
 
 def get_actuator_dcm_var(variables_si, direction, layer_node):
     var_type = 'z'
@@ -167,8 +178,9 @@ def get_actuator_dcm_var(variables_si, direction, layer_node):
     return dcm_var
 
 def get_actuator_vector_length_name_stripped_of_node(direction):
+    prefix = get_actuator_var_name_prefix()
     base = get_actuator_direction_name_base(direction)
-    return base + direction
+    return prefix + base + direction
 
 def get_actuator_vector_length_name(direction, layer_node):
     stripped_of_node = get_actuator_vector_length_name_stripped_of_node(direction)

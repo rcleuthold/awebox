@@ -176,9 +176,9 @@ def get_dual_n_vec(parent, variables_si, architecture):
                                                                  'q' + str(kite1) + str(parent))
     vec_diff = qkite1 - qkite0
 
-    ehat_tether = get_tether_parallel_multi_n_vec(parent, variables_si, architecture)
+    vec_tether = get_tether_parallel_multi_n_vec(parent, variables_si, architecture)
 
-    vec_out = vect_op.cross(vec_diff, ehat_tether)
+    vec_out = vect_op.cross(vec_diff, vec_tether)
     n_vec = vect_op.cross(vec_out, vec_diff)
     return n_vec
 
@@ -190,7 +190,7 @@ def get_binormal_n_vec(parent, variables, architecture):
     n_vec = cas.DM.zeros((3, 1))
     for kite in children:
         local_binormal = frenet_geom.get_trajectory_binormal_unit_vector(variables, kite, parent)
-        n_vec += local_binormal
+        n_vec += local_binormal / len(children)
 
     return n_vec
 

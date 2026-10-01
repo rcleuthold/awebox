@@ -117,7 +117,7 @@ def get_all_model_support_constraints(model_options, wind, system_variables, par
         actuator_orientation_cstr = get_actuator_orientation_cstr(model_options, wind, parent, variables_si, parameters, architecture, scaling)
         cstr_list.append(actuator_orientation_cstr)
 
-        thrust_cstr = actuator_force.get_thrust_constraint(variables_si, outputs, parent, architecture, scaling)
+        thrust_cstr = actuator_force.get_thrust_cstr(variables_si, outputs, parent, architecture, scaling)
         cstr_list.append(thrust_cstr)
 
     return cstr_list
@@ -127,20 +127,22 @@ def get_induction_factor_cstr(model_options, atmos, wind, variables, outputs, pa
 
     if label == 'qaxi':
         resi = get_momentum_theory_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling)
-
     elif label == 'qasym':
-        resi = get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label)
-
+        resi = get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling)
     elif label == 'uaxi':
-        resi = get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
-
+        resi = get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling)
     elif label == 'uasym':
         resi = get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent,
-                                               architecture, label)
-
+                                               architecture, label, scaling)
     else:
         resi = []
         message = 'model not yet implemented.'
+        print_op.log_and_raise_error(message)
+
+    resi_per_parent_length = resi.shape[0]
+    a_all_per_parent_length = actuator_flow.get_a_all_var(variables, parent, label).shape[0]
+    if (resi_per_parent_length != a_all_per_parent_length):
+        message = 'something went wrong with the actuator induction factor constraint, per parent-node, we have ' + str(resi_per_parent_length) + ' residual-lines vs ' + str(a_all_per_parent_length) + ' a-all variables.'
         print_op.log_and_raise_error(message)
 
     name = 'actuator_induction_factor_' + label + '_' + str(parent)
@@ -152,7 +154,7 @@ def get_induction_factor_cstr(model_options, atmos, wind, variables, outputs, pa
 
 def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling):
 
-    a_var = actuator_flow.get_a_var(variables, parent, label)
+    a_var = actuator_flow.get_a0_var(variables, parent, label)
 
     thrust = actuator_force.get_actuator_thrust_var(variables, parent)
 
@@ -166,16 +168,18 @@ def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs,
     rhs = 4. * a_var * corr_val
 
     resi_si = thrust - rhs * thrust_den
+
     var_type = 'z'
-    var_name = 'thrust' + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'thrust' + str(parent)
     resi = struct_op.var_si_to_scaled(var_type, var_name, resi_si, scaling)
 
     return resi
 
 
-def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
+def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling):
 
-    a_var = actuator_flow.get_a_var(variables, parent, label)
+    a_var = actuator_flow.get_a0_var(variables, parent, label)
     da_dt = actuator_flow.get_da_var(variables, parent, label)
     a_ref = actuator_flow.get_a_ref(model_options)
 
@@ -192,7 +196,7 @@ def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables,
     t_star_num = actuator_coeff.get_t_star_numerator_val(variables, parameters, parent)
     t_star_den = actuator_coeff.get_t_star_denominator_val(variables, parent)
     t_star_num_ref = actuator_coeff.get_t_star_numerator_ref(model_options, parameters)
-    t_star_den_ref = actuator_coeff.get_t_star_denominator_ref(wind)
+    t_star_den_ref = actuator_coeff.get_t_star_denominator_ref(parent, scaling)
 
     # tau = t / t_star
     # t = tau t_star
@@ -204,7 +208,7 @@ def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables,
     dt_dtau_den_ref = t_star_den_ref
 
     thrust_den = qzero * area
-    thrust_ref = actuator_coeff.get_thrust_ref(model_options, atmos, wind, parameters)
+    thrust_ref = actuator_coeff.get_thrust_ref(parent, scaling)
 
     LLinv_ref = (4. * (1. - a_ref))
     da_dt_ref = a_ref
@@ -224,14 +228,16 @@ def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables,
     return resi
 
 
-def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label):
+def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling):
 
     a_all = actuator_flow.get_a_all_var(variables, parent, label)
     da_dt = actuator_flow.get_da_all_var(variables, parent, label)
     a_ref = actuator_flow.get_a_ref(model_options)
+    a_all_ref = cas.DM.ones((3, 1)) * a_ref
+    da_dt_ref = cas.DM.zeros((3, 1))
 
-    c_all, moment_den = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
-                                                              outputs, parent, architecture)
+    c_all, moment_den, c_ref, moment_denom_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
+                                                              outputs, parent, architecture, scaling)
 
     LL = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     MM = actuator_coeff.get_MM_matrix()
@@ -241,8 +247,7 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables
     t_star_num = actuator_coeff.get_t_star_numerator_val(variables, parameters, parent)
     t_star_den = actuator_coeff.get_t_star_denominator_val(variables, parent)
     t_star_num_ref = actuator_coeff.get_t_star_numerator_ref(model_options, parameters)
-    t_star_den_ref = actuator_coeff.get_t_star_denominator_ref(wind)
-
+    t_star_den_ref = actuator_coeff.get_t_star_denominator_ref(parent, scaling)
     # tau = t / t_star
     # t = tau t_star
     # dt/dtau = t_star
@@ -252,8 +257,7 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables
     dt_dtau_num_ref = t_star_num_ref
     dt_dtau_den_ref = t_star_den_ref
 
-    LL_ref = 1./ (4. * (1. - a_ref))
-    da_dt_ref = a_ref
+    LL_ref = actuator_coeff.get_LL_matrix_ref(model_options,parent, scaling)
 
     term_1 = cas.mtimes(LL, cas.mtimes(MM, da_dt)) * dt_dtau_num * moment_den
     term_2 = a_all * moment_den * dt_dtau_den
@@ -261,19 +265,28 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables
 
     resi_unscaled = term_1 + term_2 + term_3
 
-    term_1_ref = LL_ref * MM[0, 0] * da_dt_ref * dt_dtau_num_ref * moment_ref #rest. failed. licq
-    term_2_ref = a_ref * moment_ref * dt_dtau_den_ref # solve. 2e10, 2e-8. 5m?s
-    term_3_ref = LL_ref * moment_ref * dt_dtau_den_ref # solve. licq
+    term_1_ref_2 = cas.mtimes(LL_ref, cas.mtimes(MM, da_dt_ref)) * dt_dtau_num_ref * moment_den
+    term_2_ref_2 = a_all_ref * moment_denom_ref * dt_dtau_den_ref
+    term_3_ref_2 = cas.mtimes(LL_ref, c_ref) * dt_dtau_den_ref
+    geom_mean_ref = (vect_op.smooth_norm(term_2_ref_2) * vect_op.smooth_norm(term_3_ref_2)) ** 0.5
 
-    resi = resi_unscaled / term_2_ref
+    # term_1_ref = cas.mtimes(LL_ref, cas.mtimes(MM, da_dt_ref)) * dt_dtau_num_ref * moment_denom_ref
+    # term_2_ref = a_ref * moment_denom_ref * dt_dtau_den_ref # solve. 2e10, 2e-8. 5m?s
+    # term_3_ref = cas.mtimes(LL_ref, c_ref) * dt_dtau_den_ref
+    # geom_mean_ref = (vect_op.smooth_norm(term_1_ref) * vect_op.smooth_norm(term_2_ref) * vect_op.smooth_norm(term_3_ref))**0.333
+
+    # factor = 1. / geom_mean_ref
+    factor = 1. / term_2_ref_2[0]
+    resi = resi_unscaled * factor
 
     return resi
 
-def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label):
+def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling):
 
-    c_all, moment_denom = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture)
+    c_all, moment_denom, c_ref, moment_denom_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, scaling)
 
     LL_matr = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+    LL_ref = actuator_coeff.get_LL_matrix_ref(model_options, parent, scaling)
 
     a_all = actuator_flow.get_a_all_var(variables, parent, label)
 
@@ -286,11 +299,15 @@ def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, 
 
     resi_unscaled = term_1 + term_2 + term_3
 
-    # term_2_ref = a_ref * moment_ref
-    term_3_ref = 1./ (4. * a_ref * (1. - a_ref)) * moment_ref
+    # term_2_ref = a_ref * moment_denom_ref
+    # term_3_ref_pref = (4. * a_ref * (1. - a_ref)) * moment_ref
+    # term_3_ref = cas.mtimes(LL_ref, c_ref)
+    # geom_mean_ref = (vect_op.smooth_norm(term_2_ref) * vect_op.smooth_norm(term_3_ref))**0.5
+    # factor = 1. / geom_mean_ref
+    # factor = 1. / vect_op.smooth_norm(term_2_ref)
+    factor = 1. / (LL_ref[0,0] * c_ref[0])
 
-    resi = resi_unscaled / term_3_ref
-
+    resi = resi_unscaled * factor
     return resi
 
 def get_actuator_orientation_cstr(model_options, wind, parent, variables_si, parameters, architecture, scaling):
@@ -352,15 +369,18 @@ def collect_actuator_induction_factor_outputs(model_options, variables, outputs,
                 local_a = actuator_flow.get_local_induction_factor(model_options, variables, kite, parent, label)
             outputs['actuator']['local_a_' + label + str(kite)] = local_a
 
+        current_label = actuator_flow.get_label(model_options)
+        outputs['actuator']['local_a' + str(kite)] = outputs['actuator']['local_a_' + current_label + str(kite)]
+
     layer_parents = architecture.layer_nodes
     for parent in layer_parents:
         for label in act_comp_labels:
 
             if model_options['aero']['actuator']['support_only']:
-                local_a = cas.DM(0.)
+                a0_var = cas.DM(0.)
             else:
-                local_a = actuator_flow.get_a_var(variables, parent, label)
-            outputs['actuator']['a0_' + label + str(parent)] = local_a
+                a0_var = actuator_flow.get_a0_var(variables, parent, label)
+            outputs['actuator']['a0_' + label + str(parent)] = a0_var
 
     return outputs
 

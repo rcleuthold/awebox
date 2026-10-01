@@ -79,22 +79,23 @@ def get_actuator_thrust_val(variables, outputs, parent, architecture):
 
     return thrust
 
-
 def get_actuator_thrust_var(variables_si, parent):
     var_type = 'z'
-    var_name = 'thrust' + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'thrust' + str(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
 
-def get_thrust_constraint(variables, outputs, parent, architecture, scaling):
+def get_thrust_cstr(variables, outputs, parent, architecture, scaling):
     thrust_var = get_actuator_thrust_var(variables, parent)
     thrust_val = get_actuator_thrust_val(variables, outputs, parent, architecture)
 
     resi_si = thrust_val - thrust_var
 
     var_type = 'z'
-    var_name = 'thrust' + str(parent)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'thrust' + str(parent)
     resi_scaled = struct_op.var_si_to_scaled(var_type, var_name, resi_si, scaling)
 
     name = 'actuator_thrust_' + str(parent)

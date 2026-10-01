@@ -318,7 +318,6 @@ def insert_dict(dict, var_type, name, name_stripped, V_init):
     init_val = cas.DM(dict[name_stripped])
     for idx in range(init_val.shape[0]):
         V_init = insert_val(V_init, var_type, name, init_val[idx], idx)
-
     return V_init
 
 

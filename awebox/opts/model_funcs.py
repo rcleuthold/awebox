@@ -706,6 +706,8 @@ def build_induction_options(options, help_options, options_tree, fixed_params, a
 
 def build_actuator_options(options, options_tree, fixed_params, architecture):
 
+    prefix = actuator_system.get_actuator_var_name_prefix()
+
     # todo: ensure that system bounds don't get enforced when actuator is only comparison against vortex model
     if 'actuator' in options['user_options']['induction_model']:
         message = 'current problem tunings may not be optimally set for actuator-model induction problems. the fix is currently in progress! please stay tuned for the update!'
@@ -733,10 +735,10 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
     b_ref = geometry['b_ref']
     induction_varrho_ref = flight_radius / b_ref
     options_tree.append(('model', 'aero', 'actuator', 'varrho_ref', induction_varrho_ref, ('descript', None), 'x'))
-    options_tree.append(('model', 'scaling', 'z', 'varrho', induction_varrho_ref, ('descript', None), 'x'))
-    options_tree.append(('model', 'scaling', 'z', 'bar_varrho', induction_varrho_ref, ('descript', None), 'x'))
-    options_tree.append(('model', 'system_bounds', 'z', 'varrho', [0., cas.inf], ('relative radius bounds [-]', None), 'x'))
-    options_tree.append(('model', 'scaling', 'z', 'area', 2. * np.pi * flight_radius * b_ref, ('descript', None), 'x'))
+    options_tree.append(('model', 'scaling', 'z', prefix + 'varrho', induction_varrho_ref, ('descript', None), 'x'))
+    options_tree.append(('model', 'scaling', 'z', prefix + 'bar_varrho', induction_varrho_ref, ('descript', None), 'x'))
+    options_tree.append(('model', 'system_bounds', 'z', prefix + 'varrho', [0., cas.inf], ('relative radius bounds [-]', None), 'x'))
+    options_tree.append(('model', 'scaling', 'z', prefix + 'area', 2. * np.pi * flight_radius * b_ref, ('descript', None), 'x'))
 
     if options['model']['aero']['actuator']['position_scaling_method'] == 'default':
         overwrite_position_scaling_method = None
@@ -749,9 +751,9 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
     u_reelout = estimate_reelout_speed(options)
     dact_center = u_reelout
     actuator_center_var_type = 'z'
-    options_tree.append(('model', 'scaling', actuator_center_var_type, 'actuator_center', actuator_center, ('descript', None), 'x'))
+    options_tree.append(('model', 'scaling', actuator_center_var_type, prefix + 'actuator_center', actuator_center, ('descript', None), 'x'))
     options_tree.append(
-        ('model', 'scaling', actuator_center_var_type, 'dactuator_center', dact_center, ('descript', None), 'x'))
+        ('model', 'scaling', actuator_center_var_type, prefix + 'dactuator_center', dact_center, ('descript', None), 'x'))
     print_op.warn_about_temporary_functionality_alteration()
     # q_bounds = [np.array([-cas.inf, -cas.inf, 0.]), np.array([cas.inf, cas.inf, cas.inf])] #need this when evaluating freestream flow velocity at actuator center
     # options_tree.append(('model', 'system_bounds', actuator_center_var_type, 'actuator_center', q_bounds, ('??', None), 'x')),
@@ -764,11 +766,15 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
     options_tree.append(('nlp', 'induction', None, 'symmetry',   actuator_symmetry, ('actuator symmetry', None), 'x')),
 
     ## actuator-disk induction
+    prefix = actuator_system.get_actuator_var_name_prefix()
     a_ref = options['model']['aero']['actuator']['a_ref']
     a_range = options['model']['aero']['actuator']['a_range']
     a_fourier_range = options['model']['aero']['actuator']['a_fourier_range']
     if (a_ref < a_range[0]) or (a_ref > a_range[1]):
-        a_ref_new = a_range[1] / 2.
+        if vect_op.is_numeric_scalar(a_range[1]):
+            a_ref_new = a_range[1] / 2.
+        else:
+            a_ref_new = 0.1
         message = 'reference induction factor (' + str(a_ref) + ') is outside of the allowed range of ' + str(a_range) + '. proceeding with reference value of ' + str(a_ref_new)
         awelogger.logger.warning(message)
         a_ref = a_ref_new
@@ -779,27 +785,31 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
 
     a_labels_dict = {'qaxi': 'z', 'qasym': 'z', 'uaxi': 'x', 'uasym' : 'x'}
     for label in a_labels_dict.keys():
-        options_tree.append(('model', 'scaling', a_labels_dict[label], 'wa_' + label, a_ref, ('descript', None), 'x'))
+        options_tree.append(('model', 'scaling', a_labels_dict[label], prefix + 'a0_' + label, a_ref, ('descript', None), 'x'))
         for a_name in ['acos', 'asin']:
-            options_tree.append(('model', 'scaling', a_labels_dict[label], 'w' + a_name + '_' + label, a_fourier_scaling, ('descript', None), 'x'))
-    options_tree.append(('model', 'scaling', 'z', 'local_a', a_ref, ('???', None), 'x')),
-    options_tree.append(('solver', 'initialization', 'z', 'wa', a_ref, ('???', None), 'x')),
+            options_tree.append(('model', 'scaling', a_labels_dict[label], prefix + a_name + '_' + label, a_fourier_scaling, ('descript', None), 'x'))
+    options_tree.append(('model', 'scaling', 'z', prefix + 'local_a', a_ref, ('???', None), 'x')),
+    options_tree.append(('solver', 'initialization', 'z', prefix + 'a0', a_ref, ('???', None), 'x')),
 
     local_label = actuator_flow.get_label({'induction': {'steadyness': actuator_steadyness, 'symmetry': actuator_symmetry}})
-    options_tree.append(('model', 'system_bounds', a_labels_dict[local_label], 'wa_' + local_label, a_range,
+    options_tree.append(('model', 'system_bounds', a_labels_dict[local_label], prefix + 'a0_' + local_label, a_range,
                          ('local induction factor', None), 'x')),
     for a_name in ['acos', 'asin']:
-        options_tree.append(('model', 'system_bounds', a_labels_dict[local_label], 'w' + a_name + '_' + local_label, a_fourier_range, ('??', None), 'x')),
+        options_tree.append(('model', 'system_bounds', a_labels_dict[local_label], prefix + a_name + '_' + local_label, a_fourier_range, ('??', None), 'x')),
 
     gamma_range = options['model']['aero']['actuator']['gamma_range']
-    options_tree.append(('model', 'system_bounds', 'z', 'gamma', gamma_range, ('tilt angle bounds [rad]', None), 'x')),
+    options_tree.append(('model', 'system_bounds', 'z', prefix + 'gamma', gamma_range, ('tilt angle bounds [rad]', None), 'x')),
     if vect_op.is_numeric_scalar(gamma_range[1]):
         gamma_ref = gamma_range[1] * 0.5
     else:
         gamma_ref = np.pi/4.
-    options_tree.append(('model', 'scaling', 'z', 'gamma', gamma_ref, ('tilt angle bounds [rad]', None), 'x')),
-    options_tree.append(('model', 'scaling', 'z', 'cosgamma', 0.5, ('tilt angle bounds [rad]', None), 'x')),
-    options_tree.append(('model', 'scaling', 'z', 'singamma', 0.5, ('tilt angle bounds [rad]', None), 'x')),
+    options_tree.append(('model', 'scaling', 'z', prefix + 'gamma', gamma_ref, ('tilt angle bounds [rad]', None), 'x')),
+    options_tree.append(('model', 'scaling', 'z', prefix + 'cosgamma', 0.5, ('tilt angle bounds [rad]', None), 'x')),
+    options_tree.append(('model', 'scaling', 'z', prefix + 'singamma', 0.5, ('tilt angle bounds [rad]', None), 'x')),
+
+    suppress_actuator_thrust_help = (options['user_options']['induction_model'] != 'actuator')
+    actuator_thrust = estimate_actuator_thrust(options, architecture, suppress_help_statement=suppress_actuator_thrust_help)
+    options_tree.append(('model', 'scaling', 'z', prefix + 'thrust', actuator_thrust, ('scaling of aerodynamic forces', None), 'x'))
 
     return options_tree, fixed_params
 
@@ -1178,10 +1188,6 @@ def build_fict_scaling_options(options, options_tree, fixed_params, architecture
     options_tree.append(('model', 'scaling', 'u', 'm_fict', f_scaling * moment_scaling_factor, ('scaling of fictitious homotopy moments', None),'x'))
     options_tree.append(('model', 'scaling', 'z', 'f_aero', f_scaling, ('scaling of aerodynamic forces', None),'x'))
     options_tree.append(('model', 'scaling', 'z', 'm_aero', f_scaling * moment_scaling_factor, ('scaling of aerodynamic moments', None),'x'))
-
-    suppress_actuator_thrust_help = (options['user_options']['induction_model'] != 'actuator')
-    actuator_thrust = estimate_actuator_thrust(options, architecture, suppress_help_statement=suppress_actuator_thrust_help)
-    options_tree.append(('model', 'scaling', 'z', 'thrust', actuator_thrust, ('scaling of aerodynamic forces', None), 'x'))
 
     CD_tether = options['params']['tether']['cd']
     diam_t = options['solver']['initialization']['theta']['diam_t']

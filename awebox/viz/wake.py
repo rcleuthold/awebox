@@ -99,7 +99,7 @@ def plot_wake(plot_dict, cosmetics, fig_name, side, ref=False):
         parent = plot_dict['architecture'].parent_map[kite]
         list_of_x_position_variable_names += ['q' + str(kite) + str(parent)]
     for var_name in plot_dict['variables_dict']['z'].keys():
-        if var_name[0:2] == 'wvx':
+        if var_name[0:3] == 'wvx':
             list_of_z_position_variable_names += [var_name]
 
     for position_var_name in list_of_x_position_variable_names:

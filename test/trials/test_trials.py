@@ -223,9 +223,18 @@ def test_actuator_uaxi(final_homotopy_step='final', overwrite_options={}):
     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
     return None
 
+def test_actuator_uaxi_basic_health(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_uaxi_basic_health_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
 
 def test_actuator_qasym(final_homotopy_step='final', overwrite_options={}):
     trial_name = 'actuator_qasym_trial'
+    run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
+    return None
+
+def test_actuator_qasym_basic_health(final_homotopy_step='final', overwrite_options={}):
+    trial_name = 'actuator_uaxi_basic_health_trial'
     run_test(trial_name, final_homotopy_step=final_homotopy_step, overwrite_options=overwrite_options)
     return None
 
@@ -383,12 +392,14 @@ def generate_options_dict():
     actuator_qaxi_options['visualization.cosmetics.trajectory.kite_bodies'] = True
     actuator_qaxi_options['user_options.trajectory.lift_mode.windings'] = 1
     actuator_qaxi_options['model.aero.actuator.thrust_scaling_method'] = 'thrust_coeff'  #['thrust_coeff', 'aero', 'tension', 'synthesized']
-    actuator_qaxi_options['model.aero.actuator.position_scaling_method'] = 'default' # ['default', 'radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']
+    actuator_qaxi_options['model.aero.actuator.position_scaling_method'] = 'altitude' #'default' # ['default', 'radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']
+    actuator_qaxi_options['model.scaling.other.flight_radius_estimate'] = 'cone'
     actuator_qaxi_options['model.aero.actuator.gamma_range'] = [-np.pi / 2., np.pi / 2.]  # cas.inf, cas.inf] #5. * np.pi, 5. * np.pi]
-    actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-0.2, 0.2] #0., cas.inf] #cas.inf, cas.inf] #0.2, 0.2]
+    actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-cas.inf, cas.inf] #[-0.2, 0.2] #0., cas.inf] #cas.inf, cas.inf] #0.2, 0.2]
+    actuator_qaxi_options['model.aero.actuator.a_ref'] = 0.1
     actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5] #-cas.inf, cas.inf] #0.5]
     actuator_qaxi_options['solver.cost_factor.power'] = 1e1
-
+    actuator_qaxi_options['solver.weights.actuator'] = 1.e0
     actuator_qaxi_basic_health_options = make_basic_health_variant(actuator_qaxi_options)
 
     actuator_support_only_options = copy.deepcopy(actuator_qaxi_options)
@@ -398,11 +409,14 @@ def generate_options_dict():
 
     actuator_uaxi_options = copy.deepcopy(actuator_qaxi_options)
     actuator_uaxi_options['model.aero.actuator.steadyness'] = 'unsteady'
-    print_op.warn_about_temporary_functionality_alteration()
-    actuator_uaxi_options = make_basic_health_variant(actuator_uaxi_options)
+
+    actuator_uaxi_basic_health_options = make_basic_health_variant(actuator_uaxi_options)
 
     actuator_qasym_options = copy.deepcopy(actuator_qaxi_options)
     actuator_qasym_options['model.aero.actuator.symmetry'] = 'asymmetric'
+
+    actuator_qasym_basic_health_options = make_basic_health_variant(actuator_qasym_options)
+
 
     actuator_uasym_options = copy.deepcopy(actuator_qaxi_options)
     actuator_uasym_options['model.aero.actuator.steadyness'] = 'unsteady'
@@ -498,7 +512,9 @@ def generate_options_dict():
     options_dict['actuator_support_only_trial'] = actuator_support_only_options
     options_dict['actuator_support_only_basic_health_trial'] = actuator_support_only_basic_health_options
     options_dict['actuator_uaxi_trial'] = actuator_uaxi_options
+    options_dict['actuator_uaxi_basic_health_trial'] = actuator_uaxi_basic_health_options
     options_dict['actuator_qasym_trial'] = actuator_qasym_options
+    options_dict['actuator_qasym_basic_health_trial'] = actuator_qasym_basic_health_options
     options_dict['actuator_uasym_trial'] = actuator_uasym_options
     options_dict['actuator_comparison_trial'] = actuator_comparison_options
     options_dict['vortex_force_zero_trial'] = vortex_force_zero_options
@@ -650,11 +666,13 @@ if __name__ == "__main__":
             test_vortex_3_dof()
 
         if types_of_problems['actuator']:
-            test_actuator_support_only_basic_health()
-            test_actuator_support_only()
-            test_actuator_qaxi_basic_health()
-            test_actuator_qaxi()
-            test_actuator_qasym()
+            # test_actuator_support_only_basic_health()
+            # test_actuator_qaxi_basic_health()
+            test_actuator_uaxi_basic_health()
+            # test_actuator_uasym_basic_health()
+            # test_actuator_support_only()
+            # test_actuator_qaxi()
+            # test_actuator_qasym()
             test_actuator_uaxi()
             test_actuator_uasym()
             test_actuator_comparison()

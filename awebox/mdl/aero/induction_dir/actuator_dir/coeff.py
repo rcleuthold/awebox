@@ -47,6 +47,20 @@ import awebox.tools.struct_operations as struct_op
 def get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
     corr = actuator_flow.get_corr_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     chi = actuator_flow.get_wake_angle_chi(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+    return get_LL_matrix_from_corr_and_chi(corr, chi)
+
+def get_LL_matrix_ref(model_options,parent, scaling):
+    a_ref = actuator_flow.get_a_ref(model_options)
+    corr = (1. - a_ref)
+    chi = 0.
+    # var_type = 'z'
+    # prefix = actuator_system.get_actuator_var_name_prefix()
+    # var_name = prefix + 'gamma' + str(parent)
+    # chi = scaling[var_type, var_name]
+    return get_LL_matrix_from_corr_and_chi(corr, chi)
+
+
+def get_LL_matrix_from_corr_and_chi(corr, chi):
     tanhalfchi = cas.tan(chi / 2.)
     sechalfchi = 1. / cas.cos(chi / 2.)
 
@@ -66,6 +80,7 @@ def get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters
     LL_matr = cas.vertcat(LL_row1, LL_row2, LL_row3)
 
     return LL_matr
+
 
 def get_MM_matrix():
     MM11 = 1.69765
@@ -109,10 +124,11 @@ def get_actuator_moment_z_rotor(model_options, variables, outputs, parent, archi
 # references
 
 
-def get_thrust_ref(model_options, atmos, wind, parameters):
-    reference = model_options['scaling']['z']['f_aero']
-    return reference
-
+def get_thrust_ref(parent, scaling):
+    var_type = 'z'
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    var_name = prefix + 'thrust' + str(parent)
+    return scaling[var_type, var_name, 0]
 
 def get_moment_ref(model_options, atmos, wind, parameters):
     reference = model_options['scaling']['z']['m_aero']
@@ -137,32 +153,46 @@ def get_t_star_numerator_ref(model_options, parameters):
     t_star_num = b_ref * (varrho_ref + 0.5)
     return t_star_num
 
-def get_t_star_denominator_val(variables, parent):
-    uzero_mag = actuator_flow.get_uzero_vec_length_var(variables, parent)
+def get_t_star_denominator_val(variables_si, parent):
+    uzero_mag = actuator_system.get_actuator_vector_length_var(variables_si, 'u', parent)
     t_star_den = uzero_mag
     return t_star_den
 
-def get_t_star_denominator_ref(wind):
-    t_star_den_ref = actuator_flow.get_uzero_vec_length_ref(wind)
+def get_t_star_denominator_ref(parent, scaling):
+    t_star_den_ref = actuator_flow.get_uzero_vec_length_ref(parent, scaling)
     return t_star_den_ref
 
 
-def get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture):
+def get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, scaling):
+
+    prefix = actuator_system.get_actuator_var_name_prefix()
+
     thrust = actuator_force.get_actuator_thrust_var(variables, parent)
     moment_y_val = get_actuator_moment_y_rotor(model_options, variables, outputs, parent, architecture)
     moment_z_val = get_actuator_moment_z_rotor(model_options, variables, outputs, parent, architecture)
 
     area = actuator_geom.get_area_var(variables, parent)
     qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
+    u_ref = wind.get_speed_ref()
+    qzero_ref = 0.5 * u_ref**2.
 
     bar_varrho_var = actuator_geom.get_bar_varrho_var(variables, parent)
     b_ref = parameters['theta0', 'geometry', 'b_ref']
     radius_bar = bar_varrho_var * b_ref
 
+    bar_varrho_ref = scaling['z', prefix + 'bar_varrho' + str(parent)]
+    area_ref = scaling['z', prefix + 'area' + str(parent)]
+    # area = 2 pi varrho b b -> b^2 = area / (2 pi varrho)
+    wingspan_ref = vect_op.smooth_sqrt(area_ref / (2. * np.pi * bar_varrho_ref))
+    radius_ref = bar_varrho_ref * wingspan_ref
+    thrust_ref = scaling['z', prefix + 'thrust' + str(parent)]
+
     thrust_denom = area * qzero
     moment_denom = thrust_denom * radius_bar
+    moment_denom_ref = area_ref * qzero_ref * radius_ref
 
     thrust_radius = thrust * radius_bar
     c_all = cas.vertcat(thrust_radius, moment_y_val, moment_z_val)
+    c_ref = cas.DM.ones((3, 1)) * thrust_ref * radius_ref
 
-    return c_all, moment_denom
+    return c_all, moment_denom, c_ref, moment_denom_ref
