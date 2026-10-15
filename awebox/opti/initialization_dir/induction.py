@@ -184,6 +184,9 @@ def initial_guess_actuator_support(init_options, model, V_init):
 
     prefix = actuator_system.get_actuator_var_name_prefix()
 
+    print_op.print_dict_as_table(init_options['precompute'])
+    print_op.warn_about_temporary_functionality_alteration()
+
     u_hat, v_hat, w_hat = get_local_wind_reference_frame(init_options)
     wind_dcm = cas.horzcat(u_hat, v_hat, w_hat)
     wind_dcm_cols = cas.reshape(wind_dcm, (9, 1))

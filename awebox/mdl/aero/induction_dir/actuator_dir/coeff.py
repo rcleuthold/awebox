@@ -50,29 +50,28 @@ def get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters
     return get_LL_matrix_from_corr_and_chi(corr, chi)
 
 def get_LL_matrix_ref(model_options,parent, scaling):
-    a_ref = actuator_flow.get_a_ref(model_options)
+    a_ref = actuator_flow.get_a_ref(model_options, parent, scaling)[0]
     corr = (1. - a_ref)
-    chi = 0.
-    # var_type = 'z'
-    # prefix = actuator_system.get_actuator_var_name_prefix()
-    # var_name = prefix + 'gamma' + str(parent)
-    # chi = scaling[var_type, var_name]
-    return get_LL_matrix_from_corr_and_chi(corr, chi)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    # chi_ref = scaling['z', prefix + 'gamma' + str(parent)]
+    chi_ref = 0.
+    return get_LL_matrix_from_corr_and_chi(corr, chi_ref)
 
 
 def get_LL_matrix_from_corr_and_chi(corr, chi):
+    # see page 136 (3.188) and 137 (3.189) of Wind Energy Handbook, Burton et al.
     tanhalfchi = cas.tan(chi / 2.)
     sechalfchi = 1. / cas.cos(chi / 2.)
 
     LL11 = 0.25 / corr
     LL12 = 0.
-    LL13 = -0.368155 * tanhalfchi
+    LL13 = -15. / 128. * np.pi * tanhalfchi
     LL21 = 0.
     LL22 = -1. * sechalfchi**2.
     LL23 = 0.
-    LL31 = (0.368155 * tanhalfchi ) / corr
+    LL31 = (15. / 128. / corr) * np.pi * tanhalfchi
     LL32 = 0.
-    LL33 = -1. + tanhalfchi**2.
+    LL33 = -1. * (1. - tanhalfchi**2.)
 
     LL_row1 = cas.horzcat(LL11, LL12, LL13)
     LL_row2 = cas.horzcat(LL21, LL22, LL23)
@@ -173,8 +172,15 @@ def get_c_all_components(model_options, atmos, wind, variables, parameters, outp
 
     area = actuator_geom.get_area_var(variables, parent)
     qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
-    u_ref = wind.get_speed_ref()
-    qzero_ref = 0.5 * u_ref**2.
+
+    print_op.warn_about_temporary_functionality_alteration()
+    # rela, put this back after things basically run?
+    u_alt_vec = wind.get_speed_ref() * vect_op.xhat_dm()
+    rho_ref = 1.
+    altitude = model_options['wind']['estimated_operating_altitude']
+    u_alt_vec = wind.get_velocity(altitude)
+    rho_ref = atmos.get_density(altitude)
+    qzero_ref = 0.5 * rho_ref * cas.mtimes(u_alt_vec.T, u_alt_vec)
 
     bar_varrho_var = actuator_geom.get_bar_varrho_var(variables, parent)
     b_ref = parameters['theta0', 'geometry', 'b_ref']
@@ -185,14 +191,29 @@ def get_c_all_components(model_options, atmos, wind, variables, parameters, outp
     # area = 2 pi varrho b b -> b^2 = area / (2 pi varrho)
     wingspan_ref = vect_op.smooth_sqrt(area_ref / (2. * np.pi * bar_varrho_ref))
     radius_ref = bar_varrho_ref * wingspan_ref
+    radius_ref = actuator_geom.get_radius_ref(model_options, parameters)
+    print_op.warn_about_temporary_functionality_alteration()
+    # rela, put this back after things basically run?
+
     thrust_ref = scaling['z', prefix + 'thrust' + str(parent)]
+    moment_proj_ref = actuator_force.get_actuator_moment_projected_ref(model_options, parameters, scaling, parent, architecture)
 
     thrust_denom = area * qzero
+    thrust_denom_ref = area_ref * qzero_ref
+
     moment_denom = thrust_denom * radius_bar
-    moment_denom_ref = area_ref * qzero_ref * radius_ref
+    moment_denom_ref = thrust_denom_ref * radius_ref
 
-    thrust_radius = thrust * radius_bar
-    c_all = cas.vertcat(thrust_radius, moment_y_val, moment_z_val)
-    c_ref = cas.DM.ones((3, 1)) * thrust_ref * radius_ref
+    c_numer = cas.vertcat(thrust, moment_y_val, moment_z_val)
+    c_denom = cas.vertcat(thrust_denom, moment_denom, moment_denom)
 
-    return c_all, moment_denom, c_ref, moment_denom_ref
+    c_num_ref = cas.vertcat(thrust_ref, moment_proj_ref, moment_proj_ref)
+    c_den_ref = cas.vertcat(thrust_denom_ref, moment_denom_ref, moment_denom_ref)
+
+    c_all = []
+    c_all_ref = []
+    for idx in range(3):
+        c_all = cas.vertcat(c_all, c_numer[idx]/c_denom[idx])
+        c_all_ref = cas.vertcat(c_all_ref, c_num_ref[idx] / c_den_ref[idx])
+
+    return c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref

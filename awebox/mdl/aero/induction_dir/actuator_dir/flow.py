@@ -321,9 +321,24 @@ def get_qzero_ref(atmos, wind):
     qzero_ref = .5 * rho_ref * uinfty_ref**2. * scale
     return qzero_ref
 
-def get_a_ref(model_options):
-    a_ref = model_options['aero']['actuator']['a_ref']
-    return a_ref
+def get_a_ref(model_options, parent, scaling):
+    print_op.warn_about_temporary_functionality_alteration()
+    label = get_label(model_options)
+
+    var_type = get_a_var_type(label)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    a0_name = prefix + 'a0_' + label + str(parent)
+    acos_name = prefix + 'acos_' + label + str(parent)
+    asin_name = prefix + 'asin_' + label + str(parent)
+
+    a0_ref = scaling[var_type, a0_name, 0]
+    if 'asym' in label:
+        acos_ref = scaling[var_type, acos_name, 0]
+        asin_ref = scaling[var_type, asin_name, 0]
+        a_all_ref = cas.vertcat(a0_ref, acos_ref, asin_ref)
+    else:
+        a_all_ref = a0_ref
+    return a_all_ref
 
 def get_uzero_vec_length_ref(parent, scaling):
     var_name = actuator_system.get_actuator_vector_length_name('u', parent)

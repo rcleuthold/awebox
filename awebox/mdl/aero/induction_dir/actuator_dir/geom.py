@@ -119,15 +119,19 @@ def get_varrho_ref(model_options):
     varrho_ref = model_options['aero']['actuator']['varrho_ref']
     return varrho_ref
 
-def get_area_ref(model_options, parameters):
+def get_radius_ref(model_options, parameters):
     b_ref = parameters['theta0','geometry','b_ref']
     varrho_ref = get_varrho_ref(model_options)
     r_ref = varrho_ref * b_ref
+    return r_ref
+
+def get_area_ref(model_options, parameters):
+    b_ref = parameters['theta0','geometry','b_ref']
+    r_ref = get_radius_ref(model_options, parameters)
     area_ref = 2. * np.pi * r_ref * b_ref
     return area_ref
 
 # residuals
-
 def get_center_cstr(model_options, parent, system_variables, architecture, scaling):
 
     variables_si = system_variables['SI']
@@ -259,8 +263,7 @@ def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architec
 
     resi_si = cas.vertcat(resi_y, resi_z)
 
-    varrho_ref = get_varrho_ref(model_options)
-    radius_ref = b_ref * varrho_ref
+    radius_ref = get_radius_ref(model_options, parameters)
     resi_combi = resi_si / radius_ref
 
     name = 'actuator_varrho_and_psi_' + str(kite)

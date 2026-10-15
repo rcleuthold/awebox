@@ -179,135 +179,82 @@ def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs,
 
 def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling):
 
-    a_var = actuator_flow.get_a0_var(variables, parent, label)
-    da_dt = actuator_flow.get_da_var(variables, parent, label)
-    a_ref = actuator_flow.get_a_ref(model_options)
+    # see page 147 (3.207 - 2.208) of Burton et al, Wind Energy Handbook
 
-    thrust = actuator_force.get_actuator_thrust_var(variables, parent)
-    area = actuator_geom.get_area_var(variables, parent)
-    qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
+    a_all = actuator_flow.get_a_all_var(variables, parent, label)
+    da_dt = actuator_flow.get_da_all_var(variables, parent, label)
 
-    corr_val = actuator_flow.get_corr_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
-    LLinv11 = 4. * corr_val
+    a_all_ref = actuator_flow.get_a_ref(model_options, parent, scaling)
 
+    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
+                                                              outputs, parent, architecture, scaling)
+
+    LL = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     MM = actuator_coeff.get_MM_matrix()
-    MM11 = MM[0, 0]
+    LLinv = cas.inv(LL)
 
-    t_star_num = actuator_coeff.get_t_star_numerator_val(variables, parameters, parent)
-    t_star_den = actuator_coeff.get_t_star_denominator_val(variables, parent)
-    t_star_num_ref = actuator_coeff.get_t_star_numerator_ref(model_options, parameters)
-    t_star_den_ref = actuator_coeff.get_t_star_denominator_ref(parent, scaling)
+    # MM is a diagonal matrix, if wake-skew = 0 then LLinv is also diagonal.
+    resi_unscaled = MM[0, 0] * da_dt[0]  + LLinv[0, 0] * a_all[0] - c_all[0]
 
-    # tau = t / t_star
-    # t = tau t_star
-    # dt/dtau = t_star
-
-    dt_dtau_num = t_star_num
-    dt_dtau_den = t_star_den
-    dt_dtau_num_ref = t_star_num_ref
-    dt_dtau_den_ref = t_star_den_ref
-
-    thrust_den = qzero * area
-    thrust_ref = actuator_coeff.get_thrust_ref(parent, scaling)
-
-    LLinv_ref = (4. * (1. - a_ref))
-    da_dt_ref = a_ref
-
-    term_1 = MM11 * da_dt * dt_dtau_num * thrust_den
-    term_2 = LLinv11 * a_var * thrust_den * dt_dtau_den
-    term_3 = -1. * thrust * dt_dtau_den
-
-    resi_unscaled = term_1 + term_2 + term_3
-
-    term_1_ref = MM11 * da_dt_ref * dt_dtau_num_ref * thrust_ref #ATP, 5m32s -- 2e9, ..e-8
-    term_2_ref = LLinv_ref * a_ref * thrust_ref * dt_dtau_den_ref #ATP, 5m26 -- 3e10, 2e-8
-    term_3_ref = thrust_ref * dt_dtau_den_ref
-
-    resi = resi_unscaled / term_1_ref
-
+    LL_ref = actuator_coeff.get_LL_matrix_ref(model_options,parent, scaling)
+    term_2_ref = cas.inv(LL_ref)[0, 0] * a_all_ref[0]
+    resi_reference = term_2_ref
+    resi = resi_unscaled / vect_op.smooth_abs(resi_reference)
     return resi
 
 
 def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling):
 
+    # see page 147 (3.207 - 2.208) of Burton et al, Wind Energy Handbook
+
     a_all = actuator_flow.get_a_all_var(variables, parent, label)
     da_dt = actuator_flow.get_da_all_var(variables, parent, label)
-    a_ref = actuator_flow.get_a_ref(model_options)
-    a_all_ref = cas.DM.ones((3, 1)) * a_ref
-    da_dt_ref = cas.DM.zeros((3, 1))
 
-    c_all, moment_den, c_ref, moment_denom_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
+    a_all_ref = actuator_flow.get_a_ref(model_options, parent, scaling)
+
+    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
                                                               outputs, parent, architecture, scaling)
 
     LL = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     MM = actuator_coeff.get_MM_matrix()
+    LLinv = cas.inv(LL)
 
-    moment_ref = actuator_coeff.get_moment_ref(model_options, atmos, wind, parameters)
-
-    t_star_num = actuator_coeff.get_t_star_numerator_val(variables, parameters, parent)
-    t_star_den = actuator_coeff.get_t_star_denominator_val(variables, parent)
-    t_star_num_ref = actuator_coeff.get_t_star_numerator_ref(model_options, parameters)
-    t_star_den_ref = actuator_coeff.get_t_star_denominator_ref(parent, scaling)
-    # tau = t / t_star
-    # t = tau t_star
-    # dt/dtau = t_star
-
-    dt_dtau_num = t_star_num
-    dt_dtau_den = t_star_den
-    dt_dtau_num_ref = t_star_num_ref
-    dt_dtau_den_ref = t_star_den_ref
+    resi_unscaled = cas.mtimes(LL, cas.mtimes(MM, da_dt)) + a_all - cas.mtimes(LL, c_all)
 
     LL_ref = actuator_coeff.get_LL_matrix_ref(model_options,parent, scaling)
+    # term_2_ref = cas.mtimes(cas.inv(LL_ref), a_all_ref)
+    term_2_ref = a_all_ref
+    vector_reference = term_2_ref
 
-    term_1 = cas.mtimes(LL, cas.mtimes(MM, da_dt)) * dt_dtau_num * moment_den
-    term_2 = a_all * moment_den * dt_dtau_den
-    term_3 = -1. * cas.mtimes(LL, c_all) * dt_dtau_den
-
-    resi_unscaled = term_1 + term_2 + term_3
-
-    term_1_ref_2 = cas.mtimes(LL_ref, cas.mtimes(MM, da_dt_ref)) * dt_dtau_num_ref * moment_den
-    term_2_ref_2 = a_all_ref * moment_denom_ref * dt_dtau_den_ref
-    term_3_ref_2 = cas.mtimes(LL_ref, c_ref) * dt_dtau_den_ref
-    geom_mean_ref = (vect_op.smooth_norm(term_2_ref_2) * vect_op.smooth_norm(term_3_ref_2)) ** 0.5
-
-    # term_1_ref = cas.mtimes(LL_ref, cas.mtimes(MM, da_dt_ref)) * dt_dtau_num_ref * moment_denom_ref
-    # term_2_ref = a_ref * moment_denom_ref * dt_dtau_den_ref # solve. 2e10, 2e-8. 5m?s
-    # term_3_ref = cas.mtimes(LL_ref, c_ref) * dt_dtau_den_ref
-    # geom_mean_ref = (vect_op.smooth_norm(term_1_ref) * vect_op.smooth_norm(term_2_ref) * vect_op.smooth_norm(term_3_ref))**0.333
-
-    # factor = 1. / geom_mean_ref
-    factor = 1. / term_2_ref_2[0]
-    resi = resi_unscaled * factor
+    resi = []
+    for dim in range(3):
+        local_scaled = resi_unscaled[dim] / vect_op.smooth_abs(vector_reference[dim])
+        resi = cas.vertcat(resi, local_scaled)
 
     return resi
 
 def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling):
 
-    c_all, moment_denom, c_ref, moment_denom_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, scaling)
+    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, scaling)
 
     LL_matr = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     LL_ref = actuator_coeff.get_LL_matrix_ref(model_options, parent, scaling)
 
     a_all = actuator_flow.get_a_all_var(variables, parent, label)
+    a_all_ref = actuator_flow.get_a_ref(model_options, parent, scaling)
 
-    moment_ref = actuator_coeff.get_moment_ref(model_options, atmos, wind, parameters)
-    a_ref = actuator_flow.get_a_ref(model_options)
+    # see page 136 (3.188) of Burton et al, Wind Energy Handbook
+    resi_unscaled = a_all - cas.mtimes(LL_matr, c_all)
 
-    term_1 = 0.
-    term_2 = a_all * moment_denom
-    term_3 = -1. * cas.mtimes(LL_matr, c_all)
+    term_1_ref = a_all_ref
+    term_2_ref = cas.mtimes(LL_ref, c_all_ref)
+    vector_reference = term_2_ref
 
-    resi_unscaled = term_1 + term_2 + term_3
+    resi = []
+    for dim in range(3):
+        local_scaled = resi_unscaled[dim] / vect_op.smooth_abs(vector_reference[dim])
+        resi = cas.vertcat(resi, local_scaled)
 
-    # term_2_ref = a_ref * moment_denom_ref
-    # term_3_ref_pref = (4. * a_ref * (1. - a_ref)) * moment_ref
-    # term_3_ref = cas.mtimes(LL_ref, c_ref)
-    # geom_mean_ref = (vect_op.smooth_norm(term_2_ref) * vect_op.smooth_norm(term_3_ref))**0.5
-    # factor = 1. / geom_mean_ref
-    # factor = 1. / vect_op.smooth_norm(term_2_ref)
-    factor = 1. / (LL_ref[0,0] * c_ref[0])
-
-    resi = resi_unscaled * factor
     return resi
 
 def get_actuator_orientation_cstr(model_options, wind, parent, variables_si, parameters, architecture, scaling):

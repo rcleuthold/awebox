@@ -779,7 +779,8 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
         awelogger.logger.warning(message)
         a_ref = a_ref_new
 
-    a_fourier_scaling = copy.deepcopy(a_ref)
+    print_op.warn_about_temporary_functionality_alteration()
+    a_fourier_scaling = copy.deepcopy(a_ref) / 10. # this needs to be a smaller number so that regularization actually gives this term mass
     if vect_op.is_numeric_scalar(a_fourier_range[1]):
         a_fourier_scaling = a_fourier_range[1] / 2.
 
@@ -788,6 +789,8 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
         options_tree.append(('model', 'scaling', a_labels_dict[label], prefix + 'a0_' + label, a_ref, ('descript', None), 'x'))
         for a_name in ['acos', 'asin']:
             options_tree.append(('model', 'scaling', a_labels_dict[label], prefix + a_name + '_' + label, a_fourier_scaling, ('descript', None), 'x'))
+            options_tree.append(('solver', 'initialization', 'z', prefix + a_name + '_' + label, 0., ('???', None), 'x')),
+
     options_tree.append(('model', 'scaling', 'z', prefix + 'local_a', a_ref, ('???', None), 'x')),
     options_tree.append(('solver', 'initialization', 'z', prefix + 'a0', a_ref, ('???', None), 'x')),
 
@@ -800,9 +803,9 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
     gamma_range = options['model']['aero']['actuator']['gamma_range']
     options_tree.append(('model', 'system_bounds', 'z', prefix + 'gamma', gamma_range, ('tilt angle bounds [rad]', None), 'x')),
     if vect_op.is_numeric_scalar(gamma_range[1]):
-        gamma_ref = gamma_range[1] * 0.5
+        gamma_ref = gamma_range[1] * 0.25
     else:
-        gamma_ref = np.pi/4.
+        gamma_ref = 10. * np.pi/180. # hardcoded
     options_tree.append(('model', 'scaling', 'z', prefix + 'gamma', gamma_ref, ('tilt angle bounds [rad]', None), 'x')),
     options_tree.append(('model', 'scaling', 'z', prefix + 'cosgamma', 0.5, ('tilt angle bounds [rad]', None), 'x')),
     options_tree.append(('model', 'scaling', 'z', prefix + 'singamma', 0.5, ('tilt angle bounds [rad]', None), 'x')),
@@ -1072,6 +1075,9 @@ def build_wind_options(options, options_tree, fixed_params):
     options_tree.append(('model', 'wind', None, 'u_ref', u_ref, ('reference wind speed [m/s]', None),'x'))
     options_tree.append(('model', 'wind', None, 'atmosphere_heightsdata', options['user_options']['wind']['atmosphere_heightsdata'],('data for the heights at this time instant', None),'x'))
     options_tree.append(('model', 'wind', None, 'atmosphere_featuresdata', options['user_options']['wind']['atmosphere_featuresdata'],('data for the features at this time instant', None),'x'))
+    options_tree.append(('model', 'wind', None, 'estimated_operating_altitude', estimate_altitude(options), ('?????', None), 'x'))
+
+
 
     z_ref = options['params']['wind']['z_ref']
     z0_air = options['params']['wind']['log_wind']['z0_air']
