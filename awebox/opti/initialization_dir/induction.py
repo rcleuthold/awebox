@@ -42,6 +42,7 @@ import awebox.tools.print_operations as print_op
 import awebox.opti.initialization_dir.tools as tools_init
 
 import awebox.mdl.aero.induction_dir.actuator_dir.actuator as actuator
+import awebox.mdl.aero.induction_dir.actuator_dir.flow as actuator_flow
 import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
 import awebox.mdl.aero.geometry_dir.unit_normal as unit_normal
 import awebox.mdl.aero.induction_dir.vortex_dir.vortex as vortex
@@ -187,10 +188,6 @@ def initial_guess_actuator_support(init_options, model, V_init):
     print_op.print_dict_as_table(init_options['precompute'])
     print_op.warn_about_temporary_functionality_alteration()
 
-    u_hat, v_hat, w_hat = get_local_wind_reference_frame(init_options)
-    wind_dcm = cas.horzcat(u_hat, v_hat, w_hat)
-    wind_dcm_cols = cas.reshape(wind_dcm, (9, 1))
-
     b_ref = init_options['sys_params_num']['geometry']['b_ref']
     varrho_ref = cas.DM(init_options['precompute']['radius'] / b_ref)
 
@@ -202,10 +199,12 @@ def initial_guess_actuator_support(init_options, model, V_init):
         variables = struct_op.get_variables_at_time(init_options, V_init, Xdot, model.variables, 0)
         n_vec_act = unit_normal.get_n_vec(init_options, parent, variables, model.architecture)
         n_hat_act = vect_op.normalize(n_vec_act)
-        z_hat_act = w_hat
-        y_hat_act = vect_op.normed_cross(z_hat_act, n_hat_act)
-        act_dcm = cas.horzcat(n_hat_act, y_hat_act, z_hat_act)
-        act_dcm_cols = cas.reshape(act_dcm, (9, 1))
+        uzero_hat = model.wind.get_wind_direction()
+
+        gamma = actuator_flow.calculate_gamma(n_hat_act, uzero_hat)
+        dcm_act, dcm_wind = actuator_flow.construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat_act, uzero_hat)
+        act_dcm_cols = cas.reshape(dcm_act, (9, 1))
+        wind_dcm_cols = cas.reshape(dcm_wind, (9, 1))
 
         if parent == 0:
             parent_position = np.zeros((3, 1))
@@ -228,9 +227,6 @@ def initial_guess_actuator_support(init_options, model, V_init):
 
         dict[actuator_system.get_actuator_dcm_name('n', parent)] = act_dcm_cols
         dict[actuator_system.get_actuator_dcm_name('u', parent)] = wind_dcm_cols
-
-        uzero_hat = model.wind.get_wind_direction()
-        gamma = vect_op.angle_between(n_rot_hat, uzero_hat)
 
         dict[prefix + 'gamma' + str(parent)] = gamma
         dict[prefix + 'cosgamma' + str(parent)] = np.cos(gamma)
@@ -258,7 +254,10 @@ def initial_guess_actuator_support(init_options, model, V_init):
     temp_dict = {}
     for var_name in model.variables_dict['z'].keys():
         temp_dict[var_name] = model.variables_dict['z'](model.scaling['z'])[var_name]
-    print_op.print_dict_as_table(temp_dict)
+    print_op.print_dict_as_table(temp_dict, caption='scaling values')
+
+    print_op.warn_about_temporary_functionality_alteration()
+    print_op.print_dict_as_table(dict, caption='init_values')
 
     return V_init
 

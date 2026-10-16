@@ -37,6 +37,7 @@ import numpy as np
 
 import awebox.mdl.aero.geometry_dir.geometry as geom
 import awebox.mdl.aero.induction_dir.actuator_dir.geom as actuator_geom
+import awebox.mdl.aero.induction_dir.actuator_dir.flow as actuator_flow
 import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
 import awebox.mdl.aero.induction_dir.general_dir.tools as general_tools
 
@@ -71,17 +72,24 @@ def get_actuator_moment(model_options, variables, outputs, parent, architecture)
 
     return total_moment_aero
 
-def get_actuator_moment_projected_ref(model_options, parameters, scaling, parent, architecture):
+def get_actuator_moment_projected_ref(model_options, parameters, scaling, parent, wind, architecture):
 
     f_aero_scaling = model_options['scaling']['z']['f_aero']
 
-    altitude = model_options['wind']['estimated_operating_altitude']
-    l_t = scaling['x', 'l_t']
-    inclination = cas.acos(altitude / l_t)
+    dcm_act, dcm_wind = actuator_flow.estimate_reference_actuator_and_wind_reference_frames(model_options, wind, scaling)
+    f_hat_temp = dcm_wind[:, 0]
+    r_hat_temp = dcm_act[:, 1]
+    ehat_perp = dcm_act[:, 2]
 
-    f_hat_temp = vect_op.xhat_dm()
-    r_hat_temp = cas.sin(inclination) * vect_op.xhat_dm() + cas.cos(inclination) * vect_op.zhat_dm()
-    ehat_perp = vect_op.normed_cross(f_hat_temp, r_hat_temp)
+    #
+    #
+    # altitude = model_options['wind']['estimated_operating_altitude']
+    # l_t = scaling['x', 'l_t']
+    # inclination = cas.asin(altitude / l_t)
+    #
+    # f_hat_temp = vect_op.xhat_dm()
+    # r_hat_temp = -cas.sin(inclination) * vect_op.xhat_dm() + cas.cos(inclination) * vect_op.zhat_dm()
+    # ehat_perp = vect_op.normed_cross(f_hat_temp, r_hat_temp)
 
     aero_force = f_aero_scaling * f_hat_temp
     radius_ref = actuator_geom.get_radius_ref(model_options, parameters)

@@ -399,30 +399,35 @@ def generate_options_dict():
     actuator_qaxi_options['model.scaling.other.flight_radius_estimate'] = 'cone'
     actuator_qaxi_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
     actuator_qaxi_options['model.aero.actuator.gamma_range'] = [-np.pi / 2., np.pi / 2.]  # cas.inf, cas.inf] #5. * np.pi, 5. * np.pi]
-    actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-cas.inf, cas.inf]
-    # actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-1., 1.]
     actuator_qaxi_options['model.aero.actuator.a_ref'] = 0.3
-    actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5] #-cas.inf, cas.inf] #0.5]
+    actuator_qaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]
+    actuator_qaxi_options['model.aero.actuator.a_fourier_ref'] = 0.1
+    # actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-cas.inf, cas.inf]
+    actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-1., 1.]
+    actuator_qaxi_options['model.aero.actuator.asym_radial_linearity'] = True
+    # actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5] #-cas.inf, cas.inf] #0.5]
     actuator_qaxi_options['solver.cost_factor.power'] = 1e1
     actuator_qaxi_options['solver.weights.actuator'] = 1.e-1 # rela, adjust this when things run
     print_op.warn_about_temporary_functionality_alteration()
-    # actuator_qaxi_options['solver.cost.u_regularisation.0'] = 1e-4
+    actuator_qaxi_options['solver.cost.u_regularisation.0'] = 1e-4
     actuator_qaxi_basic_health_options = make_basic_health_variant(actuator_qaxi_options)
 
     actuator_support_only_options = copy.deepcopy(actuator_qaxi_options)
     actuator_support_only_options['model.aero.actuator.support_only'] = True
-    actuator_support_only_options['solver.weights.actuator'] = 1e0
+    # actuator_support_only_options['solver.weights.actuator'] = 1e0
 
     actuator_support_only_basic_health_options = make_basic_health_variant(actuator_support_only_options)
 
     actuator_uaxi_options = copy.deepcopy(actuator_qaxi_options)
     actuator_uaxi_options['model.aero.actuator.steadyness'] = 'unsteady'
-    actuator_uaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]  # -cas.inf, cas.inf] #0.5]
+    # actuator_uaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]  # -cas.inf, cas.inf] #0.5]
 
     actuator_uaxi_basic_health_options = make_basic_health_variant(actuator_uaxi_options)
 
     actuator_qasym_options = copy.deepcopy(actuator_qaxi_options)
     actuator_qasym_options['model.aero.actuator.symmetry'] = 'asymmetric'
+    # actuator_qasym_options['solver.weights.actuator'] = 1e0
+    actuator_qasym_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
 
     actuator_qasym_basic_health_options = make_basic_health_variant(actuator_qasym_options)
 
@@ -430,7 +435,9 @@ def generate_options_dict():
     actuator_uasym_options['model.aero.actuator.steadyness'] = 'unsteady'
     actuator_uasym_options['model.aero.actuator.symmetry'] = 'asymmetric'
     # actuator_uasym_options['model.aero.actuator.a_range'] = [-cas.inf, cas.inf]
-    actuator_uasym_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]  # -cas.inf, cas.inf] #0.5]
+    # # # actuator_uasym_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]  # -cas.inf, cas.inf] #0.5]
+    # actuator_uasym_options['model.aero.actuator.gamma_range'] = [-cas.inf, cas.inf]
+    # # actuator_uasym_options['solver.weights.actuator'] = 1e0
 
     actuator_uasym_basic_health_options = make_basic_health_variant(actuator_uasym_options)
 
@@ -685,14 +692,14 @@ if __name__ == "__main__":
             # test_actuator_qaxi_basic_health()
             # test_actuator_qaxi()
 
-            # test_actuator_qasym_basic_health()
-            # test_actuator_qasym()
-            #
+            test_actuator_qasym_basic_health()
+            test_actuator_qasym()
+
             # test_actuator_uaxi_basic_health()
             # test_actuator_uaxi()
             # #
-            test_actuator_uasym_basic_health()
-            test_actuator_uasym()
+            # test_actuator_uasym_basic_health()
+            # test_actuator_uasym()
             #
             # test_actuator_comparison()
 

@@ -50,13 +50,13 @@ import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
 
 import awebox.viz.tools as viz_tools
 
-# switches
 
 def get_mu_radial_ratio(variables, kite, parent):
     varrho_var = get_varrho_var(variables, kite, parent)
-    mu = varrho_var / (varrho_var + 0.5)
-
+    bar_varrho_var = get_bar_varrho_var(variables, parent)
+    mu = varrho_var / (bar_varrho_var + 0.5)
     return mu
+
 # variables
 
 def get_actuator_velocity_var(variables_si, parent):

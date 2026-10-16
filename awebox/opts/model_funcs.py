@@ -780,8 +780,8 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
         a_ref = a_ref_new
 
     print_op.warn_about_temporary_functionality_alteration()
-    a_fourier_scaling = copy.deepcopy(a_ref) / 10. # this needs to be a smaller number so that regularization actually gives this term mass
-    if vect_op.is_numeric_scalar(a_fourier_range[1]):
+    a_fourier_scaling = options['model']['aero']['actuator']['a_fourier_ref']
+    if not vect_op.is_numeric_scalar(a_fourier_scaling) and vect_op.is_numeric_scalar(a_fourier_range[1]):
         a_fourier_scaling = a_fourier_range[1] / 2.
 
     a_labels_dict = {'qaxi': 'z', 'qasym': 'z', 'uaxi': 'x', 'uasym' : 'x'}

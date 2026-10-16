@@ -52,11 +52,8 @@ def get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters
 def get_LL_matrix_ref(model_options,parent, scaling):
     a_ref = actuator_flow.get_a_ref(model_options, parent, scaling)[0]
     corr = (1. - a_ref)
-    prefix = actuator_system.get_actuator_var_name_prefix()
-    # chi_ref = scaling['z', prefix + 'gamma' + str(parent)]
     chi_ref = 0.
     return get_LL_matrix_from_corr_and_chi(corr, chi_ref)
-
 
 def get_LL_matrix_from_corr_and_chi(corr, chi):
     # see page 136 (3.188) and 137 (3.189) of Wind Energy Handbook, Burton et al.
@@ -79,6 +76,55 @@ def get_LL_matrix_from_corr_and_chi(corr, chi):
     LL_matr = cas.vertcat(LL_row1, LL_row2, LL_row3)
 
     return LL_matr
+
+def get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
+    corr = actuator_flow.get_corr_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+    chi = actuator_flow.get_wake_angle_chi(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+    return get_LL_inv_matrix_from_corr_and_chi(corr, chi)
+
+def get_LL_inv_matrix_ref(model_options,parent, scaling):
+    a_ref = actuator_flow.get_a_ref(model_options, parent, scaling)[0]
+    corr = (1. - a_ref)
+    chi_ref = 0.
+    return get_LL_inv_matrix_from_corr_and_chi(corr, chi_ref)
+
+def test_LL_inversion_correctly_implemented(thresh=1e-3):
+    # random values
+    a_ref = 0.27
+    chi_ref = 17. * np.pi / 180.
+
+    corr = (1. - a_ref)
+    LL = get_LL_matrix_from_corr_and_chi(corr, chi_ref)
+    LLinv, _, _ = get_LL_inv_matrix_from_corr_and_chi(corr, chi_ref)
+    diff = vect_op.columnize(cas.mtimes(LLinv, LL) - cas.DM_eye(3))
+    test = cas.mtimes(diff.T, diff) < thresh**2.
+    if not test:
+        message = 'something went wrong when implementing the actuator model LL and LLinv matrices'
+        print_op.log_and_raise_error(message)
+    return None
+
+
+def get_LL_inv_matrix_from_corr_and_chi(corr, chi):
+    denom = -225. * np.pi**2. + (8192. + 225. * np.pi**2.) * cas.cos(chi)
+
+    inv11_num = 32768. * corr * cas.cos(chi)
+    inv12_num = 0.
+    inv13_num = -1920. * corr * np.pi * cas.sin(chi)
+    inv21_num = 0.
+    inv22_num = denom * (-1. * cas.cos(chi/2.)**2.)
+    inv23_num = 0.
+    inv31_num = 1920. * np.pi * cas.sin(chi)
+    inv32_num = 0.
+    inv33_num = -4096. * (1. + cas.cos(chi))
+
+    num_row1 = cas.horzcat(inv11_num, inv12_num, inv13_num)
+    num_row2 = cas.horzcat(inv21_num, inv22_num, inv23_num)
+    num_row3 = cas.horzcat(inv31_num, inv32_num, inv33_num)
+    num_matr = cas.vertcat(num_row1, num_row2, num_row3)
+
+    LLinv = num_matr / denom
+
+    return LLinv, num_matr, denom
 
 
 def get_MM_matrix():
@@ -175,12 +221,17 @@ def get_c_all_components(model_options, atmos, wind, variables, parameters, outp
 
     print_op.warn_about_temporary_functionality_alteration()
     # rela, put this back after things basically run?
-    u_alt_vec = wind.get_speed_ref() * vect_op.xhat_dm()
+    u_zero_est = wind.get_speed_ref() * vect_op.xhat_dm()
     rho_ref = 1.
     altitude = model_options['wind']['estimated_operating_altitude']
     u_alt_vec = wind.get_velocity(altitude)
+    l_t = scaling['x', 'l_t']
+    inclination = cas.asin(altitude / l_t)
+    f_reelout_loyd = 1./3.
+    u_reelout_vec = vect_op.norm(u_alt_vec) * f_reelout_loyd * (cas.cos(inclination) * vect_op.xhat_dm() + cas.sin(inclination) * vect_op.zhat_dm())
+    u_zero_est = u_alt_vec - u_reelout_vec
     rho_ref = atmos.get_density(altitude)
-    qzero_ref = 0.5 * rho_ref * cas.mtimes(u_alt_vec.T, u_alt_vec)
+    qzero_ref = 0.5 * rho_ref * cas.mtimes(u_zero_est.T, u_zero_est)
 
     bar_varrho_var = actuator_geom.get_bar_varrho_var(variables, parent)
     b_ref = parameters['theta0', 'geometry', 'b_ref']
@@ -196,7 +247,7 @@ def get_c_all_components(model_options, atmos, wind, variables, parameters, outp
     # rela, put this back after things basically run?
 
     thrust_ref = scaling['z', prefix + 'thrust' + str(parent)]
-    moment_proj_ref = actuator_force.get_actuator_moment_projected_ref(model_options, parameters, scaling, parent, architecture)
+    moment_proj_ref = actuator_force.get_actuator_moment_projected_ref(model_options, parameters, scaling, parent, wind, architecture)
 
     thrust_denom = area * qzero
     thrust_denom_ref = area_ref * qzero_ref

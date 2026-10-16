@@ -33,6 +33,7 @@ _python-3.5 / casadi-3.4.5
 
 import casadi.tools as cas
 import numpy as np
+
 from awebox.logger.logger import Logger as awelogger
 
 import awebox.mdl.aero.induction_dir.actuator_dir.geom as actuator_geom
@@ -276,6 +277,53 @@ def check_that_wzero_is_parallel_to_z_rotor(variables_si, parent, epsilon=1e-5):
     return None
 
 
+def estimate_reference_actuator_and_wind_reference_frames(model_options, wind, scaling):
+    altitude = model_options['wind']['estimated_operating_altitude']
+    u_alt_vec = wind.get_velocity(altitude)
+    l_t = scaling['x', 'l_t']
+    inclination = cas.asin(altitude / l_t)
+    n_hat = cas.cos(inclination) * vect_op.xhat_dm() + cas.sin(inclination) * vect_op.zhat_dm()
+
+    f_reelout_loyd = 1./3.
+    u_reelout_vec = vect_op.norm(u_alt_vec) * f_reelout_loyd * n_hat
+    u_zero_est = u_alt_vec - u_reelout_vec
+    u_hat = vect_op.normalize(u_zero_est)
+
+    dcm_act, dcm_wind = construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat)
+    return dcm_act, dcm_wind
+
+
+def construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat):
+    # see fig. 3.47 on page 97 of Burton et al, Wind Energy Handbook
+    z_hat = vect_op.normed_cross(u_hat, n_hat)
+    y_hat = vect_op.normed_cross(z_hat, n_hat)
+
+    w_hat = z_hat
+    v_hat = vect_op.normed_cross(w_hat, u_hat)
+
+    dcm_act = cas.horzcat(n_hat, y_hat, z_hat)
+    dcm_wind = cas.horzcat(u_hat, v_hat, w_hat)
+    return dcm_act, dcm_wind
+
+def test_gamma_angle_for_dcms(thresh=1e-2):
+
+    # see Fig. 3.47 on page 97 of Burton et al, Wind Energy Handbook
+    u_hat = vect_op.xhat_dm()
+
+    gamma = 17. * np.pi / 180.
+    n_hat = cas.cos(gamma) * vect_op.xhat_dm() + cas.sin(gamma) * vect_op.yhat_dm()
+    test_1 = (calculate_gamma(n_hat, u_hat) - gamma)**2. < thresh**2.
+
+    w_hat = vect_op.zhat_dm()
+    dcm_act, dcm_wind = construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat)
+    w_diff = dcm_wind[:, 2] - w_hat
+    test_2 = cas.mtimes(w_diff.T, w_diff) < thresh**2.
+
+    if not (test_1 and test_2):
+        message = 'something went wrong with the reference frame or yaw angle calculations'
+        print_op.log_and_raise_error(message)
+    return None
+
 def get_induction_factor_assignment_cstr(model_options, variables, kite, parent, scaling):
     a_var = get_local_a_var(variables, kite, parent)
 
@@ -297,11 +345,14 @@ def get_induction_factor_assignment_cstr(model_options, variables, kite, parent,
 
 
 ## values
+def calculate_gamma(n_hat, u_hat):
+    gamma = vect_op.angle_between(n_hat, u_hat)
+    return gamma
 
 def get_gamma_val(model_options, wind, parent, variables, architecture, scaling):
     u_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'u', parent)
     n_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'n', parent)
-    gamma = vect_op.angle_between(n_hat_var, u_hat_var)
+    gamma = calculate_gamma(n_hat_var, u_hat_var)
     return gamma
 
 def get_gamma_check(model_options, wind, parent, variables, architecture, scaling):

@@ -111,6 +111,7 @@ def set_default_options(default_user_options, help_options):
         ('model', 'aero', 'actuator',   'support_only',         False,      ('compute only the geometric reference value for the induction factors in actuator-disk model.', [True, False], None), 'x'),
         ('model', 'aero', 'actuator',   'a_ref',        0.33,               ('reference value for the induction factors in actuator-disk model. takes values between 0. and 0.4', None, None),'x'),
         ('model', 'aero', 'actuator',   'a_range',      [0., 0.5],          ('allowed range for induction factors', None, None),'x'),
+        ('model', 'aero', 'actuator',   'a_fourier_ref', 0.001,             ('reference magnitude for the a_cos and a_sin, coefficients in the 1st order fourier summation', None, None), 'x'),
         ('model', 'aero', 'actuator',   'a_fourier_range', [-0.01, 0.01],   ('allowed range for a_cos and a_sin, coefficients in the 1st order fourier summation', None, None), 'x'),
         ('model', 'aero', 'actuator',   'scaling',      1.,                 ('scaling factor for the actuator-disk residual', None, None),'x'),
         ('model', 'aero', 'actuator',   'position_scaling_method', 'default',  ('the method of estimating the actuator center position for problem scaling - default uses the standard node position scaling method', ['default', 'radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether'], None), 'x'),
