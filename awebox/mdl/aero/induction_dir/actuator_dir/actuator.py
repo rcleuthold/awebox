@@ -194,11 +194,13 @@ def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables,
     LLinv = cas.inv(LL)
 
     # MM is a diagonal matrix, if wake-skew = 0 then LLinv is also diagonal.
-    resi_unscaled = MM[0, 0] * da_dt[0]  + LLinv[0, 0] * a_all[0] - c_all[0]
+    # resi_unscaled = MM[0, 0] * da_dt[0]  + LLinv[0, 0] * a_all[0] - c_all[0]
+    resi_unscaled = c_denom[0] * (MM[0, 0] * da_dt[0] + LLinv[0, 0] * a_all[0]) - c_numer[0]
 
     LL_ref = actuator_coeff.get_LL_matrix_ref(model_options,parent, scaling)
     term_2_ref = cas.inv(LL_ref)[0, 0] * a_all_ref[0]
-    resi_reference = term_2_ref
+    # resi_reference = term_2_ref
+    resi_reference = c_num_ref[0]
     resi = resi_unscaled / vect_op.smooth_abs(resi_reference)
     return resi
 
@@ -214,16 +216,19 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables
 
     c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
                                                               outputs, parent, architecture, scaling)
+    c_denom_diag = cas.diag(c_denom)
 
     LL = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     MM = actuator_coeff.get_MM_matrix()
     LLinv = cas.inv(LL)
 
-    resi_unscaled = cas.mtimes(LL, cas.mtimes(MM, da_dt)) + a_all - cas.mtimes(LL, c_all)
+    # resi_unscaled = cas.mtimes(LL, cas.mtimes(MM, da_dt)) + a_all - cas.mtimes(LL, c_all)
+    resi_unscaled = cas.mtimes(c_denom_diag, (cas.mtimes(LL, cas.mtimes(MM, da_dt)) + a_all)) - cas.mtimes(LL, c_numer)
 
     LL_ref = actuator_coeff.get_LL_matrix_ref(model_options,parent, scaling)
     # term_2_ref = cas.mtimes(cas.inv(LL_ref), a_all_ref)
-    term_2_ref = a_all_ref
+    # term_2_ref = a_all_ref
+    term_2_ref = cas.mtimes(LL_ref, c_num_ref)
     vector_reference = term_2_ref
 
     resi = []
@@ -236,6 +241,7 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables
 def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling):
 
     c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, scaling)
+    c_denom_diag = cas.diag(c_denom)
 
     LL_matr = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     LL_ref = actuator_coeff.get_LL_matrix_ref(model_options, parent, scaling)
@@ -244,10 +250,12 @@ def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, 
     a_all_ref = actuator_flow.get_a_ref(model_options, parent, scaling)
 
     # see page 136 (3.188) of Burton et al, Wind Energy Handbook
-    resi_unscaled = a_all - cas.mtimes(LL_matr, c_all)
+    # resi_unscaled = a_all - cas.mtimes(LL_matr, c_all)
+    resi_unscaled = cas.mtimes(c_denom_diag, a_all) - cas.mtimes(LL_matr, c_numer)
 
     term_1_ref = a_all_ref
-    term_2_ref = cas.mtimes(LL_ref, c_all_ref)
+    # term_2_ref = cas.mtimes(LL_ref, c_all_ref)
+    term_2_ref = cas.mtimes(LL_ref, c_num_ref)
     vector_reference = term_2_ref
 
     resi = []
