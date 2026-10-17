@@ -183,14 +183,15 @@ def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables,
 
     a_all = actuator_flow.get_a_all_var(variables, parent, label)
     da_dt = actuator_flow.get_da_all_var(variables, parent, label)
-    a_all_ref = actuator_flow.get_a_ref(model_options, parent, scaling)
+    a_all_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)
 
     c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
                                                               outputs, parent, architecture, scaling)
 
     # LL = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
-    MM = actuator_coeff.get_MM_matrix()
+    clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
+    MM = actuator_coeff.get_MM_matrix(clockwise_rotation_about_xhat)
 
     # MM is a diagonal matrix; if no wake-misalignment (chi=0) then LLinv is also diagonal.
     term_1 = MM[0, 0] * da_dt[0] * c_denom[0] * LLinv_denom
@@ -211,26 +212,32 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables
     # see page 147 (3.207 - 2.208) of Burton et al, Wind Energy Handbook
 
     a_all = actuator_flow.get_a_all_var(variables, parent, label)
-    da_dt = actuator_flow.get_da_all_var(variables, parent, label)
-    a_all_ref = actuator_flow.get_a_ref(model_options, parent, scaling)
+    da_dt_all = actuator_flow.get_da_all_var(variables, parent, label)
+    a_all_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)
+    da_dt_all_ref = actuator_flow.get_da_all_ref(model_options, parent, scaling)
 
     c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
                                                               outputs, parent, architecture, scaling)
     c_denom_diag = cas.diag(c_denom)
+    c_denom_diag_ref = cas.diag(c_den_ref)
 
     # LL = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
-    MM = actuator_coeff.get_MM_matrix()
+    clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
+    MM = actuator_coeff.get_MM_matrix(clockwise_rotation_about_xhat)
     LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
 
     # MM da_dt + LLinv a = c_all
-    term_1 = cas.mtimes(c_denom_diag, cas.mtimes(MM, da_dt)) * LLinv_denom
+    term_1 = cas.mtimes(c_denom_diag, cas.mtimes(MM, da_dt_all)) * LLinv_denom
     term_2 = cas.mtimes(c_denom_diag, cas.mtimes(LLinv_num, a_all))
     term_3 = -1. * c_numer * LLinv_denom
     resi_unscaled = term_1 + term_2 + term_3
 
     # LL_ref = actuator_coeff.get_LL_matrix_ref(model_options,parent, scaling)
     LLinv_ref, LLinv_num_ref, LLinv_denom_ref = actuator_coeff.get_LL_inv_matrix_ref(model_options,parent, scaling)
-    term_3_ref = c_num_ref * LLinv_denom_ref
+    term_0_ref = actuator_force.get_actuator_thrust_ref(parent, scaling) * cas.DM.ones((3, 1))
+    term_1_ref = cas.mtimes(c_denom_diag_ref, cas.mtimes(MM, da_dt_all_ref)) * LLinv_denom_ref
+    term_2_ref = cas.mtimes(c_denom_diag_ref, cas.mtimes(LLinv_num_ref, a_all_ref))
+    term_3_ref = -1. * c_num_ref * LLinv_denom_ref
     vector_reference = term_3_ref
 
     resi = []
@@ -240,23 +247,148 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables
 
     return resi
 
+
+def test_signs_of_qasym(eps=1e-3):
+    # see Figures in Burton et al, Wind Energy Handbook:
+    # axes in figure 3.46, page 97
+    # streamline sketch in figure 3.54, page 105,
+    # angle-of-attack sketch in figure 3.61 page 112
+    # if positive gamma rotates about +zhat, then high force on side with rotor into wind and low force on side with rotor out of wind,
+    # meaning torque rotates turbine about -zhat
+
+    # "If the yaw error is positive, the left-hand side of the rotor (looking downwind) which is the downwind side of the rotor, should experience lower induction factors than the right-hand side of the rotor (upwind side)." - Suzuki2000, page 22
+
+    # values in test roughly inspired by values in fig. 4, page 8, of
+    # A review of momentum models for the actuator disk in yaw, Hur et al,
+    # https://arc.aiaa.org/doi/10.2514/6.2019-1799
+    # AIAA 2019-1799
+    # Session: Wind Energy Modeling Approaches
+    # Published Online:6 Jan 2019 https://doi.org/10.2514/6.2019-1799
+    # https://www.researchgate.net/profile/Chihoon-Hur-2/publication/330199212_A_review_of_momentum_models_for_the_actuator_disk_in_yaw/links/5d60078c299bf1f70b077ec2/A-review-of-momentum-models-for-the-actuator-disk-in-yaw.pdf
+
+    ct = 0.6
+    approx_a0 = 0.18
+    gamma_yaw = 30. * np.pi / 180.
+
+    cmz = 0.
+    cmy = 0.
+
+    exterior_radius = 1.
+    radius_bar = 0.7 * exterior_radius # Page 199 of branlard
+    wingspan = (exterior_radius - radius_bar) * 2.
+
+    area = np.pi * exterior_radius**2.
+    rho = 1.225
+    u_zero = 5.
+    actuator_dynamic_pressure = 0.5 * rho * u_zero**2.
+
+    thrust = ct * actuator_dynamic_pressure * area
+    moment_y = cmy * actuator_dynamic_pressure * area * exterior_radius
+    moment_z = cmz * actuator_dynamic_pressure * area * exterior_radius
+
+    c_all, c_numer, c_denom = actuator_coeff.assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynamic_pressure, area, radius_bar, wingspan)
+    c_denom_diag_inv = cas.inv(cas.diag(c_denom))
+
+    corr = (1. - approx_a0)
+    chi = (0.6 * approx_a0 + 1.) * gamma_yaw
+    LL_matr = actuator_coeff.get_LL_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat=True)
+
+    a_all = cas.mtimes(c_denom_diag_inv, cas.mtimes(LL_matr, c_numer))
+    # a_all = cas.mtimes(LL_matr, c_all)
+    a_dict = actuator_flow.unstack_a_all(a_all)
+
+    n_hat = cas.cos(gamma_yaw) * vect_op.xhat_dm() + cas.sin(gamma_yaw) * vect_op.yhat_dm()
+    u_hat = vect_op.xhat_dm()
+    dcm_act, dcm_wind = actuator_flow.construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat)
+    y_rotor_hat = dcm_act[:, 1]
+    z_rotor_hat = dcm_act[:, 2]
+
+    dict = {}
+    idx = 0
+    smallest = +999999.
+    largest = -999999.
+    for mu in [1.]:
+        for psi in [0., np.pi/2., np.pi, 3. * np.pi/2., 2. * np.pi]:
+
+            radius = mu * exterior_radius
+            radial_vector = actuator_geom.assemble_radial_vector(radius, y_rotor_hat, z_rotor_hat, psi)
+            a_local = actuator_flow.assemble_asym_local_induction_factor(a_dict, psi, mu)
+
+            if cas.mtimes(radial_vector.T, y_rotor_hat)**2. < eps:
+                tentative_intermediate_value = a_local
+                stream_origin = cas.mtimes(radial_vector.T, u_hat)
+
+            if a_local < smallest:
+                smallest = a_local
+            if a_local > largest:
+                largest = a_local
+
+            local_point = {'y': cas.mtimes(radial_vector.T, y_rotor_hat), 'z': cas.mtimes(radial_vector.T, z_rotor_hat), 'u': cas.mtimes(radial_vector.T, u_hat), 'a': a_local}
+            dict[idx] = local_point
+            idx += 1
+
+    # test -1 = positive y values are upstream of negative y values
+    pos_y_upstream_of_neg_y = True
+
+    # test_0 = tentative intermediate value is actually intermediate
+    intermediate_value_is_intermediate = (smallest < tentative_intermediate_value) and (largest > tentative_intermediate_value)
+
+    # test_1 = when y is zero we actually have intermediate value
+    when_y_is_zero_we_have_intermediate_value = True
+    for idx, local_dict in dict.items():
+        if local_dict['y']**2. < eps:
+            when_y_is_zero_we_have_intermediate_value = when_y_is_zero_we_have_intermediate_value and ((local_dict['a'] - tentative_intermediate_value)**2. < eps)
+
+    # test 2 = when y is positive, we have the larger induction factor
+    when_y_is_pos_we_have_largest_val = True
+    for idx, local_dict in dict.items():
+        if local_dict['y'] > eps:
+            when_y_is_pos_we_have_largest_val = when_y_is_pos_we_have_largest_val and ((local_dict['a'] - largest)**2. < eps)
+            pos_y_upstream_of_neg_y = pos_y_upstream_of_neg_y and (local_dict['u'] < stream_origin)
+
+    # test 3 = when y is negative, we have the smaller induction factor
+    when_y_is_neg_we_have_smallest_val = True
+    for idx, local_dict in dict.items():
+        if local_dict['y'] < (-1 * eps):
+            when_y_is_neg_we_have_smallest_val = when_y_is_neg_we_have_smallest_val and ((local_dict['a'] - smallest)**2. < eps)
+            pos_y_upstream_of_neg_y = pos_y_upstream_of_neg_y and (local_dict['u'] > stream_origin)
+
+    # test 4 = values are roughly similar to those printed in Hur et al
+    expected = cas.DM([0.09, 0.18, 0.26])
+    found = cas.DM([smallest, tentative_intermediate_value, largest])
+    diff = expected - found
+    values_are_roughly_similar = (cas.mtimes(diff.T, diff)) < (eps * vect_op.norm(expected))
+
+    test = pos_y_upstream_of_neg_y and intermediate_value_is_intermediate and when_y_is_zero_we_have_intermediate_value and when_y_is_pos_we_have_largest_val and when_y_is_neg_we_have_smallest_val and values_are_roughly_similar
+
+    if not test:
+        print_op.print_dict_as_table(dict)
+        message = 'something went wrong with the sign conventions on the yawed/skewed-wake model.'
+        print_op.log_and_raise_error(message)
+    return None
+
+
 def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling):
 
     c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, scaling)
     c_denom_diag = cas.diag(c_denom)
+    c_denom_diag_ref = cas.diag(c_den_ref)
 
     LL_matr = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     LL_ref = actuator_coeff.get_LL_matrix_ref(model_options, parent, scaling)
 
     a_all = actuator_flow.get_a_all_var(variables, parent, label)
-    a_all_ref = actuator_flow.get_a_ref(model_options, parent, scaling)
+    a_all_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)
 
     # see page 136 (3.188) of Burton et al, Wind Energy Handbook
     term_1 = -1. * cas.mtimes(c_denom_diag, a_all)
     term_2 = cas.mtimes(LL_matr, c_numer)
     resi_unscaled = term_1 + term_2
 
+    term_0_ref = actuator_force.get_actuator_thrust_ref(parent, scaling) * cas.DM.ones((3, 1))
+    term_1_ref = -1. * cas.mtimes(c_denom_diag_ref, a_all_ref)
     term_2_ref = cas.mtimes(LL_ref, c_num_ref)
+    # vector_reference = term_2_ref
     vector_reference = term_2_ref
 
     resi = []
@@ -379,9 +511,8 @@ def collect_actuator_support_outputs(model_options, atmos, wind, variables, outp
         outputs['actuator']['ct' + str(parent)] = ct
 
         outputs['actuator']['w_z_check' + str(parent)] = actuator_flow.get_wzero_parallel_z_rotor_check(variables, parent)
-        outputs['actuator']['gamma_check' + str(parent)] = actuator_flow.get_gamma_check(model_options, wind, parent, variables,
-                                                                                         architecture, scaling)
-        outputs['actuator']['gamma_comp' + str(parent)] = actuator_flow.get_gamma_val(model_options, wind, parent, variables, architecture, scaling)
+        outputs['actuator']['gamma_check' + str(parent)] = actuator_flow.get_gamma_check(variables, parent)
+        outputs['actuator']['gamma_comp' + str(parent)] = actuator_flow.get_gamma_val(variables, parent)
 
     return outputs
 
@@ -397,6 +528,7 @@ def draw_actuator(ax, side, plot_dict, cosmetics, index):
 def sanity_check(init_options, variables_si, wind, architecture, epsilon=1e-5):
     actuator_flow.test_gamma_angle_for_dcms()
     actuator_coeff.test_LL_inversion_correctly_implemented()
+    test_signs_of_qasym()
 
     for parent in architecture.layer_nodes:
         actuator_flow.check_that_wzero_is_parallel_to_z_rotor(variables_si, parent, epsilon)

@@ -201,10 +201,12 @@ def initial_guess_actuator_support(init_options, model, V_init):
         n_hat_act = vect_op.normalize(n_vec_act)
         uzero_hat = model.wind.get_wind_direction()
 
-        gamma = actuator_flow.calculate_gamma(n_hat_act, uzero_hat)
         dcm_act, dcm_wind = actuator_flow.construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat_act, uzero_hat)
         act_dcm_cols = cas.reshape(dcm_act, (9, 1))
         wind_dcm_cols = cas.reshape(dcm_wind, (9, 1))
+
+        z_rotor_hat = dcm_wind[:, 2]
+        gamma = actuator_flow.calculate_gamma({'n_hat': n_hat_act, 'u_hat': uzero_hat, 'z_hat': z_rotor_hat})
 
         if parent == 0:
             parent_position = np.zeros((3, 1))

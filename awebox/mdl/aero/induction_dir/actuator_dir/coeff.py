@@ -44,18 +44,27 @@ import awebox.tools.vector_operations as vect_op
 import awebox.tools.print_operations as print_op
 import awebox.tools.struct_operations as struct_op
 
+def sign_correction_matrix_for_clockwise_rotation(clockwise_rotation_about_xhat):
+    # clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
+    SS = cas.DM_eye(3)
+    if clockwise_rotation_about_xhat:
+        SS[2, 2] = -1
+    return SS
+
 def get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
     corr = actuator_flow.get_corr_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     chi = actuator_flow.get_wake_angle_chi(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
-    return get_LL_matrix_from_corr_and_chi(corr, chi)
+    clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
+    return get_LL_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat)
 
 def get_LL_matrix_ref(model_options,parent, scaling):
-    a_ref = actuator_flow.get_a_ref(model_options, parent, scaling)[0]
+    a_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)[0]
     corr = (1. - a_ref)
     chi_ref = 0.
-    return get_LL_matrix_from_corr_and_chi(corr, chi_ref)
+    clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
+    return get_LL_matrix_from_corr_and_chi(corr, chi_ref, clockwise_rotation_about_xhat)
 
-def get_LL_matrix_from_corr_and_chi(corr, chi):
+def get_LL_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat):
     # see page 136 (3.188) and 137 (3.189) of Wind Energy Handbook, Burton et al.
     tanhalfchi = cas.tan(chi / 2.)
     sechalfchi = 1. / cas.cos(chi / 2.)
@@ -75,36 +84,41 @@ def get_LL_matrix_from_corr_and_chi(corr, chi):
     LL_row3 = cas.horzcat(LL31, LL32, LL33)
     LL_matr = cas.vertcat(LL_row1, LL_row2, LL_row3)
 
-    return LL_matr
+    SS = sign_correction_matrix_for_clockwise_rotation(clockwise_rotation_about_xhat)
+
+    return cas.mtimes(SS, LL_matr)
 
 def get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
     corr = actuator_flow.get_corr_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     chi = actuator_flow.get_wake_angle_chi(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
-    return get_LL_inv_matrix_from_corr_and_chi(corr, chi)
+    clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
+    return get_LL_inv_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat)
 
 def get_LL_inv_matrix_ref(model_options,parent, scaling):
-    a_ref = actuator_flow.get_a_ref(model_options, parent, scaling)[0]
+    a_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)[0]
     corr = (1. - a_ref)
     chi_ref = 0.
-    return get_LL_inv_matrix_from_corr_and_chi(corr, chi_ref)
+    clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
+    return get_LL_inv_matrix_from_corr_and_chi(corr, chi_ref, clockwise_rotation_about_xhat)
 
 def test_LL_inversion_correctly_implemented(thresh=1e-3):
     # random values
     a_ref = 0.27
     chi_ref = 17. * np.pi / 180.
 
-    corr = (1. - a_ref)
-    LL = get_LL_matrix_from_corr_and_chi(corr, chi_ref)
-    LLinv, _, _ = get_LL_inv_matrix_from_corr_and_chi(corr, chi_ref)
-    diff = vect_op.columnize(cas.mtimes(LLinv, LL) - cas.DM_eye(3))
-    test = cas.mtimes(diff.T, diff) < thresh**2.
-    if not test:
-        message = 'something went wrong when implementing the actuator model LL and LLinv matrices'
-        print_op.log_and_raise_error(message)
+    for clockwise_rotation_about_xhat in [True, False]:
+        corr = (1. - a_ref)
+        LL = get_LL_matrix_from_corr_and_chi(corr, chi_ref, clockwise_rotation_about_xhat)
+        LLinv, _, _ = get_LL_inv_matrix_from_corr_and_chi(corr, chi_ref, clockwise_rotation_about_xhat)
+        diff = vect_op.columnize(cas.mtimes(LLinv, LL) - cas.DM_eye(3))
+        test = cas.mtimes(diff.T, diff) < thresh**2.
+        if not test:
+            message = 'something went wrong when implementing the actuator model LL and LLinv matrices'
+            print_op.log_and_raise_error(message)
     return None
 
 
-def get_LL_inv_matrix_from_corr_and_chi(corr, chi):
+def get_LL_inv_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat):
     denom = -225. * np.pi**2. + (8192. + 225. * np.pi**2.) * cas.cos(chi)
 
     inv11_num = 32768. * corr * cas.cos(chi)
@@ -124,10 +138,12 @@ def get_LL_inv_matrix_from_corr_and_chi(corr, chi):
 
     LLinv = num_matr / denom
 
-    return LLinv, num_matr, denom
+    SS = sign_correction_matrix_for_clockwise_rotation(clockwise_rotation_about_xhat)
+
+    return cas.mtimes(LLinv, SS), cas.mtimes(num_matr, SS), denom
 
 
-def get_MM_matrix():
+def get_MM_matrix(clockwise_rotation_about_xhat):
     MM11 = 1.69765
     MM22 = 0.113177
     MM33 = 0.113177
@@ -138,7 +154,9 @@ def get_MM_matrix():
 
     MM = cas.horzcat(MM_col1, MM_col2, MM_col3)
 
-    return MM
+    SS = sign_correction_matrix_for_clockwise_rotation(clockwise_rotation_about_xhat)
+
+    return cas.mtimes(MM, SS)
 
 
 def get_ct_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture):
@@ -179,7 +197,6 @@ def get_moment_ref(model_options, atmos, wind, parameters):
     reference = model_options['scaling']['z']['m_aero']
     return reference
 
-
 def get_t_star(variables, parameters, parent):
     # radius / u_0 = [m] / [m/s]
     t_star_num = get_t_star_numerator_val(variables, parameters, parent)
@@ -206,6 +223,27 @@ def get_t_star_denominator_val(variables_si, parent):
 def get_t_star_denominator_ref(parent, scaling):
     t_star_den_ref = actuator_flow.get_uzero_vec_length_ref(parent, scaling)
     return t_star_den_ref
+
+
+def assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynamic_pressure, area, radius_bar, wingspan):
+
+    thrust_denom = area * actuator_dynamic_pressure
+
+    # in Suzuki 2000, the moment normalization of the Cmy and Cmz terms is (the thrust denom)(the outer radius of the current annulus)
+    # see (12)-(15), page 4 / 156.
+    # of Appendix C: "Dynamic inflow model with Nonlinear Induced Velocity Distribution for YawDyn/AeroDyn codes", Windpower Conference, June 1999, Burlington VT, American Wind Energy Association
+    # notice that the MM and LL matrices have different entries and are normalized differently in Suzuki's model then in Burton's.
+    # but the approach is inspired by Suzuki
+    exterior_radius_bar = radius_bar + wingspan / 2.
+    moment_denom = thrust_denom * exterior_radius_bar
+
+    # ordering of [CT, Cmy, Cmz] from (3.188) page 136 of Burton
+    c_numer = cas.vertcat(thrust, moment_y, moment_z)
+    c_denom = cas.vertcat(thrust_denom, moment_denom, moment_denom)
+    c_all = []
+    for idx in range(3):
+        c_all = cas.vertcat(c_all, c_numer[idx]/c_denom[idx])
+    return c_all, c_numer, c_denom
 
 
 def get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, scaling):
@@ -246,25 +284,16 @@ def get_c_all_components(model_options, atmos, wind, variables, parameters, outp
     print_op.warn_about_temporary_functionality_alteration()
     # rela, put this back after things basically run?
 
-    thrust_ref = scaling['z', prefix + 'thrust' + str(parent)]
-    moment_proj_ref = actuator_force.get_actuator_moment_projected_ref(model_options, parameters, scaling, parent, wind, architecture)
+    thrust_ref = actuator_force.get_actuator_thrust_ref(parent, scaling)
+    moment_vec_ref = actuator_force.get_actuator_moment_ref(model_options, parameters, scaling, parent, wind, architecture)
+    moment_norm_ref = vect_op.smooth_norm(moment_vec_ref)
+    moment_norm_fun = cas.Function('mom_fun', [parameters['theta0', 'geometry', 'b_ref']], [moment_norm_ref])
 
-    thrust_denom = area * qzero
-    thrust_denom_ref = area_ref * qzero_ref
+    local_moment_ref = get_moment_ref(model_options, atmos, wind, parameters)
+    print_op.warn_about_temporary_functionality_alteration()
+    moment_ref = local_moment_ref
 
-    moment_denom = thrust_denom * radius_bar
-    moment_denom_ref = thrust_denom_ref * radius_ref
-
-    c_numer = cas.vertcat(thrust, moment_y_val, moment_z_val)
-    c_denom = cas.vertcat(thrust_denom, moment_denom, moment_denom)
-
-    c_num_ref = cas.vertcat(thrust_ref, moment_proj_ref, moment_proj_ref)
-    c_den_ref = cas.vertcat(thrust_denom_ref, moment_denom_ref, moment_denom_ref)
-
-    c_all = []
-    c_all_ref = []
-    for idx in range(3):
-        c_all = cas.vertcat(c_all, c_numer[idx]/c_denom[idx])
-        c_all_ref = cas.vertcat(c_all_ref, c_num_ref[idx] / c_den_ref[idx])
+    c_all, c_numer, c_denom = assemble_c_components_from_pieces(thrust, moment_y_val, moment_z_val, qzero, area, radius_bar, b_ref)
+    c_all_ref, c_num_ref, c_den_ref = assemble_c_components_from_pieces(thrust_ref, moment_ref, moment_ref, qzero_ref, area_ref, radius_ref, b_ref)
 
     return c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref

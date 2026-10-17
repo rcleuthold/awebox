@@ -90,7 +90,7 @@ def extend_actuator_support(options, system_lifted, system_states, architecture)
         for dir in get_list_of_directions_that_have_length_variables():
             system_lifted.extend([(get_actuator_vector_length_name(dir, layer_node), (1, 1))])
 
-        system_lifted.extend([(prefix + 'thrust' + str(layer_node), (1, 1))])
+        system_lifted.extend([(get_actuator_thrust_var_name(layer_node), (1, 1))])
 
     return system_lifted, system_states
 
@@ -154,6 +154,12 @@ def add_scaling_of_support_variables(options, architecture, u_at_altitude, optio
     options_tree.append(('model', 'scaling', 'z', prefix + 'sinpsi', 0.5, ('descript', None), 'x'))
 
     return options_tree
+
+def get_actuator_thrust_var_name(parent):
+    var_type = 'z'
+    prefix = get_actuator_var_name_prefix()
+    var_name = prefix + 'thrust' + str(parent)
+    return var_name
 
 def get_actuator_var_name_prefix():
     return 'wa_'

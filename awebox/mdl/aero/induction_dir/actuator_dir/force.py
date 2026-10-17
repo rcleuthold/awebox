@@ -65,42 +65,38 @@ def get_actuator_moment(model_options, variables, outputs, parent, architecture)
     total_moment_aero = np.zeros((3, 1))
     for kite in children:
         aero_force = outputs['aerodynamics']['f_aero_earth' + str(kite)]
-        kite_radius = geom.get_vector_from_center_to_kite(model_options, variables, architecture, kite)
-        aero_moment = vect_op.cross(kite_radius, aero_force)
+        vector_from_center_to_kite = geom.get_vector_from_center_to_kite(model_options, variables, architecture, kite)
+        aero_moment = calculate_actuator_moment_from_force_and_arm(aero_force, vector_from_center_to_kite)
 
         total_moment_aero = total_moment_aero + aero_moment
 
     return total_moment_aero
 
-def get_actuator_moment_projected_ref(model_options, parameters, scaling, parent, wind, architecture):
+def calculate_actuator_moment_from_force_and_arm(aero_force, vector_from_center_to_kite):
+    return vect_op.cross(vector_from_center_to_kite, aero_force)
 
-    f_aero_scaling = model_options['scaling']['z']['f_aero']
+def get_actuator_moment_ref(model_options, parameters, scaling, parent, wind, architecture):
+    number_of_children = architecture.get_number_children(parent)
 
     dcm_act, dcm_wind = actuator_flow.estimate_reference_actuator_and_wind_reference_frames(model_options, wind, scaling)
-    f_hat_temp = dcm_wind[:, 0]
+    xhat = vect_op.xhat_dm()
+    u_hat_temp = dcm_wind[:, 0]
+    n_hat_temp = dcm_act[:, 0]
     r_hat_temp = dcm_act[:, 1]
-    ehat_perp = dcm_act[:, 2]
 
-    #
-    #
-    # altitude = model_options['wind']['estimated_operating_altitude']
-    # l_t = scaling['x', 'l_t']
-    # inclination = cas.asin(altitude / l_t)
-    #
-    # f_hat_temp = vect_op.xhat_dm()
-    # r_hat_temp = -cas.sin(inclination) * vect_op.xhat_dm() + cas.cos(inclination) * vect_op.zhat_dm()
-    # ehat_perp = vect_op.normed_cross(f_hat_temp, r_hat_temp)
+    f_aero_scaling = model_options['scaling']['z']['f_aero'] * number_of_children
+    thrust_ref = get_actuator_thrust_ref(parent, scaling)
 
-    aero_force = f_aero_scaling * f_hat_temp
+    # aero_force = thrust_ref * n_hat_temp
+    aero_force = f_aero_scaling * xhat
+    print('aero moment from faero scaling')
+    print_op.warn_about_temporary_functionality_alteration()
+
     radius_ref = actuator_geom.get_radius_ref(model_options, parameters)
-    kite_radius = radius_ref * r_hat_temp
+    vector_from_center_to_kite = radius_ref * r_hat_temp
+    total_moment_aero = calculate_actuator_moment_from_force_and_arm(aero_force, vector_from_center_to_kite)
 
-    aero_moment = vect_op.cross(kite_radius, aero_force)
-    number_of_children = architecture.get_number_children(parent)
-    total_moment_aero = aero_moment * number_of_children
-    moment_projected = vect_op.smooth_abs(cas.mtimes(total_moment_aero.T, ehat_perp))
-
-    return moment_projected
+    return total_moment_aero
 
 
 def get_actuator_thrust_val(variables, outputs, parent, architecture):
@@ -113,11 +109,14 @@ def get_actuator_thrust_val(variables, outputs, parent, architecture):
 
 def get_actuator_thrust_var(variables_si, parent):
     var_type = 'z'
-    prefix = actuator_system.get_actuator_var_name_prefix()
-    var_name = prefix + 'thrust' + str(parent)
+    var_name = actuator_system.get_actuator_thrust_var_name(parent)
     var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, var_name)
     return var
 
+def get_actuator_thrust_ref(parent, scaling):
+    var_type = 'z'
+    var_name = actuator_system.get_actuator_thrust_var_name(parent)
+    return scaling[var_type, var_name]
 
 def get_thrust_cstr(variables, outputs, parent, architecture, scaling):
     thrust_var = get_actuator_thrust_var(variables, parent)
@@ -126,8 +125,7 @@ def get_thrust_cstr(variables, outputs, parent, architecture, scaling):
     resi_si = thrust_val - thrust_var
 
     var_type = 'z'
-    prefix = actuator_system.get_actuator_var_name_prefix()
-    var_name = prefix + 'thrust' + str(parent)
+    var_name = actuator_system.get_actuator_thrust_var_name(parent)
     resi_scaled = struct_op.var_si_to_scaled(var_type, var_name, resi_si, scaling)
 
     name = 'actuator_thrust_' + str(parent)

@@ -121,7 +121,6 @@ def smooth_normalize(a, epsilon=1e-8):
 def normed_cross(a, b):
     temp = cross(a, b)
     vhat = normalize(temp)
-
     return vhat
 
 def smooth_normed_cross(a, b, epsilon=1e-8):
@@ -131,31 +130,26 @@ def smooth_normed_cross(a, b, epsilon=1e-8):
     return vhat
 
 def dot(a, b):
-    v = a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-
+    v = cas.mtimes(columnize(a).T, columnize(b))
     return v
 
-def angle_between(a, b):
-    theta = cas.arctan2(norm(cross(a, b)), dot(a, b))
+def angle_between(a, b, axis):
+    sin_theta = cas.mtimes(axis.T, cross(a, b))
+    cos_theta = cas.mtimes(a.T, b)
+    return cas.arctan2(sin_theta, cos_theta)
 
-    return theta
+def test_angle_between(thresh=1e-4):
+    u_hat = xhat_dm()
+    z_hat = zhat_dm()
+    for gamma_deg in [0., +17., -17.]:
+        gamma = gamma_deg * np.pi / 180.
+        n_hat = cas.cos(gamma) * xhat_dm() + cas.sin(gamma) * yhat_dm()
+        test = (angle_between(u_hat, n_hat, z_hat) - gamma) ** 2. < thresh ** 2.
 
-def angle_between_resi(a, b, theta):
-    resi = cas.tan(theta) * dot(a, b) - norm(cross(a, b))
-    return resi
-
-def zeros_mx(shape):
-    return cas.MX.zeros(shape[0], shape[1])
-
-def zeros_sx(shape):
-    return cas.SX.zeros(shape[0], shape[1])
-
-def ones_mx(shape):
-    return cas.MX.ones(shape[0], shape[1])
-
-def ones_sx(shape):
-    return cas.SX.ones(shape[0], shape[1])
-
+        if not test:
+            message = 'vect_op angle_between does not work as expected for angle of ' + str(gamma) + ' deg.'
+            print_op.log_and_raise_error(message)
+    return None
 
 def xhat():
     return xhat_np()
@@ -1151,6 +1145,7 @@ def test_spline_interpolation(epsilon=1.e-6):
     return None
 
 def test():
+    test_angle_between()
     test_upper_triangular_inclusive()
     test_altitude()
     test_elliptic_e()

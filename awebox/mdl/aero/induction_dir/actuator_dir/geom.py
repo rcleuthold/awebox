@@ -51,14 +51,7 @@ import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
 import awebox.viz.tools as viz_tools
 
 
-def get_mu_radial_ratio(variables, kite, parent):
-    varrho_var = get_varrho_var(variables, kite, parent)
-    bar_varrho_var = get_bar_varrho_var(variables, parent)
-    mu = varrho_var / (bar_varrho_var + 0.5)
-    return mu
-
 # variables
-
 def get_actuator_velocity_var(variables_si, parent):
     var_type = 'z'
     prefix = actuator_system.get_actuator_var_name_prefix()
@@ -229,6 +222,9 @@ def get_bar_varrho_cstr(parent, variables, architecture, scaling):
     return cstr
 
 
+def assemble_radial_vector(radius, y_rotor_hat, z_rotor_hat, psi):
+    return radius * (z_rotor_hat * cas.cos(psi) - y_rotor_hat * cas.sin(psi))
+
 def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architecture):
 
     # for positive yaw(turns around +zhat, normal towards +yhat):
@@ -255,7 +251,7 @@ def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architec
     psi_var = get_psi_var(variables, kite, parent)
     varrho_var = get_varrho_var(variables, kite, parent)
     radius = varrho_var * b_ref
-    radial_vector = radius * (z_rotor_hat_var * cas.cos(psi_var) - y_rotor_hat_var * cas.sin(psi_var))
+    radial_vector = assemble_radial_vector(radius, y_rotor_hat_var, z_rotor_hat_var, psi_var)
 
     resi_vec = vec_from_center_to_kite - radial_vector
     resi_y = cas.mtimes(resi_vec.T, y_rotor_hat_var)

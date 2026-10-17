@@ -97,14 +97,63 @@ def get_asin_var(variables_si, parent, label):
 
 
 def get_a_all_var(variables, parent, label):
-    a0_var = get_a0_var(variables, parent, label)
+    a_dict = {}
+    a_dict['a0'] = get_a0_var(variables, parent, label)
     if 'asym' in label:
-        acos_var = get_acos_var(variables, parent, label)
-        asin_var = get_asin_var(variables, parent, label)
-        a_all = cas.vertcat(a0_var, acos_var, asin_var)
-    else:
-        a_all = a0_var
+        a_dict['acos'] = get_acos_var(variables, parent, label)
+        a_dict['asin'] = get_asin_var(variables, parent, label)
+    a_all = restack_a_dict(a_dict)
     return a_all
+
+def unstack_a_all(a_all):
+    if a_all.shape[0] == 3:
+        return {'a0': a_all[0], 'acos': a_all[1], 'asin': a_all[2]}
+    else:
+        return {'a0': a_all[0]}
+
+def restack_a_dict(a_dict):
+    a_all = a_dict['a0']
+    if 'acos' in a_dict.keys():
+        a_all = cas.vertcat(a_all, a_dict['acos'])
+    if 'asin' in a_dict.keys():
+        a_all = cas.vertcat(a_all, a_dict['asin'])
+    return a_all
+
+def get_a_all_ref(model_options, parent, scaling):
+    label = get_label(model_options)
+
+    var_type = get_a_var_type(label)
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    a0_name = prefix + 'a0_' + label + str(parent)
+    acos_name = prefix + 'acos_' + label + str(parent)
+    asin_name = prefix + 'asin_' + label + str(parent)
+
+    a_dict = {}
+    a_dict['a0'] = scaling[var_type, a0_name, 0]
+    if 'asym' in label:
+        a_dict['acos'] = scaling[var_type, acos_name, 0]
+        a_dict['asin'] = scaling[var_type, asin_name, 0]
+    a_all_ref = restack_a_dict(a_dict)
+
+    return a_all_ref
+
+def get_da_all_ref(model_options, parent, scaling):
+    label = get_label(model_options)
+
+    var_type = 'xdot'
+    prefix = actuator_system.get_actuator_var_name_prefix()
+    a0_name = 'd' + prefix + 'a0_' + label + str(parent)
+    acos_name = 'd' + prefix + 'acos_' + label + str(parent)
+    asin_name = 'd' + prefix + 'asin_' + label + str(parent)
+
+    a_dict = {}
+    a_dict['a0'] = scaling[var_type, a0_name, 0]
+    if 'asym' in label:
+        a_dict['acos'] = scaling[var_type, acos_name, 0]
+        a_dict['asin'] = scaling[var_type, asin_name, 0]
+    a_all_ref = restack_a_dict(a_dict)
+
+    return a_all_ref
 
 def get_da_var(variables, parent, label):
     prefix = actuator_system.get_actuator_var_name_prefix()
@@ -122,14 +171,13 @@ def get_dasin_var(variables, parent, label):
     return dasin_var
 
 def get_da_all_var(variables, parent, label):
+    a_dict = {}
+    a_dict['a0'] = get_da_var(variables, parent, label)
     if 'asym' in label:
-        da_var = get_da_var(variables, parent, label)
-        dacos_var = get_dacos_var(variables, parent, label)
-        dasin_var = get_dasin_var(variables, parent, label)
-        da_all = cas.vertcat(da_var, dacos_var, dasin_var)
-    else:
-        da_all = get_da_var(variables, parent, label)
-    return da_all
+        a_dict['acos'] = get_dacos_var(variables, parent, label)
+        a_dict['asin'] = get_dasin_var(variables, parent, label)
+    a_all = restack_a_dict(a_dict)
+    return a_all
 
 def get_wind_dcm_var(variables_si, parent):
     return actuator_system.get_actuator_dcm_var(variables_si, 'u', parent)
@@ -191,7 +239,8 @@ def check_that_gamma_is_consistent(variables_si, parent, epsilon=1.e-4):
 
     n_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
     uzero_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'u', parent)
-    angle_check = (gamma_var - vect_op.angle_between(n_hat_var, uzero_hat_var))**2. < epsilon**2.
+    z_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
+    angle_check = (gamma_var - calculate_gamma({'n_hat': n_hat_var, 'u_hat': uzero_hat_var, 'z_hat': z_hat_var}))**2. < epsilon**2.
 
     if not (cos_check and sin_check and angle_check):
         message = 'something went wrong with the actuator gamma angle (between u_zero and n_hat)'
@@ -294,7 +343,10 @@ def estimate_reference_actuator_and_wind_reference_frames(model_options, wind, s
 
 
 def construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat):
-    # see fig. 3.47 on page 97 of Burton et al, Wind Energy Handbook
+    # see:
+    # Fig. 3.47 on page 97 of Burton et al, Wind Energy Handbook,
+    # Fig. B1-B2, pages 131-132 of Suzuki, A. Application of dynamic inﬂow theory to wind turbine rotors; The University of Utah, 2000.
+
     z_hat = vect_op.normed_cross(u_hat, n_hat)
     y_hat = vect_op.normed_cross(z_hat, n_hat)
 
@@ -309,17 +361,22 @@ def test_gamma_angle_for_dcms(thresh=1e-2):
 
     # see Fig. 3.47 on page 97 of Burton et al, Wind Energy Handbook
     u_hat = vect_op.xhat_dm()
+    z_hat = vect_op.zhat_dm()
+
+    gamma = -17. * np.pi / 180.
+    n_hat = cas.cos(gamma) * vect_op.xhat_dm() + cas.sin(gamma) * vect_op.yhat_dm()
+    test_1 = (calculate_gamma({'n_hat': n_hat, 'u_hat': u_hat, 'z_hat': z_hat}) - gamma)**2. < thresh**2.
 
     gamma = 17. * np.pi / 180.
     n_hat = cas.cos(gamma) * vect_op.xhat_dm() + cas.sin(gamma) * vect_op.yhat_dm()
-    test_1 = (calculate_gamma(n_hat, u_hat) - gamma)**2. < thresh**2.
+    test_2 = (calculate_gamma({'n_hat': n_hat, 'u_hat': u_hat, 'z_hat': z_hat}) - gamma)**2. < thresh**2.
 
     w_hat = vect_op.zhat_dm()
     dcm_act, dcm_wind = construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat)
     w_diff = dcm_wind[:, 2] - w_hat
-    test_2 = cas.mtimes(w_diff.T, w_diff) < thresh**2.
+    test_3 = cas.mtimes(w_diff.T, w_diff) < thresh**2.
 
-    if not (test_1 and test_2):
+    if not (test_1 and test_2 and test_3):
         message = 'something went wrong with the reference frame or yaw angle calculations'
         print_op.log_and_raise_error(message)
     return None
@@ -345,18 +402,19 @@ def get_induction_factor_assignment_cstr(model_options, variables, kite, parent,
 
 
 ## values
-def calculate_gamma(n_hat, u_hat):
-    gamma = vect_op.angle_between(n_hat, u_hat)
+def calculate_gamma(ehat_dict):
+    gamma = vect_op.angle_between(ehat_dict['u_hat'], ehat_dict['n_hat'], ehat_dict['z_hat'])
     return gamma
 
-def get_gamma_val(model_options, wind, parent, variables, architecture, scaling):
+def get_gamma_val(variables, parent):
     u_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'u', parent)
     n_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'n', parent)
-    gamma = calculate_gamma(n_hat_var, u_hat_var)
+    z_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'z', parent)
+    gamma = calculate_gamma({'n_hat': n_hat_var, 'u_hat': u_hat_var, 'z_hat': z_hat_var})
     return gamma
 
-def get_gamma_check(model_options, wind, parent, variables, architecture, scaling):
-    gamma_val = vect_op.abs(get_gamma_val(model_options, wind, parent, variables, architecture, scaling))
+def get_gamma_check(variables, parent):
+    gamma_val = vect_op.abs(get_gamma_val(variables, parent))
     gamma_var = vect_op.abs(get_gamma_var(variables, parent))
     check = gamma_val - gamma_var
     norm = cas.mtimes(check.T, check)
@@ -372,41 +430,30 @@ def get_qzero_ref(atmos, wind):
     qzero_ref = .5 * rho_ref * uinfty_ref**2. * scale
     return qzero_ref
 
-def get_a_ref(model_options, parent, scaling):
-    print_op.warn_about_temporary_functionality_alteration()
-    label = get_label(model_options)
-
-    var_type = get_a_var_type(label)
-    prefix = actuator_system.get_actuator_var_name_prefix()
-    a0_name = prefix + 'a0_' + label + str(parent)
-    acos_name = prefix + 'acos_' + label + str(parent)
-    asin_name = prefix + 'asin_' + label + str(parent)
-
-    a0_ref = scaling[var_type, a0_name, 0]
-    if 'asym' in label:
-        acos_ref = scaling[var_type, acos_name, 0]
-        asin_ref = scaling[var_type, asin_name, 0]
-        a_all_ref = cas.vertcat(a0_ref, acos_ref, asin_ref)
-    else:
-        a_all_ref = a0_ref
-    return a_all_ref
-
 def get_uzero_vec_length_ref(parent, scaling):
     var_name = actuator_system.get_actuator_vector_length_name('u', parent)
     return scaling['z', var_name, 0]
 
+def assemble_asym_local_induction_factor(a_dict, psi, mu):
+    return a_dict['a0'] + a_dict['acos'] * cas.cos(psi) * mu + a_dict['asin'] * cas.sin(psi) * mu
+
 def get_local_induction_factor(model_options, variables, kite, parent, label):
 
     if 'asym' in label:
-        cospsi = actuator_geom.get_cospsi_var(variables, kite, parent)
-        sinpsi = actuator_geom.get_sinpsi_var(variables, kite, parent)
+
+        psi = actuator_geom.get_psi_var(variables, kite, parent)
 
         if model_options['aero']['actuator']['asym_radial_linearity']:
-            mu = actuator_geom.get_mu_radial_ratio(variables, kite, parent)
+
             # version given in original Kinner / Pitt&Peters / Burton et al.
+            # applied to annuli in Suzuki 2000 (3.7, page 30): middle-radius-of-annulus/total-disk-exterior-radius
+            varrho_var = actuator_geom.get_varrho_var(variables, kite, parent)
+            bar_varrho_var = actuator_geom.get_bar_varrho_var(variables, parent)
+            mu = varrho_var / (bar_varrho_var + 0.5)
+
         else:
             mu = 1.
-            # see Suzuki2000 (phd thesis)
+            # see Suzuki2000 (phd thesis), page 27-30
             # Application of Dynamic Inflow Theory to Wind Turbine Rotors
             # for motivation for evaluating at the edges of the "annulus"
             # also: seems to lead to less optimizer-trickery.
@@ -414,7 +461,7 @@ def get_local_induction_factor(model_options, variables, kite, parent, label):
         a_uni = get_a0_var(variables, parent, label)
         acos = get_acos_var(variables, parent, label)
         asin = get_asin_var(variables, parent, label)
-        a_local = a_uni + acos * cospsi * mu + asin * sinpsi * mu
+        a_local = assemble_asym_local_induction_factor({'a0': a_uni, 'acos': acos, 'asin': asin}, psi, mu)
 
     elif 'axi' in label:
         a_local = get_a0_var(variables, parent, label)
