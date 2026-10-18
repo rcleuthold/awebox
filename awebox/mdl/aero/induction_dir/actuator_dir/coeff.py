@@ -59,7 +59,7 @@ def get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters
 
 def get_LL_matrix_ref(model_options,parent, scaling):
     a_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)[0]
-    corr = (1. - a_ref)
+    corr = actuator_flow.get_corr_val_axisym(a_ref)
     chi_ref = 0.
     clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
     return get_LL_matrix_from_corr_and_chi(corr, chi_ref, clockwise_rotation_about_xhat)
@@ -96,7 +96,7 @@ def get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parame
 
 def get_LL_inv_matrix_ref(model_options,parent, scaling):
     a_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)[0]
-    corr = (1. - a_ref)
+    corr = actuator_flow.get_corr_val_axisym(a_ref)
     chi_ref = 0.
     clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
     return get_LL_inv_matrix_from_corr_and_chi(corr, chi_ref, clockwise_rotation_about_xhat)
@@ -104,10 +104,11 @@ def get_LL_inv_matrix_ref(model_options,parent, scaling):
 def test_LL_inversion_correctly_implemented(thresh=1e-3):
     # random values
     a_ref = 0.27
-    chi_ref = 17. * np.pi / 180.
+    gamma_ref = 17. * np.pi / 180.
 
     for clockwise_rotation_about_xhat in [True, False]:
-        corr = (1. - a_ref)
+        corr = actuator_flow.get_corr_val_glauert(a_ref, gamma_ref)
+        chi_ref = actuator_flow.get_wake_angle_chi_coleman(gamma_ref, a_ref)
         LL = get_LL_matrix_from_corr_and_chi(corr, chi_ref, clockwise_rotation_about_xhat)
         LLinv, _, _ = get_LL_inv_matrix_from_corr_and_chi(corr, chi_ref, clockwise_rotation_about_xhat)
         diff = vect_op.columnize(cas.mtimes(LLinv, LL) - cas.DM_eye(3))

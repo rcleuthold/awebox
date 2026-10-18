@@ -404,11 +404,11 @@ def generate_options_dict():
     actuator_qaxi_options['model.aero.actuator.a_fourier_ref'] = 0.1 #1e3
     actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-cas.inf, cas.inf]
     # actuator_qaxi_options['model.aero.actuator.asym_radial_linearity'] = True
-    # actuator_qaxi_options['solver.cost_factor.power'] = 1e1
+    actuator_qaxi_options['solver.cost_factor.power'] = 1e1
     actuator_qaxi_options['solver.weights.actuator'] = 1.e-1 # rela, adjust this when things run
     print_op.warn_about_temporary_functionality_alteration()
-    # actuator_qaxi_options['solver.cost.u_regularisation.0'] = 1e-4
-    actuator_qaxi_options['solver.cost.gamma.1'] = 1e3
+    actuator_qaxi_options['solver.cost.u_regularisation.0'] = 1e-4
+    #actuator_qaxi_options['solver.cost.gamma.1'] = 1e3
     # actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
     # actuator_qaxi_options['solver.cost.fictitious.1'] = 1e4
 
@@ -420,6 +420,7 @@ def generate_options_dict():
 
     actuator_support_only_options = copy.deepcopy(actuator_qaxi_options)
     actuator_support_only_options['model.aero.actuator.support_only'] = True
+    actuator_support_only_options['solver.cost.gamma.1'] = 1e3
     # actuator_support_only_options['solver.weights.actuator'] = 1e0
 
     actuator_support_only_basic_health_options = make_basic_health_variant(actuator_support_only_options)

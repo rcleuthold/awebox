@@ -134,7 +134,7 @@ def dot(a, b):
     return v
 
 def angle_between(a, b, axis):
-    sin_theta = cas.mtimes(axis.T, cross(a, b))
+    sin_theta = cas.mtimes(normalize(axis).T, cross(a, b))
     cos_theta = cas.mtimes(a.T, b)
     return cas.arctan2(sin_theta, cos_theta)
 
@@ -142,13 +142,17 @@ def test_angle_between(thresh=1e-4):
     u_hat = xhat_dm()
     z_hat = zhat_dm()
     for gamma_deg in [0., +17., -17.]:
-        gamma = gamma_deg * np.pi / 180.
-        n_hat = cas.cos(gamma) * xhat_dm() + cas.sin(gamma) * yhat_dm()
-        test = (angle_between(u_hat, n_hat, z_hat) - gamma) ** 2. < thresh ** 2.
+        for vec_length_multiplier in [1., 517.]:
+            for axis_length_multiplier in [1., 3.]:
+                gamma = gamma_deg * np.pi / 180.
+                n_hat = cas.cos(gamma) * xhat_dm() + cas.sin(gamma) * yhat_dm()
+                n_vec = n_hat * vec_length_multiplier
+                z_vec = z_hat * axis_length_multiplier
+                test = (angle_between(u_hat, n_vec, z_vec) - gamma) ** 2. < thresh ** 2.
 
-        if not test:
-            message = 'vect_op angle_between does not work as expected for angle of ' + str(gamma) + ' deg.'
-            print_op.log_and_raise_error(message)
+                if not test:
+                    message = 'vect_op angle_between does not work as expected for angle of ' + str(gamma) + ' deg.'
+                    print_op.log_and_raise_error(message)
     return None
 
 def xhat():

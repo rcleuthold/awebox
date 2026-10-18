@@ -30,6 +30,7 @@ _python-3.5 / casadi-3.4.5
 - author: rachel leuthold, alu-fr 2017-21
 - edit: jochem de schutter, alu-fr 2019
 '''
+import pdb
 
 import casadi as cas
 import numpy as np
@@ -194,14 +195,19 @@ def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables,
     MM = actuator_coeff.get_MM_matrix(clockwise_rotation_about_xhat)
 
     # MM is a diagonal matrix; if no wake-misalignment (chi=0) then LLinv is also diagonal.
-    term_1 = MM[0, 0] * da_dt[0] * c_denom[0] * LLinv_denom
-    term_2 = LLinv_num[0, 0] * a_all[0] * c_denom[0]
-    term_3 = -1. * c_numer[0] * LLinv_denom
+    term_1 = MM[0, 0] * da_dt[0]
+    term_2 = LLinv[0, 0] * a_all[0]
+    term_3 = -1. * c_all[0]
+    # term_1 = MM[0, 0] * da_dt[0] * c_denom[0] * LLinv_denom
+    # term_2 = LLinv_num[0, 0] * a_all[0] * c_denom[0]
+    # term_3 = -1. * c_numer[0] * LLinv_denom
     resi_unscaled = term_1 + term_2 + term_3
 
     # LL_ref = actuator_coeff.get_LL_matrix_ref(model_options,parent, scaling)
     LLinv_ref, LLinv_num_ref, LLinv_denom_ref = actuator_coeff.get_LL_inv_matrix_ref(model_options,parent, scaling)
-    term_3_ref = c_num_ref[0] * LLinv_denom_ref
+    term_2_ref = LLinv_ref[0, 0] * a_all_ref[0]
+    term_3_ref = c_all_ref[0]
+    # term_3_ref = c_num_ref[0] * LLinv_denom_ref
     resi_reference = term_3_ref
     resi = resi_unscaled / vect_op.smooth_abs(resi_reference)
     return resi
@@ -324,17 +330,23 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables
     LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
 
     # MM da_dt + LLinv a = c_all
-    term_1 = cas.mtimes(c_denom_diag, cas.mtimes(MM, da_dt_all)) * LLinv_denom
-    term_2 = cas.mtimes(c_denom_diag, cas.mtimes(LLinv_num, a_all))
-    term_3 = -1. * c_numer * LLinv_denom
+    term_1 = cas.mtimes(MM, da_dt_all)
+    term_2 = cas.mtimes(LLinv, a_all)
+    term_3 = -1. * c_all
+    # term_1 = cas.mtimes(c_denom_diag, cas.mtimes(MM, da_dt_all)) * LLinv_denom
+    # term_2 = cas.mtimes(c_denom_diag, cas.mtimes(LLinv_num, a_all))
+    # term_3 = -1. * c_numer * LLinv_denom
     resi_unscaled = term_1 + term_2 + term_3
 
     # LL_ref = actuator_coeff.get_LL_matrix_ref(model_options,parent, scaling)
     LLinv_ref, LLinv_num_ref, LLinv_denom_ref = actuator_coeff.get_LL_inv_matrix_ref(model_options,parent, scaling)
-    term_0_ref = actuator_force.get_actuator_thrust_ref(parent, scaling) * cas.DM.ones((3, 1))
-    term_1_ref = cas.mtimes(c_denom_diag_ref, cas.mtimes(MM, da_dt_all_ref)) * LLinv_denom_ref
-    term_2_ref = cas.mtimes(c_denom_diag_ref, cas.mtimes(LLinv_num_ref, a_all_ref))
-    term_3_ref = -1. * c_num_ref * LLinv_denom_ref
+    term_1_ref = cas.mtimes(MM, da_dt_all_ref)
+    term_2_ref = cas.mtimes(LLinv_ref, a_all_ref)
+    term_3_ref = c_all_ref
+    # term_0_ref = actuator_force.get_actuator_thrust_ref(parent, scaling) * cas.DM.ones((3, 1))
+    # term_1_ref = cas.mtimes(c_denom_diag_ref, cas.mtimes(MM, da_dt_all_ref)) * LLinv_denom_ref
+    # term_2_ref = cas.mtimes(c_denom_diag_ref, cas.mtimes(LLinv_num_ref, a_all_ref))
+    # term_3_ref = -1. * c_num_ref * LLinv_denom_ref
     vector_reference = term_3_ref
 
     resi = []
@@ -344,8 +356,111 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables
 
     return resi
 
+# def test_signs_of_qasym_with_nonzero_moment(eps=1e-4):
+#     # this gives (?) a reasonable result considering the limits of a single-fourier-term-expansion induced velocity
+#     # distribution, but it doesn't say anything more than the zero-moment test does. leaving it here, in case something
+#     # useful could ever be done with it.
+#
+#     # Ma L, Li Y, Zhou L, Yang D, Shen X and Du Z (2025)
+#     # Study on the aeroelastic performance of 15 MW wind turbine under yaw condition. Front. Energy Res. 13:1571567. doi: 10.3389/fenrg.2025.1571567
+#     # https://www.frontiersin.org/journals/energy-research/articles/10.3389/fenrg.2025.1571567/full
+#     #
+#     # "It can be observed that, under yaw condition, the
+#     # normal induced velocity on the right half-plane of the rotor for
+#     # both rigid and flexible blades is generally higher, particularly in the
+#     # spanwise region from 80% to 100% of the blade span. Moreover,
+#     # the normal induced velocity at 90° azimuth is significantly greater
+#     # than at 270°,"
+#
+#     u_zero = 10.59 # m/s, page 03
+#     diameter = 240. #m, page 03
+#     gamma_yaw = 20. * np.pi / 180. #pg 05
+#     hub_radius = 0.2 * (diameter/2.) # fig. 8, pg. 8
+#
+#     area = np.pi * (diameter / 2.)**2.
+#     rho = 1.225 #guessed
+#     actuator_dynamic_pressure = 0.5 * rho * u_zero**2.
+#     exterior_radius = diameter/2.
+#     radius_bar = (hub_radius + exterior_radius) / 2.
+#     wingspan = (exterior_radius - radius_bar) * 2.
+#     clockwise_rotation_about_xhat = True
+#
+#     # # values roughly estimated (by eye) from Figure 15
+#     # thrust = 2e6 #N
+#     # tilt_moment = 6e6 #Nm
+#     # yaw_moment = -6.5e6 #Nm
+#
+#     # values roughly estimated (by eye) from Figure 5
+#     thrust = 2.28e6 #N
+#     tilt_moment =2.2e6 #Nm
+#     yaw_moment = -3e6 #Nm
+#
+#     tilt_angle = 6. * np.pi / 180. # https://docs.nlr.gov/docs/fy20osti/75698.pdf
+#
+#     n_vec = vect_op.xhat_dm() + cas.tan(gamma_yaw) * vect_op.yhat_dm() + cas.tan(tilt_angle) * vect_op.zhat_dm()
+#     n_hat = vect_op.normalize(n_vec)
+#     u_hat = vect_op.xhat_dm()
+#     dcm_act, dcm_wind = actuator_flow.construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat)
+#     y_rotor_hat = dcm_act[:, 1]
+#     z_rotor_hat = dcm_act[:, 2]
+#
+#     moment_y = tilt_moment
+#     moment_z = yaw_moment
+#
+#     approx_avg_normal_ind_velocity = (-2.5 + (-6.)) / 2.
+#     approx_a0 = -1. * approx_avg_normal_ind_velocity / u_zero
+#
+#     c_all, c_numer, c_denom = actuator_coeff.assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynamic_pressure, area, radius_bar, wingspan)
+#
+#     chi = actuator_flow.get_wake_angle_chi_jimenez(gamma_yaw, thrust, area, actuator_dynamic_pressure)
+#     corr = actuator_flow.get_corr_val_coleman(approx_a0, gamma_yaw, chi)
+#     LL_matr = actuator_coeff.get_LL_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat=True)
+#
+#     a_all = cas.mtimes(LL_matr, c_all)
+#     a_dict = actuator_flow.unstack_a_all(a_all)
+#
+#     dict = {}
+#     idx = 0
+#     for mu in np.linspace(hub_radius/exterior_radius, 1., 10):
+#         for psi in np.linspace(0., 2. * np.pi, 13):
+#
+#             radius = mu * exterior_radius
+#             radial_vector = actuator_geom.assemble_radial_vector(radius, y_rotor_hat, z_rotor_hat, psi, clockwise_rotation_about_xhat)
+#             a_local = actuator_flow.assemble_asym_local_induction_factor(a_dict, psi, mu)
+#             ui = u_zero * (-1.) * a_local
+#
+#             local_dict = {}
+#             local_dict['mu'] = float(mu)
+#             local_dict['psi'] = float(psi)
+#             local_dict['y'] = float(cas.mtimes(radial_vector.T, y_rotor_hat))
+#             local_dict['z'] = float(cas.mtimes(radial_vector.T, z_rotor_hat))
+#             local_dict['a'] = float(a_local)
+#             local_dict['ui'] = float(ui)
+#             dict[idx] = local_dict
+#             idx += 1
+#
+#     y_array = np.array([local_dict['y'] for local_dict in dict.values()])
+#     z_array = np.array([local_dict['z'] for local_dict in dict.values()])
+#     # a_array = np.array([local_dict['a'] for local_dict in dict.values()])
+#     ui_array = np.array([local_dict['ui'] for local_dict in dict.values()])
+#
+#     import os
+#     import matplotlib
+#     if "MPLBACKEND" not in os.environ:
+#         matplotlib.use("TkAgg")
+#     import matplotlib.pyplot as plt
+#
+#     fig, ax = plt.subplots()
+#     contour = ax.tricontourf(y_array, z_array, ui_array, levels=30, cmap='RdYlBu_r')
+#     fig.colorbar(contour, ax=ax, label='Normal induced velocity [m/s]')
+#     ax.set_xlabel('y')
+#     ax.set_ylabel('z')
+#     ax.set_aspect('equal')
+#     plt.show()
+#
+#     return None
 
-def test_signs_of_qasym(eps=1e-3):
+def test_signs_of_qasym_with_zero_moment(eps=1e-3):
     # see Figures in Burton et al, Wind Energy Handbook:
     # axes in figure 3.46, page 97
     # streamline sketch in figure 3.54, page 105,
@@ -391,8 +506,8 @@ def test_signs_of_qasym(eps=1e-3):
     chi = (0.6 * approx_a0 + 1.) * gamma_yaw
     LL_matr = actuator_coeff.get_LL_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat=True)
 
-    a_all = cas.mtimes(c_denom_diag_inv, cas.mtimes(LL_matr, c_numer))
-    # a_all = cas.mtimes(LL_matr, c_all)
+    # a_all = cas.mtimes(c_denom_diag_inv, cas.mtimes(LL_matr, c_numer))
+    a_all = cas.mtimes(LL_matr, c_all)
     a_dict = actuator_flow.unstack_a_all(a_all)
 
     n_hat = cas.cos(gamma_yaw) * vect_op.xhat_dm() + cas.sin(gamma_yaw) * vect_op.yhat_dm()
@@ -472,6 +587,8 @@ def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, 
     c_denom_diag = cas.diag(c_denom)
     c_denom_diag_ref = cas.diag(c_den_ref)
 
+    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs,
+                                                                         parameters, parent, architecture, label)
     LL_matr = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     LL_ref = actuator_coeff.get_LL_matrix_ref(model_options, parent, scaling)
 
@@ -479,15 +596,19 @@ def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, 
     a_all_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)
 
     # see page 136 (3.188) of Burton et al, Wind Energy Handbook
-    term_1 = -1. * cas.mtimes(c_denom_diag, a_all)
-    term_2 = cas.mtimes(LL_matr, c_numer)
+    term_1 = -1. * a_all
+    term_2 = cas.mtimes(LL_matr, c_all)
+    # term_1 = -1. * cas.mtimes(c_denom_diag, a_all)
+    # term_2 = cas.mtimes(LL_matr, c_numer)
     resi_unscaled = term_1 + term_2
 
     term_0_ref = actuator_force.get_actuator_thrust_ref(parent, scaling) * cas.DM.ones((3, 1))
-    term_1_ref = -1. * cas.mtimes(c_denom_diag_ref, a_all_ref)
-    term_2_ref = cas.mtimes(LL_ref, c_num_ref)
+    term_1_ref = a_all_ref
+    term_2_ref = cas.mtimes(LL_ref, c_all_ref)
+    # term_1_ref = -1. * cas.mtimes(c_denom_diag_ref, a_all_ref)
+    # term_2_ref = cas.mtimes(LL_ref, c_num_ref)
     # vector_reference = term_2_ref
-    vector_reference = term_2_ref
+    vector_reference = term_1_ref
 
     resi = []
     for dim in range(3):
@@ -622,11 +743,17 @@ def draw_actuator(ax, side, plot_dict, cosmetics, index):
         actuator_flow.draw_actuator_flow(ax, side, plot_dict, cosmetics, index)
     return None
 
-def sanity_check(init_options, variables_si, wind, architecture, epsilon=1e-5):
+def independent_test():
     actuator_flow.test_gamma_angle_for_dcms()
     actuator_coeff.test_LL_inversion_correctly_implemented()
     test_signs_of_uaxi()
-    test_signs_of_qasym()
+    test_signs_of_qasym_with_zero_moment()
+    # test_signs_of_qasym_with_nonzero_moment()
+    return None
+
+
+def sanity_check(init_options, variables_si, wind, architecture, epsilon=1e-5):
+    independent_test()
 
     for parent in architecture.layer_nodes:
         actuator_flow.check_that_wzero_is_parallel_to_z_rotor(variables_si, parent, epsilon)
@@ -637,3 +764,6 @@ def sanity_check(init_options, variables_si, wind, architecture, epsilon=1e-5):
         actuator_geom.check_that_varrho_initialization_is_set_and_averages_correctly(architecture, variables_si, parent)
 
     return None
+
+if __name__ == "__main__":
+    independent_test()
