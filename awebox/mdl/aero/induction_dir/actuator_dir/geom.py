@@ -222,13 +222,16 @@ def get_bar_varrho_cstr(parent, variables, architecture, scaling):
     return cstr
 
 
-def assemble_radial_vector(radius, y_rotor_hat, z_rotor_hat, psi):
-    return radius * (z_rotor_hat * cas.cos(psi) - y_rotor_hat * cas.sin(psi))
+def assemble_radial_vector(radius, y_rotor_hat, z_rotor_hat, psi, clockwise_rotation_about_xhat):
+    rhat = parametric_rhat(z_rotor_hat, y_rotor_hat, psi, clockwise_rotation_about_xhat)
+    return radius * rhat
 
 def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architecture):
 
-    # for positive yaw(turns around +zhat, normal towards +yhat):
-    #     rhat = zhat * cos(psi) - yhat * sin(psi)
+    # for positive yaw(turns around +zhat, normal moves towards +yhat):
+    # rhat = zhat * cos(psi) - yhat * sin(psi)
+    clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
+
     #
     # rvec = radius((zhat') * cos(psi) + (-yhat') * sin(psi))
     # dot(rvec, zhat') = radius * cos(psi)
@@ -251,7 +254,7 @@ def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architec
     psi_var = get_psi_var(variables, kite, parent)
     varrho_var = get_varrho_var(variables, kite, parent)
     radius = varrho_var * b_ref
-    radial_vector = assemble_radial_vector(radius, y_rotor_hat_var, z_rotor_hat_var, psi_var)
+    radial_vector = assemble_radial_vector(radius, y_rotor_hat_var, z_rotor_hat_var, psi_var, clockwise_rotation_about_xhat)
 
     resi_vec = vec_from_center_to_kite - radial_vector
     resi_y = cas.mtimes(resi_vec.T, y_rotor_hat_var)
@@ -283,24 +286,31 @@ def get_actuator_area(parent, variables, parameters):
 
     return area
 
-def get_kite_radial_vector(kite, variables, architecture):
+def get_kite_radial_vector(kite, variables, architecture, clockwise_rotation_about_xhat):
 
     parent = architecture.parent_map[kite]
 
     y_rotor_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'y', parent)
     z_rotor_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'z', parent)
 
-    cospsi_var = get_cospsi_var(variables, kite, parent)
-    sinpsi_var = get_sinpsi_var(variables, kite, parent)
-
-    rhat = parametric_rhat(z_rotor_hat_var, y_rotor_hat_var, cospsi_var, sinpsi_var)
+    psi_var = get_psi_var(variables, kite, parent)
+    rhat = parametric_rhat(z_rotor_hat_var, y_rotor_hat_var, psi_var, clockwise_rotation_about_xhat)
     return rhat
 
 
-def parametric_rhat(z_rotor_hat, y_rotor_hat, cospsi, sinpsi):
+def parametric_rhat(z_rotor_hat, y_rotor_hat, psi, clockwise_rotation_about_xhat):
     # for positive yaw(turns around +zhat, normal towards +yhat):
     #     rhat = zhat * cos(psi) - yhat * sin(psi)
-    rhat = z_rotor_hat * cospsi - y_rotor_hat * sinpsi
+
+    # rotation with right hand rule about + (positive) nhat
+    if clockwise_rotation_about_xhat:
+        sign = +1
+    else:
+        sign = -1.
+
+    cospsi = cas.cos(psi)
+    sinpsi = cas.sin(psi)
+    rhat = z_rotor_hat * cospsi - sign * y_rotor_hat * sinpsi
 
     return rhat
 
@@ -489,6 +499,8 @@ def draw_actuator_dcm(ax, side, plot_dict, cosmetics, index):
 def draw_average_radius(ax, side, plot_dict, cosmetics, index):
     variables_si = viz_tools.assemble_variable_slice_from_interpolated_data(plot_dict, index)
 
+    clockwise_rotation_about_xhat = plot_dict['options']['model']['aero']['vortex']['clockwise_rotation_about_xhat']
+
     architecture = plot_dict['architecture']
     for parent in architecture.layer_nodes:
 
@@ -496,7 +508,7 @@ def draw_average_radius(ax, side, plot_dict, cosmetics, index):
         rotor_z_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
 
         psi = 0.
-        rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, np.cos(psi), np.sin(psi))
+        rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, psi, clockwise_rotation_about_xhat)
 
         avg_radius = plot_dict['outputs']['actuator']['avg_radius' + str(parent)][0][index]
 
@@ -536,6 +548,7 @@ def draw_psi_angles(ax, side, plot_dict, cosmetics, index):
 def draw_radial_segment_around_actuator_center(ax, side, plot_dict, cosmetics, index, parent, mu_start, mu_end, psi_val, kite=None, color=None, linestyle='-', alpha=1.):
     variables_si = viz_tools.assemble_variable_slice_from_interpolated_data(plot_dict, index)
     b_ref = plot_dict['options']['model']['params']['geometry']['b_ref']
+    clockwise_rotation_about_xhat = plot_dict['options']['model']['aero']['vortex']['clockwise_rotation_about_xhat']
 
     architecture = plot_dict['architecture']
     if parent in architecture.layer_nodes:
@@ -549,9 +562,7 @@ def draw_radial_segment_around_actuator_center(ax, side, plot_dict, cosmetics, i
         radius_start = mu_start * (b_ref * (bar_varrho + 0.5))
         radius_end = mu_end * (b_ref * (bar_varrho + 0.5))
 
-        cospsi = np.cos(psi_val)
-        sinpsi = np.sin(psi_val)
-        rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, cospsi, sinpsi)
+        rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, psi_val, clockwise_rotation_about_xhat)
 
         x_start = x_center + radius_start * rhat
         x_end = x_center + radius_end * rhat
@@ -569,6 +580,7 @@ def draw_radial_segment_around_actuator_center(ax, side, plot_dict, cosmetics, i
 def draw_arc_around_actuator_center(ax, side, plot_dict, cosmetics, index, parent, mu_val, psi_start=0., psi_end=2.*np.pi, kite=None, color=None, linestyle=':'):
     variables_si = viz_tools.assemble_variable_slice_from_interpolated_data(plot_dict, index)
     b_ref = plot_dict['options']['model']['params']['geometry']['b_ref']
+    clockwise_rotation_about_xhat = plot_dict['options']['model']['aero']['vortex']['clockwise_rotation_about_xhat']
 
     architecture = plot_dict['architecture']
     if parent in architecture.layer_nodes:
@@ -588,9 +600,7 @@ def draw_arc_around_actuator_center(ax, side, plot_dict, cosmetics, index, paren
         local_psi = psi_start
         data = []
         while local_psi < psi_end:
-            cospsi = np.cos(local_psi)
-            sinpsi = np.sin(local_psi)
-            rhat_start = parametric_rhat(rotor_z_hat, rotor_y_hat, cospsi, sinpsi)
+            rhat_start = parametric_rhat(rotor_z_hat, rotor_y_hat, local_psi, clockwise_rotation_about_xhat)
             x_local = x_center + drawing_radius * rhat_start
             data = cas.horzcat(data, x_local)
             local_psi += delta_psi

@@ -206,6 +206,103 @@ def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables,
     resi = resi_unscaled / vect_op.smooth_abs(resi_reference)
     return resi
 
+def test_signs_of_uaxi(thresh=1e-4):
+    # Validation of engineering dynamic inflow models by experimental and numerical approaches
+    # W. Yu et al 2016
+    # J. Phys.: Conf. Ser. 753 022024
+    # https://iopscience.iop.org/article/10.1088/1742-6596/753/2/022024/pdf
+
+    chi = 0.
+    time_array = np.linspace(0., 100., 10000)
+
+    rise_time = 0.1
+
+    CT_start = 0.6
+    a_start = (1. - np.sqrt(1. - CT_start)) / 2.
+    time_switch = 20.
+
+    CT_switch = 0.8
+    a_switch = (1. - np.sqrt(1. - CT_switch)) / 2.
+    time_return_to_start = 70.
+
+    last_a_before_switch = -99999
+    last_a_at_switch_rise_time = -99999
+    last_a_before_return_to_start = -999999
+    last_a_at_return_to_start_rise_time = -999999
+
+    CT_array = [CT_start]
+    a_array = [a_start]
+    for tdx in range(1, len(time_array)):
+        time = time_array[tdx]
+        a_current = a_array[-1]
+        if time >= 0 and time < time_switch:
+            CT_current = CT_start
+        elif time >= time_switch and time < time_return_to_start:
+            CT_current = 0.8
+        else:
+            CT_current = CT_start
+
+        corr = 1. - a_current
+        LLinv, _, _ = actuator_coeff.get_LL_inv_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat=True)
+        MM = actuator_coeff.get_MM_matrix(clockwise_rotation_about_xhat=True)
+        da_dt_current = (-LLinv[0, 0] * a_current + CT_current) / MM[0, 0]
+
+        a_found = a_current + da_dt_current * (time - time_array[tdx - 1])
+
+        if time < time_switch:
+            last_a_before_switch = a_found
+        if time < time_switch + rise_time:
+            last_a_at_switch_rise_time = a_found
+        if time < time_return_to_start:
+            last_a_before_return_to_start = a_found
+        if time < time_return_to_start + rise_time:
+            last_a_at_return_to_start_rise_time = a_found
+
+        a_array += [a_found]
+        CT_array += [CT_current]
+
+    dict = {}
+    dict['steady state at start'] = {'found': last_a_before_switch, 'expected': a_start}
+    dict['steady state after switch'] = {'found': last_a_before_return_to_start, 'expected': a_switch}
+
+    for name, local_dict in dict.items():
+        test = ((local_dict['expected'] - local_dict['found']) / local_dict['expected'])**2. < thresh**2.
+        if not test:
+            message = 'uaxi gives wrong ' + name
+            print_op.log_and_raise_error(message)
+
+    test_2 = (last_a_at_switch_rise_time > a_start) and (last_a_at_switch_rise_time < a_switch)
+    if not test_2:
+        message = 'uaxi responds in the wrong direction to the switch'
+        print_op.log_and_raise_error(message)
+
+    test_3 = (last_a_at_return_to_start_rise_time > a_start) and (last_a_at_return_to_start_rise_time < a_switch)
+    if not test_3:
+        message = 'uaxi responds in the wrong direction to returning to the start'
+        print_op.log_and_raise_error(message)
+
+    # def deltaV(a_local):
+    #     return (a_local - a_start) / (a_switch - a_start)
+    # deltaV_array = [deltaV(a_local) for a_local in a_array]
+    # time_array = np.array(cas.DM(time_array))
+    # CT_array = np.array(cas.DM(CT_array))
+    # a_array = np.array(cas.DM(a_array))
+    # deltaV_array = np.array(cas.DM(deltaV_array))
+    #
+    # import os
+    # import matplotlib
+    # if "MPLBACKEND" not in os.environ:
+    #     matplotlib.use("TkAgg")
+    # import matplotlib.pyplot as plt
+    # fig = plt.figure()
+    # plt.plot(time_array, CT_array, label='CT')
+    # plt.plot(time_array, a_array, label='a')
+    # # notice that deltaV in figure 6 seems to have the sign switched.
+    # plt.plot(time_array, deltaV_array, label='deltaV')
+    # plt.legend()
+    # plt.show()
+
+    return None
 
 def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling):
 
@@ -281,6 +378,7 @@ def test_signs_of_qasym(eps=1e-3):
     rho = 1.225
     u_zero = 5.
     actuator_dynamic_pressure = 0.5 * rho * u_zero**2.
+    clockwise_rotation_about_xhat = True
 
     thrust = ct * actuator_dynamic_pressure * area
     moment_y = cmy * actuator_dynamic_pressure * area * exterior_radius
@@ -311,7 +409,7 @@ def test_signs_of_qasym(eps=1e-3):
         for psi in [0., np.pi/2., np.pi, 3. * np.pi/2., 2. * np.pi]:
 
             radius = mu * exterior_radius
-            radial_vector = actuator_geom.assemble_radial_vector(radius, y_rotor_hat, z_rotor_hat, psi)
+            radial_vector = actuator_geom.assemble_radial_vector(radius, y_rotor_hat, z_rotor_hat, psi, clockwise_rotation_about_xhat)
             a_local = actuator_flow.assemble_asym_local_induction_factor(a_dict, psi, mu)
 
             if cas.mtimes(radial_vector.T, y_rotor_hat)**2. < eps:
@@ -476,12 +574,13 @@ def collect_actuator_induction_factor_outputs(model_options, variables, outputs,
 def collect_actuator_support_outputs(model_options, atmos, wind, variables, outputs, parameters, architecture, scaling):
 
     kite_nodes = architecture.kite_nodes
+    clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
 
     if 'actuator' not in list(outputs.keys()):
         outputs['actuator'] = {}
 
     for kite in kite_nodes:
-        outputs['actuator']['rhat' + str(kite)] = actuator_geom.get_kite_radial_vector(kite, variables, architecture)
+        outputs['actuator']['rhat' + str(kite)] = actuator_geom.get_kite_radial_vector(kite, variables, architecture, clockwise_rotation_about_xhat)
         outputs['actuator']['radius' + str(kite)] = actuator_geom.get_kite_radius(kite, variables, architecture, parameters)
 
     layer_parents = architecture.layer_nodes
@@ -517,8 +616,6 @@ def collect_actuator_support_outputs(model_options, atmos, wind, variables, outp
     return outputs
 
 
-
-
 def draw_actuator(ax, side, plot_dict, cosmetics, index):
     if 'actuator' in plot_dict['interpolation_si']['outputs'].keys():
         actuator_geom.draw_actuator_geometry(ax, side, plot_dict, cosmetics, index)
@@ -528,6 +625,7 @@ def draw_actuator(ax, side, plot_dict, cosmetics, index):
 def sanity_check(init_options, variables_si, wind, architecture, epsilon=1e-5):
     actuator_flow.test_gamma_angle_for_dcms()
     actuator_coeff.test_LL_inversion_correctly_implemented()
+    test_signs_of_uaxi()
     test_signs_of_qasym()
 
     for parent in architecture.layer_nodes:

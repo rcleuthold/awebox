@@ -35,8 +35,6 @@ import awebox.tools.vector_operations as vect_op
 import awebox.tools.print_operations as print_op
 import awebox.tools.struct_operations as struct_op
 import awebox.tools.lagr_interpol as lagr_interpol
-import matplotlib.pyplot as plt
-
 
 class Wind(print_op.PrintableObject):
     def __init__(self, wind_model_options, params, suppress_type_incompatibility_warning=False, options_object=None):

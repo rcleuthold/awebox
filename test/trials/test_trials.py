@@ -404,10 +404,14 @@ def generate_options_dict():
     actuator_qaxi_options['model.aero.actuator.a_fourier_ref'] = 0.1 #1e3
     actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-cas.inf, cas.inf]
     # actuator_qaxi_options['model.aero.actuator.asym_radial_linearity'] = True
-    actuator_qaxi_options['solver.cost_factor.power'] = 1e1
+    # actuator_qaxi_options['solver.cost_factor.power'] = 1e1
     actuator_qaxi_options['solver.weights.actuator'] = 1.e-1 # rela, adjust this when things run
     print_op.warn_about_temporary_functionality_alteration()
-    actuator_qaxi_options['solver.cost.u_regularisation.0'] = 1e-4
+    # actuator_qaxi_options['solver.cost.u_regularisation.0'] = 1e-4
+    actuator_qaxi_options['solver.cost.gamma.1'] = 1e3
+    # actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
+    # actuator_qaxi_options['solver.cost.fictitious.1'] = 1e4
+
     # actuator_qaxi_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
     #actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
     #actuator_qaxi_options['solver.cost.fictitious.1'] = 1e4
@@ -423,6 +427,7 @@ def generate_options_dict():
     actuator_uaxi_options = copy.deepcopy(actuator_qaxi_options)
     actuator_uaxi_options['model.aero.actuator.steadyness'] = 'unsteady'
     # actuator_uaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]  # -cas.inf, cas.inf] #0.5]
+    actuator_uaxi_options['solver.cost_factor.power'] = 1e1
 
     actuator_uaxi_basic_health_options = make_basic_health_variant(actuator_uaxi_options)
 
@@ -439,8 +444,9 @@ def generate_options_dict():
     actuator_uasym_options['model.aero.actuator.symmetry'] = 'asymmetric'
     # actuator_uasym_options['model.aero.actuator.a_range'] = [-cas.inf, cas.inf]
     # # # actuator_uasym_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]  # -cas.inf, cas.inf] #0.5]
-    # actuator_uasym_options['model.aero.actuator.gamma_range'] = [-cas.inf, cas.inf]
+    actuator_uasym_options['model.aero.actuator.a_range'] = [-cas.inf, cas.inf]
     # # actuator_uasym_options['solver.weights.actuator'] = 1e0
+    actuator_uasym_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
 
     actuator_uasym_basic_health_options = make_basic_health_variant(actuator_uasym_options)
 
@@ -700,7 +706,7 @@ if __name__ == "__main__":
 
             # test_actuator_uaxi_basic_health()
             # test_actuator_uaxi()
-            # #
+            #
             test_actuator_uasym_basic_health()
             test_actuator_uasym()
             #
