@@ -288,11 +288,12 @@ class Trial(object):
                 dict_parameters[info[0]] = {optimal_label: self.__optimization.V_final_si['theta', theta].full()[0][0]*info[1],
                                             dimension_label: info[2]}
 
-        find_local_a_in = self.model.options['induction_model']
-        for kite in self.model.architecture.kite_nodes:
-            odx = struct_op.find_output_idx(self.model.outputs, find_local_a_in, 'local_a' + str(kite), 0)
-            local_a_kite = vect_op.average(self.__optimization.output_vals['opt'][odx, :])
-            dict_parameters['average local_a (' + str(kite) + ')'] = {optimal_label: local_a_kite, dimension_label: '-'}
+        if self.model.options['induction_model'] != 'not_in_use':
+            find_local_a_in = self.model.options['induction_model']
+            for kite in self.model.architecture.kite_nodes:
+                odx = struct_op.find_output_idx(self.model.outputs, find_local_a_in, 'local_a' + str(kite), 0)
+                local_a_kite = vect_op.average(self.__optimization.output_vals['opt'][odx, :])
+                dict_parameters['average local_a (' + str(kite) + ')'] = {optimal_label: local_a_kite, dimension_label: '-'}
 
         if to_echo_or_latex == 'echo':
             print_op.base_print('', level='info')

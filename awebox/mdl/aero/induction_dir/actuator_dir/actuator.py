@@ -347,7 +347,7 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables
     # term_1_ref = cas.mtimes(c_denom_diag_ref, cas.mtimes(MM, da_dt_all_ref)) * LLinv_denom_ref
     # term_2_ref = cas.mtimes(c_denom_diag_ref, cas.mtimes(LLinv_num_ref, a_all_ref))
     # term_3_ref = -1. * c_num_ref * LLinv_denom_ref
-    vector_reference = term_3_ref
+    vector_reference = term_2_ref
 
     resi = []
     for dim in range(3):
@@ -607,8 +607,11 @@ def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, 
     term_2_ref = cas.mtimes(LL_ref, c_all_ref)
     # term_1_ref = -1. * cas.mtimes(c_denom_diag_ref, a_all_ref)
     # term_2_ref = cas.mtimes(LL_ref, c_num_ref)
+
     # vector_reference = term_2_ref
+    # print('qasym term_2_ref')
     vector_reference = term_1_ref
+    # print('qasym term_1_ref')
 
     resi = []
     for dim in range(3):

@@ -164,9 +164,7 @@ def get_ct_val(model_options, atmos, wind, variables, outputs, parameters, paren
     thrust = actuator_force.get_actuator_thrust_var(variables, parent)
     area = actuator_geom.get_area_var(variables, parent)
     qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
-
     ct = thrust / area / qzero
-
     return ct
 
 
@@ -292,7 +290,11 @@ def get_c_all_components(model_options, atmos, wind, variables, parameters, outp
 
     local_moment_ref = get_moment_ref(model_options, atmos, wind, parameters)
     print_op.warn_about_temporary_functionality_alteration()
-    moment_ref = local_moment_ref
+
+    moment_ref = moment_norm_ref
+    # print('moment_ref = moment norm ref')
+    # moment_ref = moment_norm_ref
+    # print('moment_ref = local moment ref')
 
     c_all, c_numer, c_denom = assemble_c_components_from_pieces(thrust, moment_y_val, moment_z_val, qzero, area, radius_bar, b_ref)
     c_all_ref, c_num_ref, c_den_ref = assemble_c_components_from_pieces(thrust_ref, moment_ref, moment_ref, qzero_ref, area_ref, radius_ref, b_ref)

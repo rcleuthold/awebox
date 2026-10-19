@@ -87,9 +87,11 @@ def get_actuator_moment_ref(model_options, parameters, scaling, parent, wind, ar
     f_aero_scaling = model_options['scaling']['z']['f_aero'] * number_of_children
     thrust_ref = get_actuator_thrust_ref(parent, scaling)
 
-    # aero_force = thrust_ref * n_hat_temp
-    aero_force = f_aero_scaling * xhat
-    print('aero moment from faero scaling')
+    # print('aero moment from thrust ref')
+    aero_force = thrust_ref * n_hat_temp
+    # print('aero moment from faero scaling')
+    # aero_force = f_aero_scaling * xhat
+
     print_op.warn_about_temporary_functionality_alteration()
 
     radius_ref = actuator_geom.get_radius_ref(model_options, parameters)

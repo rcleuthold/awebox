@@ -234,7 +234,6 @@ def generate_default_solver_options(options):
         opts['ipopt.mu_target'] = options['mu_target']
         opts['ipopt.mu_init'] = options['mu_init']
         opts['ipopt.tol'] = options['tol']
-
         opts['ipopt.alpha_for_y'] = options['ipopt']['alpha_for_y']
         opts['ipopt.ma57_pivtol'] = options['ipopt']['ma57_pivtol']
         opts['ipopt.ma57_pivtolmax'] = options['ipopt']['ma57_pivtolmax']
@@ -242,23 +241,28 @@ def generate_default_solver_options(options):
         autoscale = (options['nlp_solver'] == 'ipopt') and options['ipopt']['autoscale']
         if autoscale:
             opts['ipopt.nlp_scaling_method'] = 'gradient-based'
-
             if options['linear_solver'] == 'mumps':
                 opts['ipopt.linear_system_scaling'] = 'none'  # default for mumps
             else:
                 opts['ipopt.linear_system_scaling'] = 'mc19'  # default for ma27, ma57, ma77, and ma86
-
             opts['ipopt.linear_scaling_on_demand'] = options['ipopt']['linear_scaling_on_demand']
             opts['ipopt.ma57_automatic_scaling'] = 'yes'
             opts['ipopt.ma86_scaling'] = 'mc64'  # default
-            # there's an ma97_scaling option, too. but if you turn it on, then ipopt complains about 'invalid options'
+            # there's supposedly an ma97_scaling option, too. but if you turn it on, then ipopt complains about 'invalid options'
         else:
+            # Disable NLP scaling
             opts['ipopt.nlp_scaling_method'] = 'none'
+            opts['ipopt.obj_scaling_factor'] = 1.0
+            # Disable multiplier-based convergence-error scaling
+            opts['ipopt.s_max'] = 1e20
+            # Disable Ipopt's linear-system scaling
             opts['ipopt.linear_system_scaling'] = 'none'
-            opts['ipopt.linear_scaling_on_demand'] = 'no'
+            # Disable scaling within the HSL linear solvers
             opts['ipopt.ma57_automatic_scaling'] = 'no'
             opts['ipopt.ma86_scaling'] = 'none'
             opts['ipopt.ma97_scaling'] = 'none'
+            # Verify the options
+            opts['ipopt.print_user_options'] = 'yes'
 
         if awelogger.logger.getEffectiveLevel() > 10:
             opts['ipopt.print_level'] = 0
