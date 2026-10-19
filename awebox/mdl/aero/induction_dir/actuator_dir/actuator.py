@@ -153,63 +153,86 @@ def get_induction_factor_cstr(model_options, atmos, wind, variables, outputs, pa
 
     return cstr
 
+def scale_resi(resi_unscaled, resi_reference):
+    resi = []
+    for dim in range(resi_reference.shape[0]):
+        local_scaled = resi_unscaled[dim] / vect_op.smooth_abs(resi_reference[dim])
+        resi = cas.vertcat(resi, local_scaled)
+    return resi
+
+def assemble_pitt_peters_style_residual(a_all, da_dt_all, MM, LLinv, LLinv_num, LLinv_denom, c_all, c_numer, c_denom):
+
+    # see page 147 (3.207 - 2.208) of Burton et al, Wind Energy Handbook
+
+    # term_1_standard = cas.mtimes(MM, da_dt_all)
+    # term_2_stardard = cas.mtimes(LLinv, a_all)
+    # term_3_standard = -1. * c_all
+
+    MM_rearranged = LLinv_denom * cas.mtimes(cas.diag(c_denom), MM)
+    LLinv_rearranged = cas.mtimes(cas.diag(c_denom), LLinv_num)
+    c_rearranged = LLinv_denom * c_numer
+
+    term_1_rearranged = cas.mtimes(MM_rearranged, da_dt_all)
+    term_2_rearranged = cas.mtimes(LLinv_rearranged, a_all)
+    term_3_rearranged = -1. * c_rearranged
+
+    resi = term_1_rearranged + term_2_rearranged + term_3_rearranged
+    return resi, term_1_rearranged, term_2_rearranged, term_3_rearranged
+
+
 def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling):
 
-    a_var = actuator_flow.get_a0_var(variables, parent, label)
+    a_all = actuator_flow.get_a_all_var(variables, parent, label)
+    a_all_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)
 
-    thrust = actuator_force.get_actuator_thrust_var(variables, parent)
+    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
+                                                              outputs, parent, architecture, scaling)
+    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
 
-    area = actuator_geom.get_area_var(variables, parent)
-    qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
-    thrust_den = qzero * area
-    # thrust_ref = actuator_coeff.get_thrust_ref(model_options, atmos, wind, parameters)
-    # c_t = thrust / thrust_den
+    resi_unscaled, _, _, _ = assemble_pitt_peters_style_residual(a_all, 0., 0., LLinv[0, 0], LLinv_num[0, 0], LLinv_denom, c_all[0], c_numer[0], c_denom[0])
 
-    corr_val = actuator_flow.get_corr_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
-    rhs = 4. * a_var * corr_val
+    LLinv_ref, LLinv_num_ref, LLinv_denom_ref = actuator_coeff.get_LL_inv_matrix_ref(model_options, parent, scaling)
+    _, _, term_2_ref, term_3_ref = assemble_pitt_peters_style_residual(a_all_ref, 0., 0., LLinv_ref[0, 0], LLinv_num_ref[0, 0], LLinv_denom_ref, c_all_ref[0], c_num_ref[0], c_den_ref[0])
 
-    resi_si = thrust - rhs * thrust_den
+    # resi_reference = term_2_ref
+    # print('qaxi ref: term_2_ref')
 
-    var_type = 'z'
-    prefix = actuator_system.get_actuator_var_name_prefix()
-    var_name = prefix + 'thrust' + str(parent)
-    resi = struct_op.var_si_to_scaled(var_type, var_name, resi_si, scaling)
+    resi_reference = term_3_ref
+    print('qaxi ref: term_3_ref')
 
+    resi = scale_resi(resi_unscaled, resi_reference)
     return resi
 
 
 def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling):
 
-    # see page 147 (3.207 - 2.208) of Burton et al, Wind Energy Handbook
-
     a_all = actuator_flow.get_a_all_var(variables, parent, label)
-    da_dt = actuator_flow.get_da_all_var(variables, parent, label)
+    da_dt_all = actuator_flow.get_da_all_var(variables, parent, label)
     a_all_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)
+    da_dt_all_ref = actuator_flow.get_da_all_ref(model_options, parent, scaling)
 
     c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
                                                               outputs, parent, architecture, scaling)
 
-    # LL = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
     MM = actuator_coeff.get_MM_matrix(clockwise_rotation_about_xhat)
 
-    # MM is a diagonal matrix; if no wake-misalignment (chi=0) then LLinv is also diagonal.
-    term_1 = MM[0, 0] * da_dt[0]
-    term_2 = LLinv[0, 0] * a_all[0]
-    term_3 = -1. * c_all[0]
-    # term_1 = MM[0, 0] * da_dt[0] * c_denom[0] * LLinv_denom
-    # term_2 = LLinv_num[0, 0] * a_all[0] * c_denom[0]
-    # term_3 = -1. * c_numer[0] * LLinv_denom
-    resi_unscaled = term_1 + term_2 + term_3
+    resi_unscaled, _, _, _ = assemble_pitt_peters_style_residual(a_all, da_dt_all, MM[0, 0], LLinv[0, 0], LLinv_num[0, 0], LLinv_denom, c_all[0], c_numer[0], c_denom[0])
 
-    # LL_ref = actuator_coeff.get_LL_matrix_ref(model_options,parent, scaling)
-    LLinv_ref, LLinv_num_ref, LLinv_denom_ref = actuator_coeff.get_LL_inv_matrix_ref(model_options,parent, scaling)
-    term_2_ref = LLinv_ref[0, 0] * a_all_ref[0]
-    term_3_ref = c_all_ref[0]
-    # term_3_ref = c_num_ref[0] * LLinv_denom_ref
+    LLinv_ref, LLinv_num_ref, LLinv_denom_ref = actuator_coeff.get_LL_inv_matrix_ref(model_options, parent, scaling)
+    _, term_1_ref, term_2_ref, term_3_ref = assemble_pitt_peters_style_residual(a_all_ref, da_dt_all_ref, MM[0, 0], LLinv_ref[0, 0], LLinv_num_ref[0, 0], LLinv_denom_ref, c_all_ref[0], c_num_ref[0], c_den_ref[0])
+
+    # resi_reference = term_1_ref
+    # print('uaxi ref: term_1_ref')
+
+    # resi_reference = term_2_ref
+    # print('uaxi ref: term_2_ref')
+
     resi_reference = term_3_ref
-    resi = resi_unscaled / vect_op.smooth_abs(resi_reference)
+    # print('uaxi ref: term_3_ref')
+
+    resi = scale_resi(resi_unscaled, resi_reference)
     return resi
 
 def test_signs_of_uaxi(thresh=1e-4):
@@ -249,9 +272,17 @@ def test_signs_of_uaxi(thresh=1e-4):
             CT_current = CT_start
 
         corr = 1. - a_current
-        LLinv, _, _ = actuator_coeff.get_LL_inv_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat=True)
+        LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat=True)
         MM = actuator_coeff.get_MM_matrix(clockwise_rotation_about_xhat=True)
-        da_dt_current = (-LLinv[0, 0] * a_current + CT_current) / MM[0, 0]
+
+        a_all = cas.DM(a_current)
+        c_all = cas.DM(CT_current)
+        c_numer = cas.DM(CT_current)
+        c_denom = cas.DM(1.)
+        _, term_1_factor, term_2, term_3 = assemble_pitt_peters_style_residual(a_all, cas.DM(1.), MM[0, 0], LLinv[0, 0],
+                                                                     LLinv_num[0, 0], LLinv_denom, c_all[0], c_numer[0],
+                                                                     c_denom[0])
+        da_dt_current = -1. * (term_2 + term_3) / term_1_factor
 
         a_found = a_current + da_dt_current * (time - time_array[tdx - 1])
 
@@ -312,8 +343,6 @@ def test_signs_of_uaxi(thresh=1e-4):
 
 def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling):
 
-    # see page 147 (3.207 - 2.208) of Burton et al, Wind Energy Handbook
-
     a_all = actuator_flow.get_a_all_var(variables, parent, label)
     da_dt_all = actuator_flow.get_da_all_var(variables, parent, label)
     a_all_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)
@@ -321,40 +350,28 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables
 
     c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
                                                               outputs, parent, architecture, scaling)
-    c_denom_diag = cas.diag(c_denom)
-    c_denom_diag_ref = cas.diag(c_den_ref)
 
-    # LL = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
     clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
     MM = actuator_coeff.get_MM_matrix(clockwise_rotation_about_xhat)
-    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
 
-    # MM da_dt + LLinv a = c_all
-    term_1 = cas.mtimes(MM, da_dt_all)
-    term_2 = cas.mtimes(LLinv, a_all)
-    term_3 = -1. * c_all
-    # term_1 = cas.mtimes(c_denom_diag, cas.mtimes(MM, da_dt_all)) * LLinv_denom
-    # term_2 = cas.mtimes(c_denom_diag, cas.mtimes(LLinv_num, a_all))
-    # term_3 = -1. * c_numer * LLinv_denom
-    resi_unscaled = term_1 + term_2 + term_3
+    resi_unscaled, _, _, _ = assemble_pitt_peters_style_residual(a_all, da_dt_all, MM, LLinv, LLinv_num, LLinv_denom, c_all, c_numer, c_denom)
 
-    # LL_ref = actuator_coeff.get_LL_matrix_ref(model_options,parent, scaling)
-    LLinv_ref, LLinv_num_ref, LLinv_denom_ref = actuator_coeff.get_LL_inv_matrix_ref(model_options,parent, scaling)
-    term_1_ref = cas.mtimes(MM, da_dt_all_ref)
-    term_2_ref = cas.mtimes(LLinv_ref, a_all_ref)
-    term_3_ref = c_all_ref
-    # term_0_ref = actuator_force.get_actuator_thrust_ref(parent, scaling) * cas.DM.ones((3, 1))
-    # term_1_ref = cas.mtimes(c_denom_diag_ref, cas.mtimes(MM, da_dt_all_ref)) * LLinv_denom_ref
-    # term_2_ref = cas.mtimes(c_denom_diag_ref, cas.mtimes(LLinv_num_ref, a_all_ref))
-    # term_3_ref = -1. * c_num_ref * LLinv_denom_ref
-    vector_reference = term_2_ref
+    LLinv_ref, LLinv_num_ref, LLinv_denom_ref = actuator_coeff.get_LL_inv_matrix_ref(model_options, parent, scaling)
+    _, term_1_ref, term_2_ref, term_3_ref = assemble_pitt_peters_style_residual(a_all_ref, da_dt_all_ref, LLinv_ref, LLinv_num_ref, LLinv_denom_ref, c_all_ref, c_num_ref, c_den_ref)
 
-    resi = []
-    for dim in range(3):
-        local_scaled = resi_unscaled[dim] / vect_op.smooth_abs(vector_reference[dim])
-        resi = cas.vertcat(resi, local_scaled)
+    # resi_reference = term_1_ref
+    # print('uasym ref: term_1_ref')
 
+    # resi_reference = term_2_ref
+    # print('uasym ref: term_2_ref')
+
+    resi_reference = term_3_ref
+    # print('uasym ref: term_3_ref')
+
+    resi = scale_resi(resi_unscaled, resi_reference)
     return resi
+
 
 # def test_signs_of_qasym_with_nonzero_moment(eps=1e-4):
 #     # this gives (?) a reasonable result considering the limits of a single-fourier-term-expansion induced velocity
@@ -501,14 +518,24 @@ def test_signs_of_qasym_with_zero_moment(eps=1e-3):
 
     c_all, c_numer, c_denom = actuator_coeff.assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynamic_pressure, area, radius_bar, wingspan)
     c_denom_diag_inv = cas.inv(cas.diag(c_denom))
+    MM = actuator_coeff.get_MM_matrix(clockwise_rotation_about_xhat)
 
     corr = (1. - approx_a0)
     chi = (0.6 * approx_a0 + 1.) * gamma_yaw
     LL_matr = actuator_coeff.get_LL_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat=True)
+    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat=True)
 
-    # a_all = cas.mtimes(c_denom_diag_inv, cas.mtimes(LL_matr, c_numer))
-    a_all = cas.mtimes(LL_matr, c_all)
+    a_all_forwards = cas.mtimes(c_denom_diag_inv, cas.mtimes(LL_matr, c_numer))
+    _, _, term_2_factor, term_3 = assemble_pitt_peters_style_residual(cas.DM_eye(3), cas.DM.zeros((3, 1)), MM, LLinv, LLinv_num, LLinv_denom,
+                                                                 c_all, c_numer, c_denom)
+    a_all = -cas.mtimes(cas.inv(term_2_factor), term_3)
     a_dict = actuator_flow.unstack_a_all(a_all)
+
+    forwards_diff = a_all_forwards - a_all
+    test_0 = cas.mtimes(forwards_diff.T, forwards_diff) < eps**2.
+    if not test_0:
+        message = 'something went unexpectedly wrong with the pitt-peters residual assembly'
+        print_op.log_and_raise_error(message=message)
 
     n_hat = cas.cos(gamma_yaw) * vect_op.xhat_dm() + cas.sin(gamma_yaw) * vect_op.yhat_dm()
     u_hat = vect_op.xhat_dm()
@@ -583,41 +610,29 @@ def test_signs_of_qasym_with_zero_moment(eps=1e-3):
 
 def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling):
 
-    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, scaling)
-    c_denom_diag = cas.diag(c_denom)
-    c_denom_diag_ref = cas.diag(c_den_ref)
-
-    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs,
-                                                                         parameters, parent, architecture, label)
-    LL_matr = actuator_coeff.get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
-    LL_ref = actuator_coeff.get_LL_matrix_ref(model_options, parent, scaling)
-
     a_all = actuator_flow.get_a_all_var(variables, parent, label)
     a_all_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)
+    da_dt_all = cas.DM.zero((3, 1))
+    da_dt_all_ref = cas.DM.zero((3, 1))
 
-    # see page 136 (3.188) of Burton et al, Wind Energy Handbook
-    term_1 = -1. * a_all
-    term_2 = cas.mtimes(LL_matr, c_all)
-    # term_1 = -1. * cas.mtimes(c_denom_diag, a_all)
-    # term_2 = cas.mtimes(LL_matr, c_numer)
-    resi_unscaled = term_1 + term_2
+    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, scaling)
 
-    term_0_ref = actuator_force.get_actuator_thrust_ref(parent, scaling) * cas.DM.ones((3, 1))
-    term_1_ref = a_all_ref
-    term_2_ref = cas.mtimes(LL_ref, c_all_ref)
-    # term_1_ref = -1. * cas.mtimes(c_denom_diag_ref, a_all_ref)
-    # term_2_ref = cas.mtimes(LL_ref, c_num_ref)
+    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+    clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
+    MM = actuator_coeff.get_MM_matrix(clockwise_rotation_about_xhat)
 
-    # vector_reference = term_2_ref
-    # print('qasym term_2_ref')
-    vector_reference = term_1_ref
-    # print('qasym term_1_ref')
+    resi_unscaled, _, _, _ = assemble_pitt_peters_style_residual(a_all, da_dt_all, MM, LLinv, LLinv_num, LLinv_denom, c_all, c_numer, c_denom)
 
-    resi = []
-    for dim in range(3):
-        local_scaled = resi_unscaled[dim] / vect_op.smooth_abs(vector_reference[dim])
-        resi = cas.vertcat(resi, local_scaled)
+    LLinv_ref, LLinv_num_ref, LLinv_denom_ref = actuator_coeff.get_LL_inv_matrix_ref(model_options, parent, scaling)
+    _, _, term_2_ref, term_3_ref = assemble_pitt_peters_style_residual(a_all_ref, da_dt_all_ref, LLinv_ref, LLinv_num_ref, LLinv_denom_ref, c_all_ref, c_num_ref, c_den_ref)
 
+    # resi_reference = term_2_ref
+    # print('qasym ref: term_2_ref')
+
+    resi_reference = term_3_ref
+    # print('qasym ref: term_3_ref')
+
+    resi = scale_resi(resi_unscaled, resi_reference)
     return resi
 
 def get_actuator_orientation_cstr(model_options, wind, parent, variables_si, parameters, architecture, scaling):

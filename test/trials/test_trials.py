@@ -263,14 +263,14 @@ def make_basic_health_variant(base_options):
     basic_health_options['nlp.collocation.u_param'] = 'zoh'
     basic_health_options['solver.hippo_strategy'] = False
 
-    basic_health_options['solver.health_check.when'] = 'always' #'success'
+    basic_health_options['solver.health_check.when'] = 'success'
     basic_health_options['nlp.collocation.name_constraints'] = True
-    basic_health_options['solver.health_check.help_with_debugging'] = True #False
+    basic_health_options['solver.health_check.help_with_debugging'] = False
     basic_health_options['model.scaling.other.print_help_with_scaling'] = True
 
     basic_health_options['solver.homotopy_method.advance_despite_max_iter'] = False
     basic_health_options['solver.homotopy_method.advance_despite_ill_health'] = False
-    basic_health_options['solver.homotopy_method.consider_restoration_as_failure'] = False #True
+    basic_health_options['solver.homotopy_method.consider_restoration_as_failure'] = False #True #todo: future goals
     basic_health_options['solver.health_check.raise_exception'] = True
     basic_health_options['solver.initialization.check_reference'] = True
     basic_health_options['solver.initialization.check_feasibility.raise_exception'] = True
@@ -301,7 +301,7 @@ def generate_options_dict():
     single_kite_options['user_options.trajectory.lift_mode.windings'] = 1
     single_kite_options['model.tether.aero_elements'] = 1
     single_kite_options['user_options.induction_model'] = 'not_in_use'
-    single_kite_options['solver.linear_solver'] = 'ma27'  # do not use a parallelized (non-repeatable) solver here. it may be faster, but it will drive you crazy trying to figure out what changed
+    single_kite_options['solver.linear_solver'] = 'ma27'  # do not use a parallelized (non-repeatable) solver here. it may solver faster, but it will drive you crazy trying to figure out what changed between tests
     single_kite_options['nlp.collocation.u_param'] = 'zoh'
     single_kite_options['nlp.n_k'] = 20
     single_kite_options['quality.raise_exception'] = True
@@ -387,39 +387,41 @@ def generate_options_dict():
     # todo: include size-based tests for dual kites and not just single kites.
 
     actuator_qaxi_options = copy.deepcopy(dual_kite_options)
-    actuator_qaxi_options['user_options.kite_standard'] = ampyx_data.data_dict()
+    # actuator_qaxi_options['user_options.kite_standard'] = ampyx_data.data_dict()
     actuator_qaxi_options['user_options.induction_model'] = 'actuator'
     actuator_qaxi_options['model.aero.actuator.steadyness'] = 'quasi-steady'
     actuator_qaxi_options['model.aero.actuator.symmetry'] = 'axisymmetric'
-    actuator_qaxi_options['visualization.cosmetics.trajectory.actuator'] = True
-    actuator_qaxi_options['visualization.cosmetics.trajectory.kite_bodies'] = True
+    # actuator_qaxi_options['visualization.cosmetics.trajectory.actuator'] = True
+    # actuator_qaxi_options['visualization.cosmetics.trajectory.kite_bodies'] = True
     actuator_qaxi_options['user_options.trajectory.lift_mode.windings'] = 1
-    actuator_qaxi_options['model.aero.actuator.thrust_scaling_method'] = 'thrust_coeff'  #['thrust_coeff', 'aero', 'tension', 'synthesized']
-    actuator_qaxi_options['model.aero.actuator.position_scaling_method'] = 'altitude' #'default' # ['default', 'radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']
-    actuator_qaxi_options['model.scaling.other.flight_radius_estimate'] = 'cone'
-    actuator_qaxi_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
+    # actuator_qaxi_options['model.aero.actuator.thrust_scaling_method'] = 'thrust_coeff'  #['thrust_coeff', 'aero', 'tension', 'synthesized']
+    # actuator_qaxi_options['model.aero.actuator.position_scaling_method'] = 'altitude' #'default' # ['default', 'radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']
+    # actuator_qaxi_options['model.scaling.other.flight_radius_estimate'] = 'cone'
+    # actuator_qaxi_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
     actuator_qaxi_options['model.aero.actuator.gamma_range'] = [-np.pi / 2., np.pi / 2.]
     actuator_qaxi_options['model.aero.actuator.a_ref'] = 0.3
     actuator_qaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]
     actuator_qaxi_options['model.aero.actuator.a_fourier_ref'] = 0.1 #1e3
     actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-cas.inf, cas.inf]
-    # actuator_qaxi_options['model.aero.actuator.asym_radial_linearity'] = True
+    # # actuator_qaxi_options['model.aero.actuator.asym_radial_linearity'] = True
     actuator_qaxi_options['solver.cost_factor.power'] = 1e1
-    actuator_qaxi_options['solver.weights.actuator'] = 1.e-1 # rela, adjust this when things run
-    print_op.warn_about_temporary_functionality_alteration()
-    actuator_qaxi_options['solver.cost.u_regularisation.0'] = 1e-4
-    #actuator_qaxi_options['solver.cost.gamma.1'] = 1e3
-    # actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
-    # actuator_qaxi_options['solver.cost.fictitious.1'] = 1e4
-
-    # actuator_qaxi_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
-    #actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
-    #actuator_qaxi_options['solver.cost.fictitious.1'] = 1e4
+    # print('pcf: ' + str(actuator_qaxi_options['solver.cost_factor.power']))
+    # actuator_qaxi_options['solver.weights.actuator'] = 1.e-1 # rela, adjust this when things run
+    # print_op.warn_about_temporary_functionality_alteration()
+    # actuator_qaxi_options['solver.cost.u_regularisation.0'] = 1e-4
+    # #actuator_qaxi_options['solver.cost.gamma.1'] = 1e3
+    # # actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
+    # # actuator_qaxi_options['solver.cost.fictitious.1'] = 1e4
+    #
+    # # actuator_qaxi_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
+    # #actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
+    # #actuator_qaxi_options['solver.cost.fictitious.1'] = 1e4
 
     actuator_qaxi_basic_health_options = make_basic_health_variant(actuator_qaxi_options)
 
     actuator_support_only_options = copy.deepcopy(actuator_qaxi_options)
     actuator_support_only_options['model.aero.actuator.support_only'] = True
+    actuator_support_only_options['solver.cost_factor.power'] = 1e1
     # actuator_support_only_options['solver.cost.gamma.1'] = 1e3
     # actuator_support_only_options['solver.weights.actuator'] = 1e0
 
@@ -698,8 +700,8 @@ if __name__ == "__main__":
             test_vortex_3_dof()
 
         if types_of_problems['actuator']:
-            test_actuator_support_only_basic_health()
-            test_actuator_support_only()
+            # test_actuator_support_only_basic_health()
+            # test_actuator_support_only()
 
             test_actuator_qaxi_basic_health()
             test_actuator_qaxi()

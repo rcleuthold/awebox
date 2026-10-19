@@ -674,7 +674,6 @@ def build_induction_options(options, help_options, options_tree, fixed_params, a
 
     options_tree = actuator_system.add_system_bounds_of_support_variables(options, help_options, options_tree)
 
-
     if options['model']['aero']['actuator']['support_only']:
         if (user_options['induction_model'] == 'actuator') and (not options['model']['aero']['induction']['force_zero']):
             message = 'model.aero.actuator.support_only is true, while the actuator induction model is selected.' \
@@ -1581,7 +1580,10 @@ def estimate_power(options, architecture, suppress_help_statement=True):
     a_ref = options['model']['aero']['actuator']['a_ref']
     thrust = get_momentum_theory_thrust(options, architecture)
     p_actuator = thrust * uu * (1. - a_ref) * float(len(architecture.layer_nodes))
-    if not (options['user_options']['induction_model'] == 'not_in_use'):
+    has_induction_model = (options['user_options']['induction_model'] != 'not_in_use')
+    act_but_support_only = (options['user_options']['induction_model'] == 'actuator' and options['model']['aero']['actuator']['support_only'])
+    ind_but_force_zero = (options['user_options']['induction_model'] != 'not_in_use' and options['model']['aero']['induction']['force_zero'])
+    if has_induction_model and not (act_but_support_only or ind_but_force_zero):
         synthesizing_dict['actuator'] = p_actuator
     else:
         scaling_dict['actuator'] = p_actuator

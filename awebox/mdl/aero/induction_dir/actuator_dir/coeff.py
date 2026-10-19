@@ -124,7 +124,7 @@ def get_LL_inv_matrix_from_corr_and_chi(corr, chi, clockwise_rotation_about_xhat
 
     inv11_num = 32768. * corr * cas.cos(chi)
     inv12_num = 0.
-    inv13_num = -1920. * corr * np.pi * cas.sin(chi)
+    inv13_num = -1920. * np.pi * corr * cas.sin(chi)
     inv21_num = 0.
     inv22_num = denom * (-1. * cas.cos(chi/2.)**2.)
     inv23_num = 0.
