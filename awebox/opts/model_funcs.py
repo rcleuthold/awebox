@@ -783,16 +783,29 @@ def build_actuator_options(options, options_tree, fixed_params, architecture):
     if not vect_op.is_numeric_scalar(a_fourier_scaling) and vect_op.is_numeric_scalar(a_fourier_range[1]):
         a_fourier_scaling = a_fourier_range[1] / 2.
 
+
+    a_type_ref_dict = {'a0': a_ref, 'acos': a_fourier_scaling, 'asin': a_fourier_scaling}
+    a_type_init_dict = {'a0': a_ref, 'acos': 0., 'asin': 0.}
     a_labels_dict = {'qaxi': 'z', 'qasym': 'z', 'uaxi': 'x', 'uasym' : 'x'}
-    for label in a_labels_dict.keys():
-        options_tree.append(('model', 'scaling', a_labels_dict[label], prefix + 'a0_' + label, a_ref, ('descript', None), 'x'))
-        for a_name in ['acos', 'asin']:
-            options_tree.append(('model', 'scaling', a_labels_dict[label], prefix + a_name + '_' + label, a_fourier_scaling, ('descript', None), 'x'))
-            options_tree.append(('solver', 'initialization', 'z', prefix + a_name + '_' + label, 0., ('???', None), 'x')),
+    deriv_factor = 10.0
+    print('deriv factor: ' + str(deriv_factor))
+    # 0.1 goes 63-99 iter for first ficititous
+    for label, var_type in a_labels_dict.items():
+        for a_var_name, a_var_ref in a_type_ref_dict.items():
+            options_tree.append(('model', 'scaling', var_type, prefix + a_var_name + '_' + label, a_var_ref, ('descript', None), 'x'))
+        for a_var_name, a_var_init in a_type_init_dict.items():
+            options_tree.append(('solver', 'initialization', var_type, prefix + a_var_name + '_' + label, a_var_init, ('descript', None), 'x'))
+        if label[0] == 'u':
+            for a_var_name, a_var_ref in a_type_ref_dict.items():
+                options_tree.append(('model', 'scaling', 'xdot', 'd' + prefix + a_var_name + '_' + label, a_var_ref * deriv_factor, ('descript', None), 'x'))
+            for a_var_name, a_var_ref in a_type_ref_dict.items():
+                options_tree.append(('solver', 'initialization', 'xdot', 'd' + prefix + a_var_name + '_' + label, 0., ('descript', None), 'x'))
 
-    options_tree.append(('model', 'scaling', 'z', prefix + 'local_a', a_ref, ('???', None), 'x')),
-    options_tree.append(('solver', 'initialization', 'z', prefix + 'a0', a_ref, ('???', None), 'x')),
+    for poss_var_type in ['x', 'z']:
+        options_tree.append(('model', 'scaling', poss_var_type, prefix + 'local_a', a_ref, ('???', None), 'x')),
+        options_tree.append(('solver', 'initialization', poss_var_type, prefix + 'local_a', a_ref, ('???', None), 'x')),
 
+    # bounds may only be applied to the model currently in use, not any comparison models
     local_label = actuator_flow.get_label({'induction': {'steadyness': actuator_steadyness, 'symmetry': actuator_symmetry}})
     options_tree.append(('model', 'system_bounds', a_labels_dict[local_label], prefix + 'a0_' + local_label, a_range,
                          ('local induction factor', None), 'x')),

@@ -261,8 +261,11 @@ def generate_default_solver_options(options):
             opts['ipopt.ma57_automatic_scaling'] = 'no'
             opts['ipopt.ma86_scaling'] = 'none'
             opts['ipopt.ma97_scaling'] = 'none'
-            # Verify the options
-            opts['ipopt.print_user_options'] = 'yes'
+
+        disallow_restoration = (options['nlp_solver'] == 'ipopt') and options['ipopt']['disallow_restoration']
+        if disallow_restoration:
+            opts['ipopt.max_soft_resto_iters'] = 0
+            opts['ipopt.max_resto_iter'] = 0
 
         if awelogger.logger.getEffectiveLevel() > 10:
             opts['ipopt.print_level'] = 0
@@ -271,6 +274,8 @@ def generate_default_solver_options(options):
 
         if options['hessian_approximation']:
             opts['ipopt.hessian_approximation'] = 'limited-memory'
+
+        opts['ipopt.print_user_options'] = options['ipopt']['print_user_options']
 
     opts['record_time'] = 1
 

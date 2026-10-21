@@ -222,25 +222,13 @@ def get_bar_varrho_cstr(parent, variables, architecture, scaling):
     return cstr
 
 
-def assemble_radial_vector(radius, y_rotor_hat, z_rotor_hat, psi, clockwise_rotation_about_xhat):
-    rhat = parametric_rhat(z_rotor_hat, y_rotor_hat, psi, clockwise_rotation_about_xhat)
+def assemble_radial_vector(radius, y_rotor_hat, z_rotor_hat, psi, for_kite_motion_or_induction_distribution='induction_distribution', clockwise_rotation_about_xhat=True):
+    rhat = parametric_rhat(z_rotor_hat, y_rotor_hat, psi, for_kite_motion_or_induction_distribution, clockwise_rotation_about_xhat)
     return radius * rhat
 
 def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architecture):
 
-    # for positive yaw(turns around +zhat, normal moves towards +yhat):
-    # rhat = zhat * cos(psi) - yhat * sin(psi)
-    clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
-
-    #
-    # rvec = radius((zhat') * cos(psi) + (-yhat') * sin(psi))
-    # dot(rvec, zhat') = radius * cos(psi)
-    # dot(rvec, yhat') = - radius * sin(psi)
-
-    # q_kite - q_center = radius rhat = radius * (zhat cos(psi) - yhat sin(psi))
-    # resi_vec = (q_kite - q_center) - radius * (zhat cos(psi) - yhat sin(psi))
-    # resi_zhat = zhat^T (q_kite - q_center) - radius * cos(psi)
-
+    # this does not get the psi angle in fixed coordinates, but in the inflow-misalignment reference frame yhat_rotor and zhat_rotor
     parent = architecture.parent_map[kite]
     b_ref = parameters['theta0', 'geometry', 'b_ref']
 
@@ -254,7 +242,7 @@ def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architec
     psi_var = get_psi_var(variables, kite, parent)
     varrho_var = get_varrho_var(variables, kite, parent)
     radius = varrho_var * b_ref
-    radial_vector = assemble_radial_vector(radius, y_rotor_hat_var, z_rotor_hat_var, psi_var, clockwise_rotation_about_xhat)
+    radial_vector = assemble_radial_vector(radius, y_rotor_hat_var, z_rotor_hat_var, psi_var, for_kite_motion_or_induction_distribution='induction_distribution')
 
     resi_vec = vec_from_center_to_kite - radial_vector
     resi_y = cas.mtimes(resi_vec.T, y_rotor_hat_var)
@@ -286,7 +274,7 @@ def get_actuator_area(parent, variables, parameters):
 
     return area
 
-def get_kite_radial_vector(kite, variables, architecture, clockwise_rotation_about_xhat):
+def get_kite_radial_vector(kite, variables, architecture):
 
     parent = architecture.parent_map[kite]
 
@@ -294,23 +282,31 @@ def get_kite_radial_vector(kite, variables, architecture, clockwise_rotation_abo
     z_rotor_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'z', parent)
 
     psi_var = get_psi_var(variables, kite, parent)
-    rhat = parametric_rhat(z_rotor_hat_var, y_rotor_hat_var, psi_var, clockwise_rotation_about_xhat)
+    rhat = parametric_rhat(z_rotor_hat_var, y_rotor_hat_var, psi_var, for_kite_motion_or_induction_distribution='induction_distribution')
     return rhat
 
 
-def parametric_rhat(z_rotor_hat, y_rotor_hat, psi, clockwise_rotation_about_xhat):
-    # for positive yaw(turns around +zhat, normal towards +yhat):
-    #     rhat = zhat * cos(psi) - yhat * sin(psi)
+def parametric_rhat(z_rotor_hat, y_rotor_hat, psi, for_kite_motion_or_induction_distribution='induction_distribution', clockwise_rotation_about_xhat=True):
 
     # rotation with right hand rule about + (positive) nhat
-    if clockwise_rotation_about_xhat:
-        sign = +1
+    if for_kite_motion_or_induction_distribution == 'kite_motion':
+        if clockwise_rotation_about_xhat:
+            sign = -1
+        else:
+            sign = +1.
+    elif for_kite_motion_or_induction_distribution == 'induction_distribution':
+        # Figure 3.56 on page 107 of Burton Wind Energy Handbook seems to suggest that
+        # for positive yaw (turns around +zhat, normal towards +yhat):
+        # rhat = zhat * cos(psi) - yhat * sin(psi)
+        # but the term [3,1] of LL is positive, so it must be the other direction
+        sign = 1.
     else:
-        sign = -1.
+        message = 'parametric rhat purpose (' + for_kite_motion_or_induction_distribution + ') not recognized.'
+        print_op.log_and_raise_error(message)
 
     cospsi = cas.cos(psi)
     sinpsi = cas.sin(psi)
-    rhat = z_rotor_hat * cospsi - sign * y_rotor_hat * sinpsi
+    rhat = z_rotor_hat * cospsi + sign * y_rotor_hat * sinpsi
 
     return rhat
 
@@ -364,8 +360,8 @@ def approximate_tip_radius(model_options, variables, kite, architecture, tip, pa
 
         r_column = variables['x']['r' + str(kite) + str(parent)]
         r = cas.reshape(r_column, (3, 3))
-        ehat2 = r[:, 1]  # spanwise, from pe to ne
-
+        ehat2 = r[:, 1]  # spanwise, from pe to ne,
+        # but if the kite has flipped, that's why the absolute value is in below
         ehat2_proj_radial = vect_op.smooth_abs(cas.mtimes(radial_vector.T, ehat2))
 
         half_span_proj = b_ref * ehat2_proj_radial / 2.
@@ -508,7 +504,7 @@ def draw_average_radius(ax, side, plot_dict, cosmetics, index):
         rotor_z_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
 
         psi = 0.
-        rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, psi, clockwise_rotation_about_xhat)
+        rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, psi, for_kite_motion_or_induction_distribution='induction_distribution') #clockwise_rotation_about_xhat)
 
         avg_radius = plot_dict['outputs']['actuator']['avg_radius' + str(parent)][0][index]
 
@@ -562,7 +558,7 @@ def draw_radial_segment_around_actuator_center(ax, side, plot_dict, cosmetics, i
         radius_start = mu_start * (b_ref * (bar_varrho + 0.5))
         radius_end = mu_end * (b_ref * (bar_varrho + 0.5))
 
-        rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, psi_val, clockwise_rotation_about_xhat)
+        rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, psi_val, for_kite_motion_or_induction_distribution='induction_distribution') #clockwise_rotation_about_xhat)
 
         x_start = x_center + radius_start * rhat
         x_end = x_center + radius_end * rhat
@@ -580,7 +576,7 @@ def draw_radial_segment_around_actuator_center(ax, side, plot_dict, cosmetics, i
 def draw_arc_around_actuator_center(ax, side, plot_dict, cosmetics, index, parent, mu_val, psi_start=0., psi_end=2.*np.pi, kite=None, color=None, linestyle=':'):
     variables_si = viz_tools.assemble_variable_slice_from_interpolated_data(plot_dict, index)
     b_ref = plot_dict['options']['model']['params']['geometry']['b_ref']
-    clockwise_rotation_about_xhat = plot_dict['options']['model']['aero']['vortex']['clockwise_rotation_about_xhat']
+    # clockwise_rotation_about_xhat = plot_dict['options']['model']['aero']['vortex']['clockwise_rotation_about_xhat']
 
     architecture = plot_dict['architecture']
     if parent in architecture.layer_nodes:
@@ -600,7 +596,7 @@ def draw_arc_around_actuator_center(ax, side, plot_dict, cosmetics, index, paren
         local_psi = psi_start
         data = []
         while local_psi < psi_end:
-            rhat_start = parametric_rhat(rotor_z_hat, rotor_y_hat, local_psi, clockwise_rotation_about_xhat)
+            rhat_start = parametric_rhat(rotor_z_hat, rotor_y_hat, local_psi, for_kite_motion_or_induction_distribution='induction_distribution') #clockwise_rotation_about_xhat)
             x_local = x_center + drawing_radius * rhat_start
             data = cas.horzcat(data, x_local)
             local_psi += delta_psi

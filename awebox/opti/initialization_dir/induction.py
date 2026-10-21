@@ -114,15 +114,14 @@ def initial_guess_actuator_a_values(init_options, model, V_init):
 
     prefix = actuator_system.get_actuator_var_name_prefix()
 
-    a_ref = cas.DM(init_options['z'][prefix + 'a0'])
-
     dict = {}
-
-    dict[prefix + 'local_a'] = cas.DM(a_ref)
-    for label in ['qaxi', 'qasym', 'uaxi', 'uasym']:
-        dict[prefix + 'a0_' + label] = cas.DM(a_ref)
-        for a_name in ['acos', 'asin']:
-            dict[prefix + a_name + '_' + label] = cas.DM(0.)
+    a_labels_dict = {'qaxi': 'z', 'qasym': 'z', 'uaxi': 'x', 'uasym' : 'x'}
+    for label, var_type in a_labels_dict.items():
+        for a_var_name in ['a0', 'acos', 'asin']:
+            full_name = prefix + a_var_name + '_' + label
+            dict[full_name] = cas.DM(init_options[var_type][full_name])
+            if label[0] == 'u':
+                dict['d' + full_name] = cas.DM(init_options['xdot']['d' + full_name])
 
     for var_type in ['x', 'z']:
         for name in struct_op.subkeys(model.variables, var_type):
@@ -237,7 +236,7 @@ def initial_guess_actuator_support(init_options, model, V_init):
         dict[prefix + 'bar_varrho' + str(parent)] = varrho_ref
         dict[prefix + 'area' + str(parent)] = 2. * np.pi * init_options['precompute']['radius'] * b_ref
 
-        a_ref = cas.DM(init_options['z'][prefix + 'a0'])
+        a_ref = cas.DM(init_options['z'][prefix + 'a0_qaxi'])
         dict[prefix + 'thrust' + str(parent)] = 4. * a_ref * (1. - a_ref) * dict[prefix + 'area' + str(parent)] * q_infty
 
     for node in range(1, model.architecture.number_of_nodes):

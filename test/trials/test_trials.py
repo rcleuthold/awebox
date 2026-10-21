@@ -271,11 +271,13 @@ def make_basic_health_variant(base_options):
     basic_health_options['solver.homotopy_method.advance_despite_max_iter'] = False
     basic_health_options['solver.homotopy_method.advance_despite_ill_health'] = False
     basic_health_options['solver.homotopy_method.consider_restoration_as_failure'] = False #True #todo: future goals
+    # basic_health_options['solver.ipopt.disallow_restoration'] = True
+
+    basic_health_options['solver.ipopt.autoscale'] = False
     basic_health_options['solver.health_check.raise_exception'] = True
     basic_health_options['solver.initialization.check_reference'] = True
     basic_health_options['solver.initialization.check_feasibility.raise_exception'] = True
     basic_health_options['solver.max_iter'] = 500
-    basic_health_options['solver.ipopt.autoscale'] = False
     basic_health_options['solver.health_check.spy_matrices'] = False
     basic_health_options['quality.when'] = 'never'
     basic_health_options['visualization.cosmetics.variables.si_or_scaled'] = 'si'
@@ -394,13 +396,14 @@ def generate_options_dict():
     # actuator_qaxi_options['visualization.cosmetics.trajectory.actuator'] = True
     # actuator_qaxi_options['visualization.cosmetics.trajectory.kite_bodies'] = True
     actuator_qaxi_options['user_options.trajectory.lift_mode.windings'] = 1
+    # # with thrust_coeff, cone, groundspeed, induction iterations between 100 and 250
     # actuator_qaxi_options['model.aero.actuator.thrust_scaling_method'] = 'thrust_coeff'  #['thrust_coeff', 'aero', 'tension', 'synthesized']
-    # actuator_qaxi_options['model.aero.actuator.position_scaling_method'] = 'altitude' #'default' # ['default', 'radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']
+    # # actuator_qaxi_options['model.aero.actuator.position_scaling_method'] = 'altitude' #'default' # ['default', 'radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']
     # actuator_qaxi_options['model.scaling.other.flight_radius_estimate'] = 'cone'
     # actuator_qaxi_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
     actuator_qaxi_options['model.aero.actuator.gamma_range'] = [-np.pi / 2., np.pi / 2.]
     actuator_qaxi_options['model.aero.actuator.a_ref'] = 0.3
-    actuator_qaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]
+    actuator_qaxi_options['model.aero.actuator.a_range'] = [-0.5, 0.5] # in case nhat flips direction? [-cas.inf, 0.5]
     actuator_qaxi_options['model.aero.actuator.a_fourier_ref'] = 0.1 #1e3
     actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-cas.inf, cas.inf]
     # # actuator_qaxi_options['model.aero.actuator.asym_radial_linearity'] = True
@@ -410,8 +413,10 @@ def generate_options_dict():
     # print_op.warn_about_temporary_functionality_alteration()
     # actuator_qaxi_options['solver.cost.u_regularisation.0'] = 1e-4
     # #actuator_qaxi_options['solver.cost.gamma.1'] = 1e3
-    # # actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
-    # # actuator_qaxi_options['solver.cost.fictitious.1'] = 1e4
+    # scf_exp = 2
+    # print('scf: 1e' + str(scf_exp))
+    # actuator_qaxi_options['solver.cost.fictitious.0'] = 10.**scf_exp
+    # actuator_qaxi_options['solver.cost.fictitious.1'] = 10.**scf_exp
     #
     # # actuator_qaxi_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
     # #actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
@@ -431,6 +436,8 @@ def generate_options_dict():
     actuator_uaxi_options['model.aero.actuator.steadyness'] = 'unsteady'
     # actuator_uaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]  # -cas.inf, cas.inf] #0.5]
     # actuator_uaxi_options['solver.cost_factor.power'] = 1e1
+    actuator_uaxi_options['solver.cost_factor.power'] = 1e1 #not yet determined
+    print('pcf: ' + str(actuator_uaxi_options['solver.cost_factor.power']))
 
     actuator_uaxi_basic_health_options = make_basic_health_variant(actuator_uaxi_options)
 
@@ -439,7 +446,8 @@ def generate_options_dict():
     # actuator_qasym_options['model.aero.actuator.a_range'] = [-cas.inf, cas.inf]
     # actuator_qasym_options['solver.weights.actuator'] = 1e0
     # actuator_qasym_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
-    actuator_qasym_options['solver.cost_factor.power'] = 1e1
+    actuator_qasym_options['solver.cost_factor.power'] = 1e0
+    # print('pcf: ' + str(actuator_qasym_options['solver.cost_factor.power']))
 
     actuator_qasym_basic_health_options = make_basic_health_variant(actuator_qasym_options)
 
@@ -700,8 +708,8 @@ if __name__ == "__main__":
             test_vortex_3_dof()
 
         if types_of_problems['actuator']:
-            # test_actuator_support_only_basic_health()
-            # test_actuator_support_only()
+            test_actuator_support_only_basic_health()
+            test_actuator_support_only()
 
             test_actuator_qaxi_basic_health()
             test_actuator_qaxi()
@@ -709,9 +717,9 @@ if __name__ == "__main__":
             # test_actuator_qasym_basic_health()
             # test_actuator_qasym()
 
-            # test_actuator_uaxi_basic_health()
-            # test_actuator_uaxi()
-            #
+            test_actuator_uaxi_basic_health()
+            test_actuator_uaxi()
+
             # test_actuator_uasym_basic_health()
             # test_actuator_uasym()
             #
