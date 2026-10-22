@@ -416,7 +416,7 @@ def test_signs_of_qasym_with_nonzero_moment(eps=1e-4):
 
     # see coordinates in Figure 18. earth fixed x, y, and z are defined the same.
     # but normal force is greatest between 180 (down) and 270 (upwind side) degrees?
-    # ignore the x-y labels in figure 3, they don't make any sense?
+    # ignore the x-y labels in figure 3, they don't match the coordinates from Fig. 9
 
     n_vec = vect_op.xhat_dm() + cas.tan(gamma_yaw) * vect_op.yhat_dm() + cas.tan(tilt_angle) * vect_op.zhat_dm()
     n_hat = vect_op.normalize(n_vec)
@@ -424,13 +424,6 @@ def test_signs_of_qasym_with_nonzero_moment(eps=1e-4):
     dcm_act, dcm_wind = actuator_flow.construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat)
     y_rotor_hat = dcm_act[:, 1]
     z_rotor_hat = dcm_act[:, 2]
-
-    # y_rotor_without_sign_flip = y_rotor_hat
-    # z_rotor_without_sign_flip = z_rotor_hat
-
-    z_rotor_without_sign_flip = vect_op.zhat_dm()
-    y_rotor_without_sign_flip = vect_op.normed_cross(z_rotor_without_sign_flip, n_hat)
-    z_rotor_without_sign_flip = vect_op.normed_cross(n_hat, y_rotor_without_sign_flip)
 
     moment_y = tilt_moment
     moment_z = yaw_moment
@@ -471,11 +464,11 @@ def test_signs_of_qasym_with_nonzero_moment(eps=1e-4):
         message = 'tilt and yaw moment not turning the induction contour in expected direction'
         print_op.log_and_raise_error(message)
 
-    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, y_rotor_without_sign_flip, z_rotor_without_sign_flip, 'nonzero_moment')
+    plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'nonzero_moment')
 
     return None
 
-def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, y_rotor_without_sign_flip, z_rotor_without_sign_flip, name_string):
+def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, name_string):
     dict = {}
     idx = 0
     for mu in np.linspace(0., 1., 30):
@@ -489,8 +482,8 @@ def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor
             local_dict = {}
             local_dict['mu'] = float(mu)
             local_dict['psi'] = float(psi)
-            local_dict['y'] = float(cas.mtimes(radial_vector.T, y_rotor_without_sign_flip) / exterior_radius)
-            local_dict['z'] = float(cas.mtimes(radial_vector.T, z_rotor_without_sign_flip) / exterior_radius)
+            local_dict['y'] = float(cas.mtimes(radial_vector.T, y_rotor_hat) / exterior_radius)
+            local_dict['z'] = float(cas.mtimes(radial_vector.T, z_rotor_hat) / exterior_radius)
             local_dict['a'] = float(a_local)
             local_dict['ui'] = float(ui)
             dict[idx] = local_dict
@@ -499,6 +492,9 @@ def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor
     y_array = np.array([local_dict['y'] for local_dict in dict.values()])
     z_array = np.array([local_dict['z'] for local_dict in dict.values()])
     a_array = np.array([local_dict['a'] for local_dict in dict.values()])
+
+    mu_array = np.array([local_dict['mu'] for local_dict in dict.values()])
+    psi_array = np.array([local_dict['psi'] for local_dict in dict.values()])
     ui_array = np.array([local_dict['ui'] for local_dict in dict.values()])
 
     import os
@@ -521,9 +517,18 @@ def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor
     ax.set_aspect('equal')
     plt.savefig(base_name + "_a.pdf", format="pdf")
 
-    fig, ax = plt.subplots()
-    contour = ax.tricontourf(y_array, z_array, ui_array, levels=100, cmap=cmap) #, vmin=-6, vmax=-2.5)
-    plt.tricontour(y_array, z_array, ui_array, levels=100, cmap=cmap)
+    fig, ax = plt.subplots(
+        subplot_kw={'projection': 'polar'}
+    )
+    ax.set_theta_zero_location('N')     # Set 0° at the top (North)
+    ax.set_theta_direction(-1)     # Set angles to increase clockwise
+    ax.set_thetagrids(np.arange(0, 360, 30))
+    contour = ax.tricontourf(psi_array, mu_array, ui_array, levels=100, cmap=cmap) #, vmin=-6, vmax=-2.5)
+    plt.tricontour(psi_array, mu_array, ui_array, levels=100, cmap=cmap)
+    # add the epigraphs to show rotation of the induction field
+    ax.tricontour(psi_array, mu_array, ui_array, levels=[u_zero * (-1.) * a_dict['a0']], colors='black', linewidths=1.5, linestyles='solid', zorder=10)
+    # Dashed reference line at psi = 0
+    ax.plot([0, 0], [0, 1], color='black', linestyle='--', linewidth=1.5, zorder=10)
     # plt.clim(-6, -2.5)
     fig.colorbar(contour, ax=ax, label='Normal induced velocity [m/s]')
     ax.set_xlabel('y')
@@ -612,10 +617,6 @@ def test_signs_of_qasym_with_zero_moment(eps=1e-3):
     y_rotor_hat = dcm_act[:, 1]
     z_rotor_hat = dcm_act[:, 2]
 
-    z_rotor_without_sign_flip = vect_op.zhat_dm()
-    y_rotor_without_sign_flip = vect_op.normed_cross(z_rotor_without_sign_flip, n_hat)
-    z_rotor_without_sign_flip = vect_op.normed_cross(n_hat, y_rotor_without_sign_flip)
-
     dict = {}
     idx = 0
     smallest = +999999.
@@ -636,7 +637,7 @@ def test_signs_of_qasym_with_zero_moment(eps=1e-3):
             if a_local > largest:
                 largest = a_local
 
-            local_point = {'y': cas.mtimes(radial_vector.T, y_rotor_without_sign_flip), 'z': cas.mtimes(radial_vector.T, z_rotor_without_sign_flip), 'u': cas.mtimes(radial_vector.T, u_hat), 'a': a_local}
+            local_point = {'y': cas.mtimes(radial_vector.T, y_rotor_hat), 'z': cas.mtimes(radial_vector.T, z_rotor_hat), 'u': cas.mtimes(radial_vector.T, u_hat), 'a': a_local}
             dict[idx] = local_point
             idx += 1
 
@@ -662,16 +663,16 @@ def test_signs_of_qasym_with_zero_moment(eps=1e-3):
             when_neither_upstream_nor_downstream_have_intermediate_values = when_neither_upstream_nor_downstream_have_intermediate_values and ((local_dict['a'] - tentative_intermediate_value)**2. < eps)
 
     # test 2 = when upstream, we have the larger induction factor
-    when_upstream_we_have_largest_val = True
+    when_upstream_we_have_smallest_a = True
     for idx, local_dict in dict.items():
         if local_dict['u'] < (-1 * eps): # we are upstream.
-            when_upstream_we_have_largest_val = when_upstream_we_have_largest_val and ((local_dict['a'] - largest)**2. < eps)
+            when_upstream_we_have_smallest_a = when_upstream_we_have_smallest_a and ((local_dict['a'] - smallest)**2. < eps)
 
     # test 3 = when y is negative, we have the smaller induction factor
-    when_downstream_we_have_smallest_val = True
+    when_downstream_we_have_largest_a = True
     for idx, local_dict in dict.items():
         if local_dict['u'] > eps: # we are downstream.
-            when_downstream_we_have_smallest_val = when_downstream_we_have_smallest_val and ((local_dict['a'] - smallest)**2. < eps)
+            when_downstream_we_have_largest_a = when_downstream_we_have_largest_a and ((local_dict['a'] - largest)**2. < eps)
 
     # test 4 = values are roughly similar to those printed in Hur et al
     expected = cas.DM([0.09, 0.18, 0.26])
@@ -679,7 +680,7 @@ def test_signs_of_qasym_with_zero_moment(eps=1e-3):
     diff = expected - found
     values_are_roughly_similar = (cas.mtimes(diff.T, diff)) < (eps * vect_op.norm(expected))
 
-    test = intermediate_value_is_intermediate and when_neither_upstream_nor_downstream_have_intermediate_values and when_upstream_we_have_largest_val and when_downstream_we_have_smallest_val and values_are_roughly_similar
+    test = intermediate_value_is_intermediate and when_neither_upstream_nor_downstream_have_intermediate_values and when_upstream_we_have_smallest_a and when_downstream_we_have_largest_a and values_are_roughly_similar
     if not test:
         print_op.print_dict_as_table(dict)
         import pdb; pdb.set_trace()
@@ -687,7 +688,7 @@ def test_signs_of_qasym_with_zero_moment(eps=1e-3):
         print_op.log_and_raise_error(message)
 
     # print_op.print_dict_as_table(step_history)
-    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, y_rotor_without_sign_flip, z_rotor_without_sign_flip, 'zero_moment')
+    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'zero_moment')
 
     return None
 
@@ -851,8 +852,8 @@ def independent_test():
     actuator_flow.test_gamma_angle_for_dcms()
     actuator_coeff.test_LL_inversion_correctly_implemented()
     test_signs_of_uaxi()
-    test_signs_of_qasym_with_zero_moment()
-    test_signs_of_qasym_with_nonzero_moment()
+    # test_signs_of_qasym_with_zero_moment()
+    # test_signs_of_qasym_with_nonzero_moment()
     return None
 
 
@@ -869,5 +870,8 @@ def sanity_check(init_options, variables_si, wind, architecture, epsilon=1e-5):
     return None
 
 if __name__ == "__main__":
+    test_signs_of_qasym_with_zero_moment()
+    test_signs_of_qasym_with_nonzero_moment()
+
     independent_test()
 

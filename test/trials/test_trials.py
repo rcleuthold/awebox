@@ -270,8 +270,7 @@ def make_basic_health_variant(base_options):
 
     basic_health_options['solver.homotopy_method.advance_despite_max_iter'] = False
     basic_health_options['solver.homotopy_method.advance_despite_ill_health'] = False
-    basic_health_options['solver.homotopy_method.consider_restoration_as_failure'] = False #True #todo: future goals
-    # basic_health_options['solver.ipopt.disallow_restoration'] = True
+    basic_health_options['solver.ipopt.disallow_restoration'] = True #future goals
 
     basic_health_options['solver.ipopt.autoscale'] = False
     basic_health_options['solver.health_check.raise_exception'] = True
@@ -313,9 +312,9 @@ def generate_options_dict():
     # # homotopy paths (like IPOPT) are only guaranteed to be unique-and-continuous if the
     # # KKT matrix is strictly definite. therefore, solution paths that would trigger the
     # # restoration mode would likely include paths with repeatability problems - so I think
-    # # we should aim to eventually include in here the lines:
+    # # we should aim to eventually include in here the line:
+    # single_kite_options['solver.ipopt.disallow_restoration'] = True
     single_kite_options['solver.homotopy_method.advance_despite_max_iter'] = False
-    # single_kite_options['solver.homotopy_method.consider_restoration_as_failure'] = True
 
     single_kite_basic_health_options = make_basic_health_variant(single_kite_options)
 
@@ -407,8 +406,8 @@ def generate_options_dict():
     actuator_qaxi_options['model.aero.actuator.a_fourier_ref'] = 0.1 #1e3
     actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-cas.inf, cas.inf]
     # # actuator_qaxi_options['model.aero.actuator.asym_radial_linearity'] = True
-    actuator_qaxi_options['solver.cost_factor.power'] = 1e1
-    # print('pcf: ' + str(actuator_qaxi_options['solver.cost_factor.power']))
+    actuator_qaxi_options['solver.cost_factor.power'] = 1e2
+    print('qaxi pcf: ' + str(actuator_qaxi_options['solver.cost_factor.power']))
     # actuator_qaxi_options['solver.weights.actuator'] = 1.e-1 # rela, adjust this when things run
     # print_op.warn_about_temporary_functionality_alteration()
     # actuator_qaxi_options['solver.cost.u_regularisation.0'] = 1e-4
@@ -427,6 +426,19 @@ def generate_options_dict():
     actuator_support_only_options = copy.deepcopy(actuator_qaxi_options)
     actuator_support_only_options['model.aero.actuator.support_only'] = True
     actuator_support_only_options['solver.cost_factor.power'] = 1e1
+    print('support pcf: ' + str(actuator_support_only_options['solver.cost_factor.power']))
+    scfict_exp = 4
+    scgamma_exp = 3
+    swact_exp = -2
+    print('support scf: 1e' + str(scfict_exp))
+    actuator_support_only_options['solver.cost.fictitious.0'] = 10.**scfict_exp
+    actuator_support_only_options['solver.cost.fictitious.1'] = 10.**scfict_exp
+    actuator_support_only_options['solver.cost.gamma.1'] = 10.**scgamma_exp
+    print('support scg: ' + str(actuator_support_only_options['solver.cost.gamma.1']))
+    actuator_support_only_options['solver.weights.actuator'] = 10.**swact_exp  # rela, adjust this when things run
+    print('support swa: ' + str(actuator_support_only_options['solver.weights.actuator']))
+
+
     # actuator_support_only_options['solver.cost.gamma.1'] = 1e3
     # actuator_support_only_options['solver.weights.actuator'] = 1e0
 
@@ -437,8 +449,8 @@ def generate_options_dict():
     # actuator_uaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]  # -cas.inf, cas.inf] #0.5]
     # actuator_uaxi_options['solver.cost_factor.power'] = 1e1
     actuator_uaxi_options['solver.cost_factor.power'] = 1e1 #not yet determined
-    print('pcf: ' + str(actuator_uaxi_options['solver.cost_factor.power']))
-
+    print('uaxi pcf: ' + str(actuator_uaxi_options['solver.cost_factor.power']))
+    #
     actuator_uaxi_basic_health_options = make_basic_health_variant(actuator_uaxi_options)
 
     actuator_qasym_options = copy.deepcopy(actuator_qaxi_options)
@@ -604,7 +616,7 @@ def run_test(trial_name, final_homotopy_step='final', overwrite_options={}):
     trial.print_cost_information()
 
     if not trial.optimization.solve_succeeded:
-        message = 'optimization of trial ' + trial_name + ' failed'
+        message = 'optimization of trial ' + trial_name + ' failed at step ' + trial.optimization.get_failure_step()
         raise Exception(message)
 
     del trial
@@ -711,14 +723,14 @@ if __name__ == "__main__":
             test_actuator_support_only_basic_health()
             test_actuator_support_only()
 
-            test_actuator_qaxi_basic_health()
-            test_actuator_qaxi()
-
-            # test_actuator_qasym_basic_health()
-            # test_actuator_qasym()
-
-            test_actuator_uaxi_basic_health()
-            test_actuator_uaxi()
+            # test_actuator_qaxi_basic_health()
+            # test_actuator_qaxi()
+            # 
+            # # test_actuator_qasym_basic_health()
+            # # test_actuator_qasym()
+            # 
+            # test_actuator_uaxi_basic_health()
+            # test_actuator_uaxi()
 
             # test_actuator_uasym_basic_health()
             # test_actuator_uasym()

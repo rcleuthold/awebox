@@ -295,11 +295,12 @@ def parametric_rhat(z_rotor_hat, y_rotor_hat, psi, for_kite_motion_or_induction_
         else:
             sign = +1.
     elif for_kite_motion_or_induction_distribution == 'induction_distribution':
-        # Figure 3.56 on page 107 of Burton Wind Energy Handbook seems to suggest that
+        # Figure 3.56 on page 107 of Burton Wind Energy Handbook says that
         # for positive yaw (turns around +zhat, normal towards +yhat):
         # rhat = zhat * cos(psi) - yhat * sin(psi)
-        # but the term [3,1] of LL is positive, so it must be the other direction
-        sign = 1.
+        # But before you get nervous about LL term [3,1] being positive, remember:
+        # downstream side of rotor is closer to wake. it has more induction regardless of thrust distribution between sides.
+        sign = -1.
     else:
         message = 'parametric rhat purpose (' + for_kite_motion_or_induction_distribution + ') not recognized.'
         print_op.log_and_raise_error(message)

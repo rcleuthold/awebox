@@ -169,7 +169,6 @@ def toggle_basic_health_options(options):
 
     options['solver.homotopy_method.advance_despite_max_iter'] = False
     options['solver.homotopy_method.advance_despite_ill_health'] = False
-    options['solver.homotopy_method.consider_restoration_as_failure'] = False #True
     options['solver.health_check.raise_exception'] = False #True
     options['solver.initialization.check_reference'] = True
     options['solver.initialization.check_feasibility.raise_exception'] = False #True

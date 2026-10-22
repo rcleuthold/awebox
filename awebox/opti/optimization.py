@@ -393,9 +393,6 @@ class Optimization(object):
                 for stat_name, stat_val in processed_stats.items():
                     self.__stats[stat_name] = stat_val
 
-                if self.__options['homotopy_method']['consider_restoration_as_failure']:
-                    self.__mark_fail_if_problem_entered_restoration_mode()
-
             problem_is_healthy_or_unchecked = diagnostics.health_check(trial_name, step_name, final_homotopy_step, nlp, model, self.__solution, self.__arg, self.options, self.__stats, self.__iterations, self.__cumulative_max_memory)
             if (not problem_is_healthy_or_unchecked) and (not self.__options['homotopy_method']['advance_despite_ill_health']):
                 self.__solve_succeeded = False
@@ -410,18 +407,6 @@ class Optimization(object):
             if step_name in self.__debug_locations or self.__debug_locations == 'all':
                 V_plot_scaled = nlp.V(self.__solution['x'])
                 self.__make_debug_plot(V_plot_scaled, nlp, visualization, step_name)
-
-        return None
-
-    def __mark_fail_if_problem_entered_restoration_mode(self):
-
-        used_restoration = self.__stats['used_restoration']
-
-        if used_restoration:
-            message = 'This problem was logged as having entered restoration mode, and the options indicate that entering restoration mode should be considered as failure. Therefore, the solve is not considered to have succeeded.'
-            print_op.base_print(message, level='warning')
-            self.__solve_succeeded = False
-            self.__stats['success'] = False
 
         return None
 

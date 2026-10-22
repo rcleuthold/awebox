@@ -391,7 +391,6 @@ def set_default_options(default_user_options, help_options):
         ('solver',  'homotopy_method', None, 'psi',        'penalty',  ('homotopy method used', ['penalty', 'classic'], None), 's'),
         ('solver',  'homotopy_method', None, 'advance_despite_max_iter', True, ('should homotopy proceed to next step if the last step exceeds the maximum number of Newton steps?', [True, False], None), 's'),
         ('solver',  'homotopy_method', None, 'advance_despite_ill_health', True, ('should homotopy proceed to next step if the debug health-checker says that the problem is unhealthy/ill-posed', [True, False], None), 's'),
-        ('solver',  'homotopy_method', None, 'consider_restoration_as_failure', False, ('should having entered restoration mode be considered as a step failure. Note that the method of determining whether ipopt enterred restoration mode requires each call to ipopt to be made from a unique run directory, to avoid interference.', [True, False], None), 's'),
         ('solver',  'homotopy_method', None, 'put_induction_step_after', 'fictitious', ('after which homotopy step should you do the induction step?', ['initial', 'ficititous', 'power'], None), 's'),
 
         ('solver',  'homotopy_step',  None, 'gamma',        0.1,        ('classical continuation homotopy parameter step', None, None), 's'),
