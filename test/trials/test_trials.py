@@ -421,15 +421,24 @@ def generate_options_dict():
     # #actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
     # #actuator_qaxi_options['solver.cost.fictitious.1'] = 1e4
 
+    actuator_qaxi_options['solver.ipopt.disallow_restoration'] = True
+
     actuator_qaxi_basic_health_options = make_basic_health_variant(actuator_qaxi_options)
 
     actuator_support_only_options = copy.deepcopy(actuator_qaxi_options)
     actuator_support_only_options['model.aero.actuator.support_only'] = True
     actuator_support_only_options['solver.cost_factor.power'] = 1e1
     print('support pcf: ' + str(actuator_support_only_options['solver.cost_factor.power']))
-    scfict_exp = 4
-    scgamma_exp = 3
-    swact_exp = -2
+    list = (1e2, 1e3, 1), (1e4, 1e4, 0.01), (1e4, 1e4, 0.1), (1e2, 1e3, 0.1), (1e4, 1e3, 1.0), (1e4, 1e2, 0.01), (1e4, 10., 1.),  (1e2, 1e4, 0.1), (1e2, 1e2, 1.0), (1e2, 1e1, 1.0), (1e2, 10.,0.1), (1e1, 1e4, 0.01), (1e1, 1e4, 0.1), (1e1, 1e2, 0.1), (1e1, 10., 0.01)
+    second_list = [14, 13, 12, 11, 7, 5, 3, 2, 1]
+
+    sdx = 9
+    print('support sdx: ' + str(sdx))
+    ldx = second_list[sdx]
+    print('support ldx: ' + str(ldx))
+    scfict_exp = np.log10(list[ldx][0])
+    scgamma_exp = np.log10(list[ldx][1])
+    swact_exp = np.log10(list[ldx][2])
     print('support scf: 1e' + str(scfict_exp))
     actuator_support_only_options['solver.cost.fictitious.0'] = 10.**scfict_exp
     actuator_support_only_options['solver.cost.fictitious.1'] = 10.**scfict_exp
@@ -720,6 +729,13 @@ if __name__ == "__main__":
             test_vortex_3_dof()
 
         if types_of_problems['actuator']:
+            test_actuator_support_only_basic_health()
+            test_actuator_support_only()
+
+            test_actuator_support_only_basic_health()
+            test_actuator_support_only()
+            test_actuator_support_only_basic_health()
+            test_actuator_support_only()
             test_actuator_support_only_basic_health()
             test_actuator_support_only()
 
