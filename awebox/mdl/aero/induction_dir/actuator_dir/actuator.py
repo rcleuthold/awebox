@@ -251,22 +251,27 @@ def test_signs_of_uaxi(thresh=1e-4):
 
     chi = 0.
 
-    t_star = 1.
-    t_star_num = 1.
-    t_star_den = 1.
+    diameter = 600e-3 #m, page 4
+    air_density = 1.225 #kg/m^3
+    u_zero_mag = 34 #m/s
 
-    rise_time = 0.1
+    actuator_dynamic_pressure = 0.5 * air_density * u_zero_mag**2.
+    exterior_radius = diameter / 2.
+    actuator_area = np.pi * exterior_radius**2.
+    t_star, t_star_num, t_star_den = actuator_coeff.compute_t_star_from_exterior_radius_and_actuator_apparent_speed(exterior_radius, u_zero_mag)
 
-    time_start = -20.
-    time_array = np.linspace(time_start, 100., 10000)
+    observation_tau = 0.1
+
+    tau_start = -20.
+    tau_array = np.linspace(tau_start, 100. , 10000)
 
     CT_start = 0.6
     a_start = (1. - np.sqrt(1. - CT_start)) / 2.
-    time_switch = 20 + time_start
+    tau_switch = 20 + tau_start
 
     CT_switch = 0.8
     a_switch = (1. - np.sqrt(1. - CT_switch)) / 2.
-    time_return_to_start = 70. + time_start
+    tau_return_to_start = 70. + tau_start
 
     last_a_before_switch = -99999
     last_a_at_switch_rise_time = -99999
@@ -275,12 +280,12 @@ def test_signs_of_uaxi(thresh=1e-4):
 
     CT_array = [CT_start]
     a_array = [a_start]
-    for tdx in range(1, len(time_array)):
-        time = time_array[tdx]
+    for tdx in range(1, len(tau_array)):
+        tau = tau_array[tdx]
         a_current = a_array[-1]
-        if time >= 0 and time < time_switch:
+        if tau >= 0 and tau < tau_switch:
             CT_current = CT_start
-        elif time >= time_switch and time < time_return_to_start:
+        elif tau >= tau_switch and tau < tau_return_to_start:
             CT_current = 0.8
         else:
             CT_current = CT_start
@@ -291,22 +296,23 @@ def test_signs_of_uaxi(thresh=1e-4):
 
         a_all = cas.DM(a_current)
         c_all = cas.DM(CT_current)
-        c_numer = cas.DM(CT_current)
-        c_denom = cas.DM(1.)
+        c_numer = cas.DM(CT_current * actuator_dynamic_pressure * actuator_area)
+        c_denom = cas.DM(actuator_dynamic_pressure * actuator_area)
         _, term_1_factor, term_2, term_3 = assemble_pitt_peters_style_residual(a_all, cas.DM(1.), t_star, t_star_num, t_star_den, MM[0, 0], LLinv[0, 0],
                                                                      LLinv_num[0, 0], LLinv_denom, c_all[0], c_numer[0],
                                                                      c_denom[0])
         da_dt_current = -1. * (term_2 + term_3) / term_1_factor
 
-        a_found = a_current + da_dt_current * (time - time_array[tdx - 1])
+        timestep = (tau - tau_array[tdx -1]) * t_star
+        a_found = a_current + da_dt_current * timestep
 
-        if time < time_switch:
+        if tau < tau_switch:
             last_a_before_switch = a_found
-        if time < time_switch + rise_time:
+        if tau < tau_switch + observation_tau:
             last_a_at_switch_rise_time = a_found
-        if time < time_return_to_start:
+        if tau < tau_return_to_start:
             last_a_before_return_to_start = a_found
-        if time < time_return_to_start + rise_time:
+        if tau < tau_return_to_start + observation_tau:
             last_a_at_return_to_start_rise_time = a_found
 
         a_array += [a_found]
@@ -334,8 +340,9 @@ def test_signs_of_uaxi(thresh=1e-4):
 
     def deltaV(a_local):
         return (a_start - a_local) / (a_switch - a_start)
+
     deltaV_array = [deltaV(a_local) for a_local in a_array]
-    tau_array = np.array(cas.DM(time_array))
+    tau_array = np.array(cas.DM(tau_array))
     CT_array = np.array(cas.DM(CT_array))
     a_array = np.array(cas.DM(a_array))
     deltaV_array = np.array(cas.DM(deltaV_array))
@@ -1023,42 +1030,47 @@ def test_signs_of_uaxi(thresh=1e-4):
                      -0.000009, -0.000005, 0.000000190806, 0.000005, 0.00001, 0.00001, 0.00002, 0.00002, 0.00003,
                      0.00003, 0.00004, 0.00004, 0.00005, 0.00005]
 
-    subset_tau_array = []
-    subset_deltaV_array = []
-    for tdx in range(tau_array.shape[0]):
-        if tau_array[tdx] >= time_switch:
-            subset_tau_array += [tau_array[tdx]]
-            subset_deltaV_array += [deltaV_array[tdx]]
-
-    import os
-    import matplotlib
-    if "MPLBACKEND" not in os.environ:
-        matplotlib.use("TkAgg")
-    import matplotlib.pyplot as plt
-    fig, ax1 = plt.subplots()
-    color1 = 'tab:red'
-    ax1.set_ylabel('thrust coefficient [-]', color=color1)
-    ax1.plot(tau_array, CT_array, label='CT', color=color1)
-    ax1.tick_params(axis='y', labelcolor=color1)
-
-    ax2 = ax1.twinx()
-    color2 = 'tab:blue'
-    ax2.set_ylabel('axial induction factor [-]', color=color2)
-    ax2.plot(tau_array, a_array, label='a', color=color2)
-    ax2.tick_params(axis='y', labelcolor=color2)
-
-    fig = plt.figure()
-    plt.plot(x_yu_array, qaxi_yu_array, label='qaxi_yu')
-    plt.plot(x_yu_array, uaxi_yu_array, label='uaxi_yu')
-    plt.plot(x_yu_array, oye_yu_array, label='oye_yu')
-    plt.plot(x_yu_array, ecn_yu_array, label='ecn_yu')
-    plt.plot(x_yu_array, vtn_yu_array, label='vtn_yu')
-    plt.plot(x_yu_array, fvwr_yu_array, label='fwrr_yu')
-    plt.plot(x_yu_array, rans_yu_array, label='rans_yu')
-    # notice that deltaV in figure 6 seems to have the sign switched.
-    plt.plot(subset_tau_array, subset_deltaV_array, label='uaxi_awebox')
-    plt.legend()
-    plt.show()
+    # subset_tau_array = []
+    # subset_deltaV_array = []
+    # for tdx in range(tau_array.shape[0]):
+    #     if tau_array[tdx] >= tau_switch:
+    #         subset_tau_array += [tau_array[tdx]]
+    #         subset_deltaV_array += [deltaV_array[tdx]]
+    #
+    # base_name = "actuator_uaxi_verification"
+    #
+    # import os
+    # import matplotlib
+    # if "MPLBACKEND" not in os.environ:
+    #     matplotlib.use("TkAgg")
+    # import matplotlib.pyplot as plt
+    # fig, ax1 = plt.subplots()
+    # color1 = 'tab:red'
+    # ax1.set_ylabel('thrust coefficient [-]', color=color1)
+    # ax1.plot(tau_array, CT_array, label='CT', color=color1)
+    # ax1.tick_params(axis='y', labelcolor=color1)
+    #
+    # ax2 = ax1.twinx()
+    # color2 = 'tab:blue'
+    # ax2.set_ylabel('axial induction factor [-]', color=color2)
+    # ax2.plot(tau_array, a_array, label='a', color=color2)
+    # ax2.tick_params(axis='y', labelcolor=color2)
+    # plt.savefig(base_name + "_ct_and_a.pdf", format="pdf")
+    #
+    # fig = plt.figure()
+    # plt.plot(x_yu_array, qaxi_yu_array, label='qaxi_yu', color='blue')
+    # plt.plot(x_yu_array, uaxi_yu_array, label='uaxi_yu', color='green')
+    # plt.plot(x_yu_array, oye_yu_array, label='oye_yu', color='red')
+    # plt.plot(x_yu_array, ecn_yu_array, label='ecn_yu', color='cyan')
+    # plt.plot(x_yu_array, vtn_yu_array, label='vtn_yu', color='magenta')
+    # plt.plot(x_yu_array, fvwr_yu_array, label='fwrr_yu', color='yellow')
+    # plt.plot(x_yu_array, rans_yu_array, label='rans_yu', color='gray')
+    # # notice that deltaV in figure 6 seems to have the sign switched.
+    # plt.plot(subset_tau_array, subset_deltaV_array, label='uaxi_awebox', color='black')
+    # plt.legend()
+    # plt.savefig(base_name + "_deltav.pdf", format="pdf")
+    #
+    # plt.show()
 
     return None
 

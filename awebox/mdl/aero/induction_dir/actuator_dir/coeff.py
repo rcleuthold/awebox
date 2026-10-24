@@ -177,27 +177,23 @@ def get_moment_ref(model_options, atmos, wind, parameters):
     reference = model_options['scaling']['z']['m_aero']
     return reference
 
+def compute_t_star_from_exterior_radius_and_actuator_apparent_speed(exterior_radius, u_zero_mag):
+    # see page 145 of Burton, just below (3.200)
+    return (exterior_radius/u_zero_mag), exterior_radius, u_zero_mag
+
 def get_t_star(variables_si, parameters, parent):
     b_ref = parameters['theta0', 'geometry', 'b_ref']
     bar_varrho_var = actuator_geom.get_bar_varrho_var(variables_si, parent)
-    t_star_num = b_ref * (bar_varrho_var + 0.5)
-
-    uzero_mag = actuator_system.get_actuator_vector_length_var(variables_si, 'u', parent)
-    t_star_den = uzero_mag
-
-    t_star = t_star_num / t_star_den
-    return t_star, t_star_num, t_star_den
-
+    exterior_radius = b_ref * (bar_varrho_var + 0.5)
+    u_zero_mag = actuator_system.get_actuator_vector_length_var(variables_si, 'u', parent)
+    return compute_t_star_from_exterior_radius_and_actuator_apparent_speed(exterior_radius, u_zero_mag)
 
 def get_t_star_ref(model_options, parameters, parent, scaling):
-    varrho_ref = actuator_geom.get_varrho_ref(model_options)
     b_ref = parameters['theta0', 'geometry', 'b_ref']
-    t_star_num_ref = b_ref * (varrho_ref + 0.5)
-
-    t_star_den_ref = actuator_flow.get_uzero_vec_length_ref(parent, scaling)
-
-    t_star_ref = t_star_num_ref / t_star_den_ref
-    return t_star_ref, t_star_num_ref, t_star_den_ref
+    bar_varrho_ref = actuator_geom.get_varrho_ref(model_options)
+    exterior_radius = b_ref * (bar_varrho_ref + 0.5)
+    u_zero_mag = actuator_flow.get_uzero_vec_length_ref(parent, scaling)
+    return compute_t_star_from_exterior_radius_and_actuator_apparent_speed(exterior_radius, u_zero_mag)
 
 
 def assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynamic_pressure, area, radius_bar, wingspan):
