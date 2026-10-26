@@ -47,6 +47,7 @@ import awebox.mdl.aero.induction_dir.general_dir.tools as general_tools
 import awebox.mdl.aero.induction_dir.actuator_dir.system as actuator_system
 
 import awebox.viz.tools as viz_tools
+from awebox.mdl.architecture import Architecture
 
 
 # variables
@@ -588,24 +589,24 @@ def draw_arc_around_actuator_center(ax, side, plot_dict, cosmetics, index, paren
         bar_varrho = get_bar_varrho_var(variables_si, parent)
         drawing_radius = mu_val * (b_ref * (bar_varrho + 0.5))
 
-        n_theta = cosmetics['trajectory']['actuator_n_theta']
-        rads_per_step = 2. * np.pi / float(n_theta)
-        delta_psi = rads_per_step
+        angle = cas.SX.sym('angle')
+        rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, angle, for_kite_motion_or_induction_distribution='induction_distribution')
+        posi_fun = cas.Function('posi_fun', [angle], [x_center + drawing_radius * rhat])
 
-        local_psi = psi_start
-        data = []
-        while local_psi < psi_end:
-            rhat_start = parametric_rhat(rotor_z_hat, rotor_y_hat, local_psi, for_kite_motion_or_induction_distribution='induction_distribution')
-            x_local = x_center + drawing_radius * rhat_start
-            data = cas.horzcat(data, x_local)
-            local_psi += delta_psi
+        n_theta = cosmetics['trajectory']['actuator_n_theta']
+
+        # for kite in architecture.get_kite_children(parent):
+        # psi_kite = get_psi_var(variables_si, kite, parent)
+
+        param_list = cas.DM(np.linspace(psi_start, psi_end, n_theta + 1))
+        posi_map = posi_fun.map(param_list.shape[0], 'openmp')
+        data = posi_map(param_list)
 
         if (color is None) and (kite in architecture.kite_nodes):
             kite_index = architecture.kite_nodes.index(kite)
             color = cosmetics['trajectory']['colors'][kite_index]
 
-        if hasattr(data, 'shape') and (len(data.shape) == 2):
-            viz_tools.basic_draw(ax, side, color=color, data=data, linestyle=linestyle)
+        viz_tools.basic_draw(ax, side, color=color, data=data, linestyle=linestyle)
 
     return None
 

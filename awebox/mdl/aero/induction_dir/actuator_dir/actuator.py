@@ -136,8 +136,7 @@ def get_induction_factor_cstr(model_options, atmos, wind, system_variables, outp
     elif label == 'uaxi':
         resi = get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, label, scaling)
     elif label == 'uasym':
-        resi = get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, system_variables, parameters, outputs, parent,
-                                               architecture, label, scaling)
+        resi = get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, system_variables, parameters, outputs, parent, architecture, label, scaling)
     else:
         resi = []
         message = 'model not yet implemented.'
@@ -1099,7 +1098,7 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, system_va
     LLinv_ref, LLinv_num_ref, LLinv_denom_ref = actuator_coeff.get_LL_inv_matrix_ref(model_options, parent, scaling)
     t_star_ref, t_star_num_ref, t_star_den_ref = actuator_coeff.get_t_star_ref(model_options, parameters, parent, scaling)
 
-    _, term_1_ref, term_2_ref, term_3_ref = assemble_pitt_peters_style_residual(a_all_ref, da_dt_all_ref, t_star_ref, t_star_num_ref, t_star_den_ref, LLinv_ref, LLinv_num_ref, LLinv_denom_ref, c_all_ref, c_num_ref, c_den_ref)
+    _, term_1_ref, term_2_ref, term_3_ref = assemble_pitt_peters_style_residual(a_all_ref, da_dt_all_ref, t_star_ref, t_star_num_ref, t_star_den_ref, MM, LLinv_ref, LLinv_num_ref, LLinv_denom_ref, c_all_ref, c_num_ref, c_den_ref)
 
     # resi_reference = term_1_ref
     # term_ref_name = 'term_1'

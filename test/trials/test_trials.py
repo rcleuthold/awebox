@@ -408,8 +408,8 @@ def generate_options_dict():
     actuator_qaxi_options['model.aero.actuator.a_fourier_ref'] = 0.1 #1e3
     actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-cas.inf, cas.inf]
     # # actuator_qaxi_options['model.aero.actuator.asym_radial_linearity'] = True
-    actuator_qaxi_options['solver.cost_factor.power'] = 1e1
-    print('qaxi pcf: ' + str(actuator_qaxi_options['solver.cost_factor.power']))
+    # actuator_qaxi_options['solver.cost_factor.power'] = 1e1
+    # print('qaxi pcf: ' + str(actuator_qaxi_options['solver.cost_factor.power']))
     # actuator_qaxi_options['solver.weights.actuator'] = 1.e-1 # rela, adjust this when things run
     # print_op.warn_about_temporary_functionality_alteration()
     # actuator_qaxi_options['solver.cost.u_regularisation.0'] = 1e-4
@@ -423,25 +423,27 @@ def generate_options_dict():
     # #actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
     # #actuator_qaxi_options['solver.cost.fictitious.1'] = 1e4
 
+    actuator_qaxi_options['visualization.cosmetics.trajectory.kite_bodies'] = True
     actuator_qaxi_options['visualization.cosmetics.save_figs'] = True
     actuator_qaxi_options['visualization.cosmetics.save.format_list'] = ['pdf']
 
-    atype_num = 3
+    atype_num = 1
     scfict_exp = 4
     scgamma_exp = 2
     
     swact_exp = 0
-    
-    if atype_num == 1:
-        actuator_qaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]
-    elif atype_num == 2:
-        actuator_qaxi_options['model.aero.actuator.a_range'] = [-0.5, 0.5]
-    elif atype_num == 3:
-        actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5]
-    else:
-        print_op.log_and_raise_error('atype_num error')
-    print('actuator_qaxi_options atype: ' + str(atype_num))
 
+    actuator_qaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]
+    # if atype_num == 1:
+    #     actuator_qaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]
+    # elif atype_num == 2:
+    #     actuator_qaxi_options['model.aero.actuator.a_range'] = [-0.5, 0.5]
+    # elif atype_num == 3:
+    #     actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5]
+    # else:
+    #     print_op.log_and_raise_error('atype_num error')
+    # print('actuator_qaxi_options atype: ' + str(atype_num))
+    #
     # print('actuator_qaxi_options scf: 1e' + str(scfict_exp))
     # actuator_qaxi_options['solver.cost.fictitious.0'] = 10.**scfict_exp
     # actuator_qaxi_options['solver.cost.fictitious.1'] = 10.**scfict_exp
@@ -451,7 +453,7 @@ def generate_options_dict():
     # print('actuator_qaxi_options swa: ' + str(actuator_qaxi_options['solver.weights.actuator']))
 
     actuator_qaxi_options['solver.ipopt.disallow_restoration'] = False
-    actuator_qaxi_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
+    # actuator_qaxi_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
 
     # actuator_qaxi_options['solver.ipopt.disallow_restoration'] = True
     # actuator_qaxi_options['solver.ipopt.linear_scaling_on_demand'] = 'yes'
@@ -479,8 +481,8 @@ def generate_options_dict():
 
     actuator_support_only_options = copy.deepcopy(actuator_qaxi_options)
     actuator_support_only_options['model.aero.actuator.support_only'] = True
-    actuator_support_only_options['solver.cost_factor.power'] = 1e1
-    print('support pcf: ' + str(actuator_support_only_options['solver.cost_factor.power']))
+    # actuator_support_only_options['solver.cost_factor.power'] = 1e1
+    # print('support pcf: ' + str(actuator_support_only_options['solver.cost_factor.power']))
     # list = (1e2, 1e3, 1), (1e4, 1e4, 0.01), (1e4, 1e4, 0.1), (1e2, 1e3, 0.1), (1e4, 1e3, 1.0), (1e4, 1e2, 0.01), (1e4, 10., 1.),  (1e2, 1e4, 0.1), (1e2, 1e2, 1.0), (1e2, 1e1, 1.0), (1e2, 10.,0.1), (1e1, 1e4, 0.01), (1e1, 1e4, 0.1), (1e1, 1e2, 0.1), (1e1, 10., 0.01)
     # second_list = [14, 13, 12, 11, 7, 5, 3, 2, 1]
     # sdx = 9
@@ -491,26 +493,26 @@ def generate_options_dict():
     # scgamma_exp = np.log10(list[ldx][1])
     # swact_exp = np.log10(list[ldx][2])
 
-    # support pcf: 10.0
-    # support sdx: 5
-    # support ldx: 5
-    # support scf: 1e4.0
-    # support scg: 100.0
-    # support swa: 0.01
-    scfict_exp = 4.
-    scgamma_exp = 2.
-    swact_exp = -2.
-    # print('support scf: 1e' + str(scfict_exp))
-    actuator_support_only_options['solver.cost.fictitious.0'] = 10.**scfict_exp
-    actuator_support_only_options['solver.cost.fictitious.1'] = 10.**scfict_exp
-    actuator_support_only_options['solver.cost.gamma.1'] = 10.**scgamma_exp
-    # print('support scg: ' + str(actuator_support_only_options['solver.cost.gamma.1']))
-    actuator_support_only_options['solver.weights.actuator'] = 10.**swact_exp  # rela, adjust this when things run
-    # print('support swa: ' + str(actuator_support_only_options['solver.weights.actuator']))
-
-    actuator_support_only_options['solver.ipopt.disallow_restoration'] = True
-    actuator_support_only_options['solver.ipopt.linear_scaling_on_demand'] = 'yes'
-
+    # # support pcf: 10.0
+    # # support sdx: 5
+    # # support ldx: 5
+    # # support scf: 1e4.0
+    # # support scg: 100.0
+    # # support swa: 0.01
+    # scfict_exp = 4.
+    # scgamma_exp = 2.
+    # swact_exp = -2.
+    # # print('support scf: 1e' + str(scfict_exp))
+    # actuator_support_only_options['solver.cost.fictitious.0'] = 10.**scfict_exp
+    # actuator_support_only_options['solver.cost.fictitious.1'] = 10.**scfict_exp
+    # actuator_support_only_options['solver.cost.gamma.1'] = 10.**scgamma_exp
+    # # print('support scg: ' + str(actuator_support_only_options['solver.cost.gamma.1']))
+    # actuator_support_only_options['solver.weights.actuator'] = 10.**swact_exp  # rela, adjust this when things run
+    # # print('support swa: ' + str(actuator_support_only_options['solver.weights.actuator']))
+    #
+    # actuator_support_only_options['solver.ipopt.disallow_restoration'] = True
+    # actuator_support_only_options['solver.ipopt.linear_scaling_on_demand'] = 'yes'
+    #
     # actuator_support_only_options['solver.cost.gamma.1'] = 1e3
     # actuator_support_only_options['solver.weights.actuator'] = 1e0
 
@@ -520,8 +522,8 @@ def generate_options_dict():
     actuator_uaxi_options['model.aero.actuator.steadyness'] = 'unsteady'
     # actuator_uaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]  # -cas.inf, cas.inf] #0.5]
     # actuator_uaxi_options['solver.cost_factor.power'] = 1e1
-    actuator_uaxi_options['solver.cost_factor.power'] = 1e1 #not yet determined
-    print('uaxi pcf: ' + str(actuator_uaxi_options['solver.cost_factor.power']))
+    # actuator_uaxi_options['solver.cost_factor.power'] = 1e1 #not yet determined
+    # print('uaxi pcf: ' + str(actuator_uaxi_options['solver.cost_factor.power']))
     #
     actuator_uaxi_basic_health_options = make_basic_health_variant(actuator_uaxi_options)
 
@@ -530,7 +532,7 @@ def generate_options_dict():
     # actuator_qasym_options['model.aero.actuator.a_range'] = [-cas.inf, cas.inf]
     # actuator_qasym_options['solver.weights.actuator'] = 1e0
     # actuator_qasym_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
-    actuator_qasym_options['solver.cost_factor.power'] = 1e0
+    # actuator_qasym_options['solver.cost_factor.power'] = 1e0
     # print('pcf: ' + str(actuator_qasym_options['solver.cost_factor.power']))
 
     actuator_qasym_basic_health_options = make_basic_health_variant(actuator_qasym_options)
@@ -542,7 +544,7 @@ def generate_options_dict():
     # # # actuator_uasym_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]  # -cas.inf, cas.inf] #0.5]
     # actuator_uasym_options['model.aero.actuator.a_range'] = [-cas.inf, cas.inf]
     # # actuator_uasym_options['solver.weights.actuator'] = 1e0
-    actuator_uasym_options['solver.cost_factor.power'] = 1e1
+    # actuator_uasym_options['solver.cost_factor.power'] = 1e1
     # actuator_uasym_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
 
     actuator_uasym_basic_health_options = make_basic_health_variant(actuator_uasym_options)
@@ -797,21 +799,20 @@ if __name__ == "__main__":
             test_vortex_3_dof()
 
         if types_of_problems['actuator']:
-            # test_actuator_support_only()
-            # test_actuator_support_only_basic_health()
+            #test_actuator_support_only()
+            #test_actuator_support_only_basic_health()
 
-            test_actuator_qaxi()
-            # test_actuator_qaxi_basic_health()
+            #test_actuator_qaxi()
+            #test_actuator_qaxi_basic_health()
 
-            # 
-            # test_actuator_qasym()
-            # test_actuator_qasym_basic_health()
+            #test_actuator_qasym()
+            #test_actuator_qasym_basic_health()
 
-            # test_actuator_uaxi()
-            # test_actuator_uaxi_basic_health()
+            #test_actuator_uaxi()
+            #test_actuator_uaxi_basic_health()
 
-            # test_actuator_uasym()
-            # test_actuator_uasym_basic_health()
+            test_actuator_uasym()
+            test_actuator_uasym_basic_health()
 
             #
             # test_actuator_comparison()

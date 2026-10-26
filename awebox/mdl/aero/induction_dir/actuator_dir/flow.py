@@ -632,14 +632,12 @@ def draw_actuator_flow(ax, side, plot_dict, cosmetics, index):
 def draw_yaw_angle(ax, side, plot_dict, cosmetics, index):
 
     variables_si = viz_tools.assemble_variable_slice_from_interpolated_data(plot_dict, index)
-    b_ref = plot_dict['options']['model']['params']['geometry']['b_ref']
 
     architecture = plot_dict['architecture']
     for parent in architecture.layer_nodes:
 
         x_center = actuator_geom.get_actuator_position_var(variables_si, parent)
 
-        nhat = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
         uzero_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'u', parent)
         vzero_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'v', parent)
         gamma = get_gamma_val(variables_si, parent)
@@ -656,7 +654,7 @@ def draw_yaw_angle(ax, side, plot_dict, cosmetics, index):
         data = posi_map(param_list)
 
         color = 'k'
-        viz_tools.basic_draw(ax, side, color=color, data=data, linestyle=':')
+        viz_tools.basic_draw(ax, side, color=color, data=data, linestyle='-')
 
     return None
 
