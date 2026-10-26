@@ -264,11 +264,12 @@ def get_wind_dcm_ortho_cstr(parent, variables_si):
     return cstr
 
 
-def get_wind_dcm_u_along_uzero_cstr(model_options, wind, parent, variables, architecture, scaling):
+def get_wind_dcm_u_along_uzero_cstr(model_options, wind, parent, system_variables, architecture, scaling):
+    variables_si = system_variables['SI']
 
-    u_vec_val = general_flow.get_vec_u_zero(model_options, wind, parent, variables, architecture)
-    u_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'u', parent)
-    u_length_var = actuator_system.get_actuator_vector_length_var(variables, 'u', parent)
+    u_vec_val = general_flow.get_vec_u_zero(model_options, wind, parent, system_variables, architecture, scaling)
+    u_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'u', parent)
+    u_length_var = actuator_system.get_actuator_vector_length_var(variables_si, 'u', parent)
 
     resi_align = u_vec_val - u_hat_var * u_length_var
 
@@ -473,39 +474,37 @@ def get_local_induction_factor(model_options, variables, kite, parent, label):
     return a_local
 
 
-def get_local_induced_velocity(model_options, variables, parameters, architecture, wind, kite, parent, label):
+def get_local_induced_velocity(model_options, system_variables, parameters, architecture, wind, kite, parent, scaling, label):
+    variables_si = system_variables['SI']
 
-    vec_u_zero_val = general_flow.get_vec_u_zero(model_options, wind, parent, variables, architecture)
+    vec_u_zero_val = general_flow.get_vec_u_zero(model_options, wind, parent, system_variables, architecture, scaling)
     u_zero = vect_op.norm(vec_u_zero_val)
-    n_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'n', parent)
+    n_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
 
-    a_val = get_local_induction_factor(model_options, variables, kite, parent, label)
+    a_val = get_local_induction_factor(model_options, variables_si, kite, parent, label)
     u_ind = -1. * a_val * u_zero * n_hat_var
 
     return u_ind
 
 
-def get_kite_induced_velocity(model_options, variables, parameters, architecture, wind, kite, parent):
+def get_kite_induced_velocity(model_options, system_variables, parameters, architecture, wind, kite, parent, scaling):
     label = get_label(model_options)
-    u_ind_kite = get_local_induced_velocity(model_options, variables, parameters, architecture, wind, kite, parent, label)
+    u_ind_kite = get_local_induced_velocity(model_options, system_variables, parameters, architecture, wind, kite, parent, scaling, label)
     return u_ind_kite
 
-def get_kite_effective_velocity(model_options, variables, parameters, architecture, wind, kite, parent):
-    print_op.warn_about_temporary_functionality_alteration(reason='check if this is defined twice')
-
-    u_app_kite = general_flow.get_kite_apparent_velocity(variables, wind, kite, parent)
-    u_ind_kite = get_kite_induced_velocity(model_options, variables, parameters, architecture, wind, kite, parent)
-
+def get_kite_effective_velocity_from_a_var(model_options, system_variables, parameters, architecture, wind, kite, parent, scaling):
+    variables_si = system_variables['SI']
+    u_app_kite = general_flow.get_kite_apparent_velocity(variables_si, wind, kite, parent)
+    u_ind_kite = get_kite_induced_velocity(model_options, system_variables, parameters, architecture, wind, kite, parent, scaling)
     u_eff_kite = u_app_kite + u_ind_kite
-
     return u_eff_kite
 
-def get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture):
-
-    center = actuator_geom.get_actuator_position_var(variables, parent)
+def get_actuator_dynamic_pressure(model_options, atmos, wind, system_variables, parent, architecture, scaling):
+    variables_si = system_variables['SI']
+    center = actuator_geom.get_actuator_position_var(variables_si, parent)
     rho_infty = atmos.get_density(center[2])
 
-    u_vec_val = general_flow.get_vec_u_zero(model_options, wind, parent, variables, architecture)
+    u_vec_val = general_flow.get_vec_u_zero(model_options, wind, parent, system_variables, architecture, scaling)
 
     qzero = 0.5 * rho_infty * cas.mtimes(u_vec_val.T, u_vec_val)
 
@@ -526,13 +525,14 @@ def get_wake_angle_chi_jimenez(gamma_var, thrust, area, qzero):
     chi = gamma_var + 0.5 * ct_val * cosgamma**2. * singamma
     return chi
 
-def get_wake_angle_chi(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
+def get_wake_angle_chi(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label):
+    variables_si = system_variables['SI']
 
-    gamma_var = get_gamma_var(variables, parent)
-    a0_var = get_a0_var(variables, parent, label)
-    thrust = actuator_force.get_actuator_thrust_var(variables, parent)
-    area = actuator_geom.get_actuator_area(parent, variables, parameters)
-    qzero = get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
+    gamma_var = get_gamma_var(variables_si, parent)
+    a0_var = get_a0_var(variables_si, parent, label)
+    thrust = actuator_force.get_actuator_thrust_var(variables_si, parent)
+    area = actuator_geom.get_actuator_area(parent, variables_si, parameters)
+    qzero = get_actuator_dynamic_pressure(model_options, atmos, wind, system_variables, parent, architecture, scaling)
 
     wake_skew = model_options['aero']['actuator']['wake_skew']
 
@@ -599,14 +599,15 @@ def get_corr_val_simple(a0_var, gamma_var):
     corr_val = (cosgamma - a0_var)
     return corr_val
 
-def get_corr_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
+def get_corr_val(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label):
+    variables_si = system_variables['SI']
 
     # options here from Chapter 4 of Wind Energy Handbook
     # Tony Burton, Nick Jenkins, David Sharpe, and Ervin Bossanyi
 
-    a0_var = get_a0_var(variables, parent, label)
-    gamma_var = get_gamma_var(variables, parent)
-    chi = get_wake_angle_chi(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+    a0_var = get_a0_var(variables_si, parent, label)
+    gamma_var = get_gamma_var(variables_si, parent)
+    chi = get_wake_angle_chi(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label)
 
     actuator_skew = model_options['aero']['actuator']['actuator_skew']
     if actuator_skew == 'not_in_use':

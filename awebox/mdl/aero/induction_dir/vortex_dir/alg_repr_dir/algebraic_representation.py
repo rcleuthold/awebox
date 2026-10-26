@@ -53,13 +53,16 @@ import awebox.tools.print_operations as print_op
 from awebox.logger.logger import Logger as awelogger
 
 
-def build(options, architecture, wind, variables_si, variables_scaled, parameters):
+def build(options, architecture, wind, system_variables, parameters, scaling):
+
+    variables_si = system_variables['SI']
+    variables_scaled = system_variables['scaled']
 
     vortex_tools.check_positive_vortex_wake_nodes(options)
 
     bound_wake = alg_bound_wake.build(options, architecture, variables_si, parameters)
     near_wake = alg_near_wake.build(options, architecture, variables_si, parameters)
-    far_wake = alg_far_wake.build(options, architecture, wind, variables_si, parameters)
+    far_wake = alg_far_wake.build(options, architecture, wind, system_variables, parameters, scaling)
 
     wake = obj_wake.Wake()
     wake.set_substructure(bound_wake)
@@ -86,7 +89,9 @@ def test_drawing(test_includes_visualization):
     if test_includes_visualization:
 
         options, architecture, wind, var_struct, param_struct, variables_dict, variables_si, parameters = alg_structure.construct_vortex_ring_test_object()
-        wake = build(options, architecture, wind, variables_si, parameters)
+        system_variables = {'SI': variables_si, 'scaled': variables_si}
+        scaling = var_struct(1.)
+        wake = build(options, architecture, wind, system_variables, parameters, scaling)
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')

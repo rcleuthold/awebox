@@ -55,14 +55,3 @@ def get_center_position(parent, variables, architecture):
 
     return center
 
-def get_center_velocity(parent, variables, architecture):
-
-    children = architecture.kites_map[parent]
-    number_children = float(len(children))
-
-    dcenter = np.zeros((3, 1))
-    for kite in children:
-        dq_kite = struct_op.get_variable_from_model_or_reconstruction(variables, 'x', 'dq' + str(kite) + str(parent))
-        dcenter += dq_kite / number_children
-
-    return dcenter

@@ -49,9 +49,9 @@ import casadi.tools as cas
 def get_forces_and_moments(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling, kite_obj_for_printing_only=None):
 
     variables_si = system_variables['SI']
-    outputs, kite_obj_for_printing_only = get_aerodynamic_outputs(options, atmos, wind, variables_si, outputs, parameters, architecture, kite_obj_for_printing_only=kite_obj_for_printing_only)
+    outputs, kite_obj_for_printing_only = get_aerodynamic_outputs(options, atmos, wind, system_variables, outputs, parameters, architecture, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
 
-    outputs = geom.collect_geometry_outputs(options, wind, variables_si, outputs, parameters, architecture, scaling)
+    outputs = geom.collect_geometry_outputs(options, wind, system_variables, outputs, parameters, architecture, scaling)
     outputs = indicators.get_circulation_outputs(options, atmos, wind, variables_si, outputs, parameters, architecture)
     outputs = indicators.get_performance_outputs(options, atmos, wind, variables_si, outputs, parameters, architecture)
 
@@ -60,66 +60,62 @@ def get_forces_and_moments(options, atmos, wind, wake, system_variables, outputs
 
     return outputs, kite_obj_for_printing_only
 
-def get_framed_forces_and_moments(options, variables_si, atmos, wind, architecture, parameters, kite, outputs, kite_obj_for_printing_only=None):
+def get_framed_forces_and_moments(model_options, system_variables, atmos, wind, architecture, parameters, kite, outputs, scaling, kite_obj_for_printing_only=None):
+    variables_si = system_variables['SI']
     parent = architecture.parent_map[kite]
 
     x = variables_si['x']
     q = x['q' + str(kite) + str(parent)]
     dq = x['dq' + str(kite) + str(parent)]
 
-    vec_u_eff = tools.get_u_eff_in_earth_frame(options, variables_si, wind, kite, architecture)
+    vec_u_eff = tools.get_u_eff_in_earth_frame(model_options, system_variables, parameters, wind, kite, architecture, scaling)
     rho = atmos.get_density(q[2])
     q_eff = 0.5 * rho * cas.mtimes(vec_u_eff.T, vec_u_eff)
 
-    if int(options['kite_dof']) == 3:
-        kite_dcm = three_dof_kite.get_kite_dcm(options, variables_si, wind, kite, architecture)
-    elif int(options['kite_dof']) == 6:
+    if int(model_options['kite_dof']) == 3:
+        kite_dcm = three_dof_kite.get_kite_dcm(model_options, system_variables, parameters, wind, kite, architecture, scaling)
+    elif int(model_options['kite_dof']) == 6:
         kite_dcm = six_dof_kite.get_kite_dcm(kite, variables_si, architecture)
     else:
-        message = 'unsupported kite_dof chosen in options: ' + str(options['kite_dof'])
+        message = 'unsupported kite_dof chosen in options: ' + str(model_options['kite_dof'])
         print_op.log_and_raise_error(message)
 
     if kite_obj_for_printing_only is not None:
-        kite_obj_for_printing_only.add_to_applied_params_dict('user_options.system_model.kite_dof', options['kite_dof'])
+        kite_obj_for_printing_only.add_to_applied_params_dict('user_options.system_model.kite_dof', model_options['kite_dof'])
 
-    if int(options['kite_dof']) == 3:
+    if int(model_options['kite_dof']) == 3:
 
-        if options['aero']['lift_aero_force']:
+        if model_options['aero']['lift_aero_force']:
             framed_forces = tools.get_framed_forces(vec_u_eff, kite_dcm, variables_si, kite, architecture)
         else:
-            force_found_vector, force_found_frame, vec_u, kite_dcm, kite_obj_for_printing_only = three_dof_kite.get_force_vector(options,
-                                                                                                     variables_si,
-                                                                                                     atmos,
-                                                                                                     wind, architecture,
-                                                                                                     parameters, kite,
-                                                                                                     outputs, kite_obj_for_printing_only=kite_obj_for_printing_only)
+            force_found_vector, force_found_frame, vec_u, kite_dcm, kite_obj_for_printing_only = (three_dof_kite.get_force_vector(model_options, system_variables, parameters, atmos, wind, architecture, kite, outputs, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only))
             framed_forces = tools.get_framed_forces(vec_u_eff, kite_dcm, variables_si, kite, architecture,
                                                     force_found_vector, force_found_frame)
 
         framed_moments = tools.get_framed_moments(vec_u_eff, kite_dcm, variables_si, kite, architecture,
                                                   cas.DM.zeros((3, 1)), 'body')
 
-    elif int(options['kite_dof']) == 6:
+    elif int(model_options['kite_dof']) == 6:
 
-        if options['aero']['lift_aero_force']:
+        if model_options['aero']['lift_aero_force']:
             framed_forces = tools.get_framed_forces(vec_u_eff, kite_dcm, variables_si, kite, architecture)
             framed_moments = tools.get_framed_moments(vec_u_eff, kite_dcm, variables_si, kite, architecture)
 
         else:
-            f_found_vector, f_found_frame, m_found_vector, m_found_frame, vec_u_earth, kite_dcm, kite_obj_for_printing_only = six_dof_kite.get_force_and_moment_vector(
-                options, variables_si, atmos, wind, architecture, parameters, kite, outputs, kite_obj_for_printing_only=kite_obj_for_printing_only)
+            f_found_vector, f_found_frame, m_found_vector, m_found_frame, vec_u_earth, kite_dcm, kite_obj_for_printing_only = six_dof_kite.get_force_and_moment_vector(model_options, system_variables, atmos, wind, architecture, parameters, kite, outputs, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
             framed_forces = tools.get_framed_forces(vec_u_eff, kite_dcm, variables_si, kite, architecture,
                                                     f_found_vector, f_found_frame)
             framed_moments = tools.get_framed_moments(vec_u_eff, kite_dcm, variables_si, kite, architecture,
                                                       m_found_vector, m_found_frame)
 
     else:
-        message = 'unsupported kite_dof chosen in options: ' + str(options['kite_dof'])
+        message = 'unsupported kite_dof chosen in options: ' + str(model_options['kite_dof'])
         print_op.log_and_raise_error(message)
 
     return framed_forces, framed_moments, kite_dcm, q_eff, vec_u_eff, q, dq, kite_obj_for_printing_only
 
-def get_aerodynamic_outputs(options, atmos, wind, variables_si, outputs, parameters, architecture, kite_obj_for_printing_only=None):
+def get_aerodynamic_outputs(options, atmos, wind, system_variables, outputs, parameters, architecture, scaling, kite_obj_for_printing_only=None):
+    variables_si = system_variables['SI']
     outputs = unit_normal.get_rotation_axes_outputs(options, variables_si, outputs, architecture, wind)
 
     b_ref = parameters['theta0', 'geometry', 'b_ref']
@@ -130,7 +126,7 @@ def get_aerodynamic_outputs(options, atmos, wind, variables_si, outputs, paramet
     kite_nodes = architecture.kite_nodes
     for kite in kite_nodes:
 
-        framed_forces, framed_moments, kite_dcm, q_eff, vec_u_eff, q, dq, kite_obj_for_printing_only = get_framed_forces_and_moments(options, variables_si, atmos, wind, architecture, parameters, kite, outputs, kite_obj_for_printing_only=kite_obj_for_printing_only)
+        framed_forces, framed_moments, kite_dcm, q_eff, vec_u_eff, q, dq, kite_obj_for_printing_only = get_framed_forces_and_moments(options, system_variables, atmos, wind, architecture, parameters, kite, outputs, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
         m_aero_body = framed_moments['body']
         u_eff = vect_op.smooth_norm(vec_u_eff)
 
@@ -231,27 +227,29 @@ def get_force_and_moment_vars(variables_si, kite, parent, options):
 
     return f_aero, m_aero
 
-def get_force_cstr(options, variables, atmos, wind, architecture, parameters, outputs, kite_obj_for_printing_only=None):
+def get_force_cstr(model_options, system_variables, parameters, atmos, wind, architecture, outputs, scaling, kite_obj_for_printing_only=None):
+    variables_si = system_variables['SI']
 
-    if int(options['kite_dof']) == 3:
-        cstr_list, kite_obj_for_printing_only = three_dof_kite.get_force_cstr(options, variables, atmos, wind, architecture, parameters, outputs, kite_obj_for_printing_only=kite_obj_for_printing_only)
+    if int(model_options['kite_dof']) == 3:
+        cstr_list, kite_obj_for_printing_only = three_dof_kite.get_force_cstr(model_options, system_variables, parameters, atmos, wind, architecture, outputs, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
 
-    elif int(options['kite_dof']) == 6:
-        cstr_list, kite_obj_for_printing_only = six_dof_kite.get_force_cstr(options, variables, atmos, wind, architecture, parameters, outputs, kite_obj_for_printing_only=kite_obj_for_printing_only)
+    elif int(model_options['kite_dof']) == 6:
+        cstr_list, kite_obj_for_printing_only = six_dof_kite.get_force_cstr(model_options, system_variables, parameters, atmos, wind, architecture, outputs, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
     else:
-        raise ValueError('failure: unsupported kite_dof chosen in options: %i',options['kite_dof'])
+        raise ValueError('failure: unsupported kite_dof chosen in options: %i', model_options['kite_dof'])
 
     return cstr_list
 
-def get_wingtip_position(options, kite, architecture, variables_si, parameters, tip):
+def get_wingtip_position(kite, model_options, wind, architecture, system_variables, parameters, tip, scaling):
+    variables_si = system_variables['SI']
 
-    if int(options['kite_dof']) == 3:
-        x_wingtip =three_dof_kite.get_wingtip_position(kite, architecture, variables_si, parameters, tip)
+    if int(model_options['kite_dof']) == 3:
+        x_wingtip =three_dof_kite.get_wingtip_position(kite, model_options, wind, architecture, system_variables, parameters, tip, scaling)
 
-    elif int(options['kite_dof']) == 6:
+    elif int(model_options['kite_dof']) == 6:
         x_wingtip = six_dof_kite.get_wingtip_position(kite, architecture, variables_si, parameters, tip)
     else:
-        raise ValueError('failure: unsupported kite_dof chosen in options: %i',options['kite_dof'])
+        raise ValueError('failure: unsupported kite_dof chosen in options: %i', model_options['kite_dof'])
 
     return x_wingtip
 

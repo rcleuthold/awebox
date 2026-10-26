@@ -31,6 +31,7 @@ _python-3.5 / casadi-3.4.5
 
 import casadi.tools as cas
 import numpy as np
+
 from awebox.logger.logger import Logger as awelogger
 import awebox.mdl.architecture as archi
 import awebox.mdl.wind as wind_module
@@ -85,20 +86,14 @@ def get_center_position(model_options, parent, variables, architecture):
     raise_and_log_unavailable_geometry_type_error(model_options)
     return None
 
-def get_center_velocity(model_options, parent, variables, architecture):
-    geometry_type = get_geometry_type(model_options)
-    if geometry_type == 'averaged':
-        return averaged_geom.get_center_velocity(parent, variables, architecture)
-    elif geometry_type == 'frenet':
-        return frenet_geom.get_center_velocity(parent, variables, architecture)
-    elif geometry_type == 'parent':
-        return parent_geom.get_center_velocity(parent, variables, architecture)
+def get_center_velocity(model_options, parent, system_variables, architecture, scaling):
+    variables_si = system_variables['SI']
+    q_center_val = get_center_position(model_options, parent, variables_si, architecture)
+    dq_center = struct_op.time_derivative(q_center_val, system_variables['scaled'], architecture, scaling)
+    return dq_center
 
-    raise_and_log_unavailable_geometry_type_error(model_options)
-    return None
-
-
-def get_local_period_of_rotation(model_options, variables_si, kite, architecture, wind):
+def get_local_period_of_rotation(model_options, system_variables, kite, architecture, wind, scaling, display_test_warning=True):
+    variables_si = system_variables['SI']
 
     # the velocity we care about, is the one associated with rotation. so:
     # vec_v = vec_omega x vec_r
@@ -111,9 +106,15 @@ def get_local_period_of_rotation(model_options, variables_si, kite, architecture
     parent = architecture.parent_map[kite]
 
     dq_kite = struct_op.get_variable_from_model_or_reconstruction(variables_si, 'x', 'dq' + str(kite) + str(parent))
-    dx_center = get_center_velocity(model_options, parent, variables_si, architecture)
     if model_options['induction_model'] == 'actuator':
         dx_center = actuator_geom.get_actuator_velocity_var(variables_si, parent)
+    elif isinstance(variables_si, cas.structure3.DMStruct) or isinstance(variables_si, cas.DM):
+        dx_center = cas.DM.zeros((3, 1))
+        if display_test_warning:
+            message = 'kite_motion_is_right_hand_rule_positive_around_wind_direction is being called with an evaluated (dm) variables_si object. if this is not a test, something has gone wrong.'
+            print_op.base_print(message, level='warning')
+    else:
+        dx_center = get_center_velocity(model_options, parent, system_variables, architecture, scaling)
 
     vec_v = dq_kite - dx_center
 
@@ -144,17 +145,24 @@ def get_vector_from_center_to_kite(model_options, variables, architecture, kite)
 
     return radius_vec
 
-def kite_motion_is_right_hand_rule_positive_around_wind_direction(model_options, variables_si, kite, architecture, wind):
+def kite_motion_is_right_hand_rule_positive_around_wind_direction(model_options, system_variables, kite, architecture, wind, scaling, display_test_warning=True):
     parent = architecture.parent_map[kite]
+    variables_si = system_variables['SI']
 
     q_kite = struct_op.get_variable_from_model_or_reconstruction(variables_si, 'x', 'q' + str(kite) + str(parent))
     dq_kite = struct_op.get_variable_from_model_or_reconstruction(variables_si, 'x', 'dq' + str(kite) + str(parent))
 
     x_center = get_center_position(model_options, parent, variables_si, architecture)
-    dx_center = get_center_velocity(model_options, parent, variables_si, architecture)
     if ('induction_model' in model_options.keys()) and (model_options['induction_model'] == 'actuator'):
         x_center = actuator_geom.get_actuator_position_var(variables_si, parent)
         dx_center = actuator_geom.get_actuator_velocity_var(variables_si, parent)
+    elif isinstance(variables_si, cas.structure3.DMStruct) or isinstance(variables_si, cas.DM):
+        dx_center = cas.DM.zeros((3, 1))
+        if display_test_warning:
+            message = 'kite_motion_is_right_hand_rule_positive_around_wind_direction is being called with an evaluated (dm) variables_si object. if this is not a test, something has gone wrong.'
+            print_op.base_print(message, level='warning')
+    else:
+        dx_center = get_center_velocity(model_options, parent, system_variables, architecture, scaling)
 
     u_hat = wind.get_wind_direction()
 
@@ -168,17 +176,18 @@ def kite_motion_is_right_hand_rule_positive_around_wind_direction(model_options,
     return kite_motion_is_right_hand_rule_positive_around_wind_direction
 
 
-def collect_geometry_outputs(model_options, wind, variables_si, outputs, parameters, architecture, scaling):
+def collect_geometry_outputs(model_options, wind, system_variables, outputs, parameters, architecture, scaling):
+    variables_si = system_variables['SI']
     if 'geometry' not in outputs.keys():
         outputs['geometry'] = {}
 
     for kite in architecture.kite_nodes:
-        local_period_of_rotation = get_local_period_of_rotation(model_options, variables_si, kite, architecture, wind)
+        local_period_of_rotation = get_local_period_of_rotation(model_options, system_variables, kite, architecture, wind, scaling)
         vector_from_center_to_kite = get_vector_from_center_to_kite(model_options, variables_si, architecture, kite)
         ehat_radial = outputs['rotation']['ehat_radial' + str(kite)]
         abs_radial_projection_of_vector_from_center_to_kite = vect_op.abs(cas.mtimes(vector_from_center_to_kite.T, ehat_radial))
 
-        clockwise_rotation = kite_motion_is_right_hand_rule_positive_around_wind_direction(model_options, variables_si, kite, architecture, wind)
+        clockwise_rotation = kite_motion_is_right_hand_rule_positive_around_wind_direction(model_options, system_variables, kite, architecture, wind, scaling)
         radius_of_curvature = frenet_geom.get_radius_of_curvature(variables_si, kite, architecture.parent_map[kite])
 
         outputs['geometry']['local_period_of_rotation' + str(kite)] = local_period_of_rotation
@@ -189,7 +198,7 @@ def collect_geometry_outputs(model_options, wind, variables_si, outputs, paramet
 
     for parent in architecture.layer_nodes:
         x_center = get_center_position(model_options, parent, variables_si, architecture)
-        dx_center = get_center_velocity(model_options, parent, variables_si, architecture)
+        dx_center = get_center_velocity(model_options, parent, system_variables, architecture, scaling)
         wind_velocity_at_center = wind.get_velocity(x_center[2])
         vec_u_zero = wind_velocity_at_center - dx_center
 
@@ -318,29 +327,28 @@ def construct_geometry_test_object(geometry_type='averaged'):
 def test_specific_geometry_type(geometry_type='averaged', epsilon=1.e-6):
     model_options, variables_si, architecture, wind, expected_position, expected_velocity, expected_period, expected_clockwise = construct_geometry_test_object(geometry_type=geometry_type)
     scaling = cas.DM.ones(variables_si.shape)
+    system_variables = {'SI': variables_si, 'scaled': variables_si}
     parent = architecture.layer_nodes[0]
 
     found_position = get_center_position(model_options, parent, variables_si, architecture)
-    found_velocity = get_center_velocity(model_options, parent, variables_si, architecture)
-    found_period2 = get_local_period_of_rotation(model_options, variables_si, 2, architecture, wind)
-    found_period3 = get_local_period_of_rotation(model_options, variables_si, 3, architecture, wind)
-    found_clockwise2 = kite_motion_is_right_hand_rule_positive_around_wind_direction(model_options, variables_si, 2, architecture, wind)
-    found_clockwise3 = kite_motion_is_right_hand_rule_positive_around_wind_direction(model_options, variables_si, 3, architecture, wind)
+    # we've removed the center_velocity test, because the center velocity is no longer 'coded in' but is instead produced by differentiation.
+    found_period2 = get_local_period_of_rotation(model_options, system_variables, 2, architecture, wind, scaling, display_test_warning=False)
+    found_period3 = get_local_period_of_rotation(model_options, system_variables, 3, architecture, wind, scaling, display_test_warning=False)
+    found_clockwise2 = kite_motion_is_right_hand_rule_positive_around_wind_direction(model_options, system_variables, 2, architecture, wind, scaling, display_test_warning=False)
+    found_clockwise3 = kite_motion_is_right_hand_rule_positive_around_wind_direction(model_options, system_variables, 3, architecture, wind, scaling, display_test_warning=False)
 
     error_position = vect_op.norm(expected_position - found_position) / vect_op.norm(expected_position)
-    diff_velocity = vect_op.norm(expected_velocity - found_velocity)
     error_period2 = (expected_period - found_period2) / expected_period
     error_period3 = (expected_period - found_period3) / expected_period
     diff_clockwise2 = (expected_clockwise - found_clockwise2)
     diff_clockwise3 = (expected_clockwise - found_clockwise3)
 
     cond_position = (error_position < epsilon)
-    cond_velocity = (diff_velocity < epsilon)
     cond_period2 = (error_period2**2. < epsilon**2)
     cond_period3 = (error_period3**2. < epsilon**2.)
     cond_clockwise2 = (diff_clockwise2**2. < epsilon**2.)
     cond_clockwise3 = (diff_clockwise3**2. < epsilon**2.)
-    criteria = cond_position and cond_velocity and cond_period2 and cond_period3 and cond_clockwise2 and cond_clockwise3
+    criteria = cond_position and cond_period2 and cond_period3 and cond_clockwise2 and cond_clockwise3
 
     if not criteria:
         message = 'geometry type (' + geometry_type + ') does not behave as expected in the highly-simplified test-case'

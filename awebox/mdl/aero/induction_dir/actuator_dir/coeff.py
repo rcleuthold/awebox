@@ -44,9 +44,10 @@ import awebox.tools.vector_operations as vect_op
 import awebox.tools.print_operations as print_op
 import awebox.tools.struct_operations as struct_op
 
-def get_LL_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
-    corr = actuator_flow.get_corr_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
-    chi = actuator_flow.get_wake_angle_chi(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+def get_LL_matrix_val(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label):
+    variables_si = system_variables['SI']
+    corr = actuator_flow.get_corr_val(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label)
+    chi = actuator_flow.get_wake_angle_chi(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label)
     return get_LL_matrix_from_corr_and_chi(corr, chi)
 
 def get_LL_matrix_ref(model_options,parent, scaling):
@@ -77,9 +78,10 @@ def get_LL_matrix_from_corr_and_chi(corr, chi):
 
     return LL_matr
 
-def get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label):
-    corr = actuator_flow.get_corr_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
-    chi = actuator_flow.get_wake_angle_chi(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+def get_LL_inv_matrix_val(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label):
+    variables_si = system_variables['SI']
+    corr = actuator_flow.get_corr_val(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label)
+    chi = actuator_flow.get_wake_angle_chi(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label)
     return get_LL_inv_matrix_from_corr_and_chi(corr, chi)
 
 def get_LL_inv_matrix_ref(model_options,parent, scaling):
@@ -141,10 +143,11 @@ def get_MM_matrix():
     MM = cas.horzcat(MM_col1, MM_col2, MM_col3)
     return MM
 
-def get_ct_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture):
-    thrust = actuator_force.get_actuator_thrust_var(variables, parent)
-    area = actuator_geom.get_area_var(variables, parent)
-    qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
+def get_ct_val(model_options, atmos, wind, system_variables, parent, architecture, scaling):
+    variables_si = system_variables["SI"]
+    thrust = actuator_force.get_actuator_thrust_var(variables_si, parent)
+    area = actuator_geom.get_area_var(variables_si, parent)
+    qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, system_variables, parent, architecture, scaling)
     ct = thrust / area / qzero
     return ct
 
@@ -217,16 +220,17 @@ def assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynam
     return c_all, c_numer, c_denom
 
 
-def get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, scaling):
+def get_c_all_components(model_options, atmos, wind, system_variables, parameters, outputs, parent, architecture, scaling):
 
+    variables_si = system_variables['SI']
     prefix = actuator_system.get_actuator_var_name_prefix()
 
-    thrust = actuator_force.get_actuator_thrust_var(variables, parent)
-    moment_y_val = get_actuator_moment_y_rotor(model_options, variables, outputs, parent, architecture)
-    moment_z_val = get_actuator_moment_z_rotor(model_options, variables, outputs, parent, architecture)
+    thrust = actuator_force.get_actuator_thrust_var(variables_si, parent)
+    moment_y_val = get_actuator_moment_y_rotor(model_options, variables_si, outputs, parent, architecture)
+    moment_z_val = get_actuator_moment_z_rotor(model_options, variables_si, outputs, parent, architecture)
 
-    area = actuator_geom.get_area_var(variables, parent)
-    qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
+    area = actuator_geom.get_area_var(variables_si, parent)
+    qzero = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, system_variables, parent, architecture, scaling)
 
     print_op.warn_about_temporary_functionality_alteration()
     # rela, put this back after things basically run?
@@ -242,7 +246,7 @@ def get_c_all_components(model_options, atmos, wind, variables, parameters, outp
     rho_ref = atmos.get_density(altitude)
     qzero_ref = 0.5 * rho_ref * cas.mtimes(u_zero_est.T, u_zero_est)
 
-    bar_varrho_var = actuator_geom.get_bar_varrho_var(variables, parent)
+    bar_varrho_var = actuator_geom.get_bar_varrho_var(variables_si, parent)
     b_ref = parameters['theta0', 'geometry', 'b_ref']
     radius_bar = bar_varrho_var * b_ref
 

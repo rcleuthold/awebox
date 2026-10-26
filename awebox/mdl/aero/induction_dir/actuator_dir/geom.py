@@ -40,8 +40,6 @@ import awebox.tools.constraint_operations as cstr_op
 import awebox.tools.struct_operations as struct_op
 import awebox.tools.print_operations as print_op
 
-import awebox.mdl.lagr_dyn_dir.tools as lagr_tools
-
 import awebox.mdl.aero.geometry_dir.geometry as geom
 import awebox.mdl.aero.geometry_dir.unit_normal as unit_normal
 import awebox.mdl.aero.induction_dir.general_dir.tools as general_tools
@@ -145,7 +143,7 @@ def get_center_cstr(model_options, parent, system_variables, architecture, scali
     cstr_list.append(pos_cstr)
 
     dq_center_var = get_actuator_velocity_var(variables_si, parent)
-    dq_center_val = lagr_tools.time_derivative(q_center_val, system_variables['scaled'], architecture, scaling)
+    dq_center_val = struct_op.time_derivative(q_center_val, system_variables['scaled'], architecture, scaling)
 
     vel_resi_unscaled = dq_center_var - dq_center_val
     vel_resi_scaled = struct_op.var_si_to_scaled('z', prefix + 'dactuator_center' + str(parent), vel_resi_unscaled, scaling)

@@ -57,13 +57,16 @@ from awebox.logger.logger import Logger as awelogger
 import numpy as np
 import casadi.tools as cas
 
-def build(model_options, architecture, wind, variables_si, variables_scaled, parameters):
+def build(model_options, architecture, wind, system_variables, parameters, scaling):
+
+    variables_si = system_variables['SI']
+    variables_scaled = system_variables['scaled']
 
     vortex_tools.check_positive_vortex_wake_nodes(model_options)
 
     vortex_representation = general_tools.get_option_from_possible_dicts(model_options, 'representation', 'vortex')
     if vortex_representation == 'alg':
-        return algebraic_representation.build(model_options, architecture, wind, variables_si, variables_scaled, parameters)
+        return algebraic_representation.build(model_options, architecture, wind, system_variables, parameters, scaling)
     else:
         vortex_tools.log_and_raise_unknown_representation_error(vortex_representation)
 
@@ -455,7 +458,7 @@ def get_dictionary_of_derivatives(outputs, architecture):
 def test_that_model_constraint_residuals_have_correct_shape(degree_of_induced_velocity_lifting=3):
 
     model_options, architecture, wind, var_struct, param_struct, variables_dict = alg_structure.construct_test_model_variable_structures(degree_of_induced_velocity_lifting=degree_of_induced_velocity_lifting)
-    wake = build(model_options, architecture, wind, var_struct, var_struct, param_struct)
+    wake = build(model_options, architecture, wind, {'SI': var_struct, 'scaled': var_struct}, param_struct, var_struct(1.))
 
     total_number_of_elements = vortex_tools.get_total_number_of_vortex_elements(model_options, architecture)
     number_of_observers = architecture.number_of_kites

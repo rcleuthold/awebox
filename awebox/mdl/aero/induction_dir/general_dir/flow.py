@@ -47,15 +47,16 @@ def get_kite_vec_u_infty(variables, wind, kite, parent):
     u_infty = wind.get_velocity(q_kite[2])
     return u_infty
 
-def get_vec_u_zero(model_options, wind, parent, variables, architecture):
+def get_vec_u_zero(model_options, wind, parent, system_variables, architecture, scaling):
+    variables_si = system_variables['SI']
 
-    u_infty = get_actuator_freestream_velocity(model_options, wind, parent, variables, architecture)
+    u_infty = get_actuator_freestream_velocity(model_options, wind, parent, variables_si, architecture)
 
     possible_dq_center_var_name = 'dactuator_center' + str(parent)
-    if possible_dq_center_var_name in variables['z'].keys():
-        u_actuator = variables['z'][possible_dq_center_var_name]
+    if possible_dq_center_var_name in variables_si['z'].keys():
+        u_actuator = variables_si['z'][possible_dq_center_var_name]
     else:
-        u_actuator = geom.get_center_velocity(model_options, parent, variables, architecture)
+        u_actuator = geom.get_center_velocity(model_options, parent, system_variables, architecture, scaling)
 
     u_apparent = u_infty - u_actuator
 

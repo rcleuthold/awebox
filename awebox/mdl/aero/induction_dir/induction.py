@@ -88,7 +88,7 @@ def get_induction_cstr(model_options, wind, system_variables, parameters, archit
         vec_u_ind_trivial = cas.DM.zeros((3, 1))
         resi_trivial = (vec_u_ind_var - vec_u_ind_trivial)
 
-        vec_u_ind_final = get_induced_velocity_at_kite_si(model_options, wind, variables_si, kite, architecture, parameters)
+        vec_u_ind_final = get_induced_velocity_at_kite_si(model_options, wind, system_variables, kite, architecture, parameters, scaling)
         resi_final = (vec_u_ind_var - vec_u_ind_final)
 
         resi_homotopy = (iota * resi_trivial + (1. - iota) * resi_final)
@@ -110,16 +110,17 @@ def get_kite_induced_velocity_var(variables, kite):
     ind_var = variables['z']['wui' + str(kite)]
     return ind_var
 
-def get_induced_velocity_at_kite_si(model_options, wind, variables_si, kite, architecture, parameters):
+def get_induced_velocity_at_kite_si(model_options, wind, system_variables, kite, architecture, parameters, scaling):
     induction_model = model_options['induction_model']
     parent = architecture.parent_map[kite]
+    variables_si = system_variables['SI']
 
     force_zero = model_options['aero']['induction']['force_zero']
 
     if induction_model == 'not_in_use' or force_zero:
         vec_u_ind_kite = cas.DM.zeros((3, 1))
     elif induction_model == 'actuator':
-        vec_u_ind_kite = actuator_flow.get_kite_induced_velocity(model_options, variables_si, parameters, architecture, wind, kite, parent)
+        vec_u_ind_kite = actuator_flow.get_kite_induced_velocity(model_options, system_variables, parameters, architecture, wind, kite, parent, scaling)
     elif induction_model == 'vortex':
         vec_u_ind_kite = vortex.get_induced_velocity_at_kite_si(variables_si, kite)
     else:
@@ -128,26 +129,22 @@ def get_induced_velocity_at_kite_si(model_options, wind, variables_si, kite, arc
     return vec_u_ind_kite
 
 
-def get_kite_effective_velocity(variables, wind, kite, architecture):
-
-    parent = architecture.parent_map[kite]
-
-    u_app_kite = general_flow.get_kite_apparent_velocity(variables, wind, kite, parent)
-    u_ind_kite = get_kite_induced_velocity_var(variables, kite)
+def get_kite_effective_velocity_from_apparent_velocity_var(model_options, system_variables, parameters, architecture, wind, kite, parent, scaling):
+    variables_si = system_variables['SI']
+    u_app_kite = general_flow.get_kite_apparent_velocity(variables_si, wind, kite, parent)
+    u_ind_kite = get_kite_induced_velocity_var(variables_si, kite)
     u_eff_kite = u_app_kite + u_ind_kite
-
     return u_eff_kite
-
 
 #### outputs
 
-def collect_outputs(options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling):
+def collect_outputs(model_options, atmos, wind, wake, system_variables, outputs, parameters, architecture, scaling):
 
-    if actuator.model_is_included_in_comparison(options):
-        outputs = actuator.collect_actuator_outputs(options, atmos, wind, system_variables['SI'], outputs, parameters, architecture, scaling)
+    if actuator.model_is_included_in_comparison(model_options):
+        outputs = actuator.collect_actuator_outputs(model_options, atmos, wind, system_variables, outputs, parameters, architecture, scaling)
 
-    if vortex.model_is_included_in_comparison(options):
-        outputs = vortex.collect_vortex_outputs(options, wind, wake, system_variables, parameters, outputs, architecture)
+    if vortex.model_is_included_in_comparison(model_options):
+        outputs = vortex.collect_vortex_outputs(model_options, wind, wake, system_variables, parameters, outputs, architecture)
 
     return outputs
 

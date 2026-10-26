@@ -3,8 +3,6 @@ import collections
 
 import casadi.tools as cas
 
-import awebox.mdl.lagr_dyn_dir.tools as tools
-
 import awebox.tools.vector_operations as vect_op
 import awebox.tools.struct_operations as struct_op
 import awebox.tools.print_operations as print_op
@@ -46,11 +44,11 @@ def generate_holonomic_constraints(architecture, outputs, system_variables, para
         g.append(g_local)
 
         # first-order derivative
-        dg_local = tools.time_derivative(g_local, system_variables['scaled'], architecture, scaling)
+        dg_local = struct_op.time_derivative(g_local, system_variables['scaled'], architecture, scaling)
         gdot.append(dg_local)
 
         # second-order derivative
-        ddg_local = tools.time_derivative(dg_local, system_variables['scaled'], architecture, scaling)
+        ddg_local = struct_op.time_derivative(dg_local, system_variables['scaled'], architecture, scaling)
         gddot.append(ddg_local)
 
         # outputs['invariants']['c' + str(node) + str(parent)] = g[-1]
@@ -102,10 +100,10 @@ def generate_holonomic_constraints(architecture, outputs, system_variables, para
                 g_local = length_constraint
                 g.append(length_constraint)
 
-                dg_local = tools.time_derivative(g_local, system_variables['scaled'], architecture, scaling)
+                dg_local = struct_op.time_derivative(g_local, system_variables['scaled'], architecture, scaling)
                 gdot.append(dg_local)
 
-                ddg_local = tools.time_derivative(dg_local, system_variables['scaled'], architecture, scaling)
+                ddg_local = struct_op.time_derivative(dg_local, system_variables['scaled'], architecture, scaling)
                 gddot.append(ddg_local)
 
                 # save invariants to outputs

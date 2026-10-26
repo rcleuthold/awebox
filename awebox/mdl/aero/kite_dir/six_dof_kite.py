@@ -48,16 +48,16 @@ def get_kite_dcm(kite, variables, architecture):
     return kite_dcm
 
 
-def get_force_and_moment_vector(options, variables_si, atmos, wind, architecture, parameters, kite, outputs, kite_obj_for_printing_only=None):
+def get_force_and_moment_vector(model_options, system_variables, atmos, wind, architecture, parameters, kite, outputs, scaling, kite_obj_for_printing_only=None):
+    variables_si = system_variables['SI']
 
-    surface_control = options['surface_control']
+    surface_control = model_options['surface_control']
 
     parent = architecture.parent_map[kite]
 
     kite_dcm = cas.reshape(variables_si['x']['r' + str(kite) + str(parent)], (3, 3))
 
-    vec_u_earth = tools.get_local_air_velocity_in_earth_frame(options, variables_si, wind, kite, kite_dcm, architecture,
-                                                              parameters, outputs)
+    vec_u_earth = tools.get_local_air_velocity_in_earth_frame(model_options, system_variables, wind, kite, kite_dcm, architecture, parameters, outputs, scaling)
 
     if int(surface_control) == 0:
         delta = variables_si['u']['delta' + str(kite) + str(parent)]
@@ -68,11 +68,11 @@ def get_force_and_moment_vector(options, variables_si, atmos, wind, architecture
     q = variables_si['x']['q' + str(kite) + str(parent)]
     rho = atmos.get_density(q[2])
 
-    f_aero_rot_overwrite = options['aero']['overwrite']['f_aero_rot']
+    f_aero_rot_overwrite = model_options['aero']['overwrite']['f_aero_rot']
     if f_aero_rot_overwrite is not None:
-        force_info, moment_info = get_overwrite_force_and_moment(options, outputs, architecture, kite)
+        force_info, moment_info = get_overwrite_force_and_moment(model_options, outputs, architecture, kite)
     else:
-        force_info, moment_info, kite_obj_for_printing_only = get_force_and_moment(options, parameters, vec_u_earth, kite_dcm, omega, delta, rho, kite_obj_for_printing_only=kite_obj_for_printing_only)
+        force_info, moment_info, kite_obj_for_printing_only = get_force_and_moment(model_options, parameters, vec_u_earth, kite_dcm, omega, delta, rho, kite_obj_for_printing_only=kite_obj_for_printing_only)
 
     f_found_frame = force_info['frame']
     f_found_vector = force_info['vector']
@@ -83,15 +83,15 @@ def get_force_and_moment_vector(options, variables_si, atmos, wind, architecture
     return f_found_vector, f_found_frame, m_found_vector, m_found_frame, vec_u_earth, kite_dcm, kite_obj_for_printing_only
 
 
-def get_force_cstr(options, variables, atmos, wind, architecture, parameters, outputs, kite_obj_for_printing_only=None):
-
-    f_aero_rot_overwrite = options['aero']['overwrite']['f_aero_rot']
+def get_force_cstr(model_options, system_variables, parameters, atmos, wind, architecture, outputs, scaling, kite_obj_for_printing_only=None):
+    variables_si = system_variables['SI']
+    f_aero_rot_overwrite = model_options['aero']['overwrite']['f_aero_rot']
     if f_aero_rot_overwrite is not None:
         message = 'aerodynamic force lifting does not yet support overwriting aerodynamic forces with overwrite.f_aero_rot'
         print_op.log_and_raise_error(message)
 
-    f_scale = tools.get_f_scale(parameters, options)
-    m_scale = tools.get_m_scale(parameters, options)
+    f_scale = tools.get_f_scale(parameters, model_options)
+    m_scale = tools.get_m_scale(parameters, model_options)
 
     cstr_list = cstr_op.MdlConstraintList()
 
@@ -99,10 +99,9 @@ def get_force_cstr(options, variables, atmos, wind, architecture, parameters, ou
 
         parent = architecture.parent_map[kite]
 
-        f_found_vector, f_found_frame, m_found_vector, m_found_frame, vec_u_earth, kite_dcm, kite_obj_for_printing_only = get_force_and_moment_vector(
-            options, variables, atmos, wind, architecture, parameters, kite, outputs, kite_obj_for_printing_only=kite_obj_for_printing_only)
+        f_found_vector, f_found_frame, m_found_vector, m_found_frame, vec_u_earth, kite_dcm, kite_obj_for_printing_only = get_force_and_moment_vector(model_options, system_variables, atmos, wind, architecture, parameters, kite, outputs, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
 
-        forces_dict = tools.get_framed_forces(vec_u_earth, kite_dcm, variables, kite, architecture)
+        forces_dict = tools.get_framed_forces(vec_u_earth, kite_dcm, variables_si, kite, architecture)
         f_var_frame = tools.force_variable_frame()
         f_var = forces_dict[f_var_frame]
         f_val = frames.from_named_frame_to_named_frame(from_name=f_found_frame,
@@ -111,7 +110,7 @@ def get_force_cstr(options, variables, atmos, wind, architecture, parameters, ou
                                                        kite_dcm=kite_dcm,
                                                        vector=f_found_vector)
 
-        moments_dict = tools.get_framed_moments(vec_u_earth, kite_dcm, variables, kite, architecture)
+        moments_dict = tools.get_framed_moments(vec_u_earth, kite_dcm, variables_si, kite, architecture)
         m_var_frame = tools.moment_variable_frame()
         m_var = moments_dict[m_var_frame]
         m_val = frames.from_named_frame_to_named_frame(from_name=m_found_frame,

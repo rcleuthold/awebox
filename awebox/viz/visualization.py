@@ -210,6 +210,7 @@ class Visualization(object):
         plot_logic_dict['actuator_xy'] = (wake.plot_actuator, {'side':'xy'})
         plot_logic_dict['actuator_yz'] = (wake.plot_actuator, {'side':'yz'})
         plot_logic_dict['actuator_xz'] = (wake.plot_actuator, {'side':'xz'})
+        plot_logic_dict['momentum_theory'] = (output.plot_moment_theory_values, None)
         plot_logic_dict['velocity_distribution'] = (wake.plot_velocity_distribution, None)
         plot_logic_dict['velocity_distribution_comparison'] = (wake.plot_velocity_distribution_comparison_only, None)
         plot_logic_dict['velocity_deficits'] = (wake.plot_velocity_deficits, None)

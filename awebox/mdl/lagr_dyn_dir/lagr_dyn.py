@@ -7,8 +7,6 @@ import awebox.tools.print_operations as print_op
 import awebox.tools.vector_operations as vect_op
 import awebox.tools.constraint_operations as cstr_op
 
-import awebox.mdl.lagr_dyn_dir.tools as tools
-
 import awebox.mdl.lagr_dyn_dir.holonomics as holonomic_comp
 import awebox.mdl.lagr_dyn_dir.mass as mass_comp
 import awebox.mdl.lagr_dyn_dir.energy as energy_comp
@@ -87,7 +85,7 @@ def get_dynamics(options, atmos, wind, architecture, system_variables, system_gc
 
     # lhs of lagrange equations
     dlagr_dqdot = cas.jacobian(lag, xgcdot_scaled.cat).T
-    dlagr_dqdot_dt = tools.time_derivative(dlagr_dqdot, system_variables['scaled'], architecture, scaling)
+    dlagr_dqdot_dt = struct_op.time_derivative(dlagr_dqdot, system_variables['scaled'], architecture, scaling)
 
     dlagr_dq = cas.jacobian(lag, xgc_scaled.cat).T
 
@@ -212,7 +210,7 @@ def momentum_correction(options, generalized_coordinates, system_variables, para
     # momentum transfer rate
     segment_properties, tether_obj = tether_aero.get_tether_segment_properties(options, architecture, scaling, system_variables['SI'], parameters, 1, tether_obj=tether_obj)
     mass = segment_properties['seg_mass']
-    mass_flow = tools.time_derivative(mass, system_variables['scaled'], architecture, scaling)
+    mass_flow = struct_op.time_derivative(mass, system_variables['scaled'], architecture, scaling)
 
     # # this is equivalent to:
     # cross_section_area = segment_properties['cross_section_area']

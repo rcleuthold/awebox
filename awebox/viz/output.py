@@ -44,8 +44,8 @@ import awebox.tools.print_operations as print_op
 def plot_outputs(plot_dict, cosmetics, fig_name, output_top_name, fig_num=None, epigraph=None):
 
     interesting_outputs = []
-    for cstr_name in plot_dict['interpolation_si']['outputs'][output_top_name].keys():
-        interesting_outputs += [(output_top_name, cstr_name)]
+    for local_name in plot_dict['interpolation_si']['outputs'][output_top_name].keys():
+        interesting_outputs += [(output_top_name, local_name)]
     plot_output(plot_dict, cosmetics, fig_name, interesting_outputs, fig_num=fig_num, epigraph=epigraph)
 
     return None
@@ -158,11 +158,13 @@ def plot_output(plot_dict, cosmetics, fig_name, interesting_outputs=[], fig_num=
         kite_nodes = architecture.kite_nodes
 
         number_of_outputs_plotted_so_far = 0
-        number_of_lines_drawn_so_far = 0
         for odx in range(number_of_opts):
 
             number_of_lines_drawn_so_far = 0
-            relevant_axes = axes[odx]
+            if all_together:
+                relevant_axes = axes[0]
+            else:
+                relevant_axes = axes[odx]
 
             opt = interesting_outputs[odx]
             output_type = opt[0]
@@ -272,6 +274,14 @@ def plot_aero_coefficients(plot_dict, cosmetics, fig_name, fig_num = None):
                            ('aerodynamics', 'LoverD')]
     plot_output(plot_dict, cosmetics, fig_name, interesting_outputs, fig_num)
 
+def plot_moment_theory_values(plot_dict, cosmetics, fig_name, fig_num=None):
+    interesting_outputs = [('actuator', 'ct'),
+                           ('actuator', 'sign_nhat_dot_xhat'),
+                           ('actuator', 'sign_uzero_dot_xhat'),
+                           ('actuator', 'a0_'),
+                           ('actuator', 'acos_'),
+                           ('actuator', 'asin_')]
+    plot_output(plot_dict, cosmetics, fig_name, interesting_outputs, fig_num)
 
 def plot_model_inequalities(plot_dict, cosmetics, fig_name, fig_num=None):
     type_name = 'model_inequalities'

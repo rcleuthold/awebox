@@ -125,7 +125,7 @@ def set_default_options(default_user_options, help_options):
         ('model', 'aero', 'actuator',   'wake_skew',            'coleman',  ('which wake-skew angle approximation to apply', ['not_in_use', 'jimenez', 'coleman', 'equal'], None), 'x'),
         ('model', 'aero', 'actuator',   'asym_radial_linearity', False,     ('if true, computes the Fourier coefficients to vary linearly with flight radius; if false, fourier coefficients are explicitly a_cos and a_sin', [True, False], None), 'x'),
         ('model', 'aero', 'actuator',   'gamma_range',  [-80. * np.pi / 180., 80. * np.pi / 180.],  ('range of skew angles [rad] allowed in skew correction', None, 'rad'), 'x'),
-        ('model', 'aero', 'actuator',   'normal_vector_model',  'tether_parallel',  ('selection of estimation method for normal vector', ['least_squares', 'tether_parallel', 'dual', 'binormal', 'xhat'], None), 'x'),
+        ('model', 'aero', 'actuator',   'normal_vector_model',  'tether_parallel',  ('selection of estimation method for normal vector', ['least_squares', 'tether_parallel', 'groundstation', 'dual', 'binormal', 'xhat'], None), 'x'),
 
         ('model', 'aero', 'vortex',     'representation',       'alg',      ('are the wake node positions included as states or algebraic variables', ['alg', 'state'], None), 'x'),
         ('model', 'aero', 'vortex',     'convection_type',      'rigid',    ('are the wake nodes convected rigidly or freely?', ['rigid', 'free'], None), 'x'),

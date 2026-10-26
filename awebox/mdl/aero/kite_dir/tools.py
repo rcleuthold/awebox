@@ -36,6 +36,8 @@ import awebox.tools.vector_operations as vect_op
 import numpy as np
 import awebox.tools.print_operations as print_op
 from awebox.logger.logger import Logger as awelogger
+from awebox.mdl.architecture import Architecture
+
 
 def construct_wingtip_position(q_kite, dcm_kite, parameters, tip):
 
@@ -139,38 +141,41 @@ def get_framed_moments(vec_u, kite_dcm, variables, kite, architecture, m_vector=
 
 ##### the velocities
 
-def get_3dof_reference_air_velocity_in_earth_frame(options, variables, wind, kite, architecture):
-    aero_coeff_ref_velocity = options['aero']['aero_coeff_ref_velocity']
+def get_3dof_reference_air_velocity_in_earth_frame(model_options, system_variables, parameters, wind, kite, architecture, scaling):
+    variables_si = system_variables['SI']
+    aero_coeff_ref_velocity = model_options['aero']['aero_coeff_ref_velocity']
     app_reference = (aero_coeff_ref_velocity == 'app')
     eff_reference = (aero_coeff_ref_velocity == 'eff')
 
     if app_reference: # because the 3DOF CL \neq CL(uapp), it's directly controlled by \dot CL. of Faero = Faero(uapp), it's only the orientation that changes, which means there's no
-        return get_local_apparent_velocity_in_earth_frame_without_any_induction_correction(variables, wind, kite, architecture)
+        return get_local_apparent_velocity_in_earth_frame_without_any_induction_correction(variables_si, wind, kite, architecture)
     elif eff_reference:
-        return get_u_eff_in_earth_frame(options, variables, wind, kite, architecture)
+        return get_u_eff_in_earth_frame(model_options, system_variables, parameters, wind, kite, architecture, scaling)
     else:
         message = 'something went wrong with getting the 3dof kite reference air velocity'
         print_op.log_and_raise_error(message)
         return None
 
-def get_local_air_velocity_in_earth_frame(options, variables, wind, kite, kite_dcm, architecture, parameters, outputs):
+def get_local_air_velocity_in_earth_frame(model_options, system_variables, wind, kite, kite_dcm, architecture, parameters, outputs, scaling):
 
-    aero_coeff_ref_velocity = options['aero']['aero_coeff_ref_velocity']
+    variables_si = system_variables["SI"]
+
+    aero_coeff_ref_velocity = model_options['aero']['aero_coeff_ref_velocity']
     app_reference = (aero_coeff_ref_velocity == 'app')
     eff_reference = (aero_coeff_ref_velocity == 'eff')
 
-    kite_has_6dof = (int(options['kite_dof']) == 6)
+    kite_has_6dof = (int(model_options['kite_dof']) == 6)
     kite_has_3dof = not kite_has_6dof
 
     if kite_has_3dof:
-        return get_3dof_reference_air_velocity_in_earth_frame(options, variables, wind, kite, architecture)
+        return get_3dof_reference_air_velocity_in_earth_frame(model_options, system_variables, parameters, wind, kite, architecture, scaling)
 
     elif kite_has_6dof and app_reference:
-        vec_u_app_body = get_u_app_alone_in_body_frame(options, variables, wind, kite, kite_dcm, architecture, parameters, outputs)
+        vec_u_app_body = get_u_app_alone_in_body_frame(model_options, system_variables, wind, kite, kite_dcm, architecture, parameters, outputs, scaling)
         return frames.from_body_to_earth(kite_dcm, vec_u_app_body)
 
     elif kite_has_6dof and eff_reference:
-        return get_u_eff_in_earth_frame(options, variables, wind, kite, architecture)
+        return get_u_eff_in_earth_frame(model_options, system_variables, parameters, wind, kite, architecture, scaling)
 
     else:
         message = 'something went wrong when getting the local air velocity in the earth-fixed frame'
@@ -178,17 +183,18 @@ def get_local_air_velocity_in_earth_frame(options, variables, wind, kite, kite_d
         return None
 
 
-def get_u_eff_in_body_frame(options, variables, wind, kite, kite_dcm, architecture):
-    u_eff_in_earth_frame = get_u_eff_in_earth_frame(options, variables, wind, kite, architecture)
+def get_u_eff_in_body_frame(model_options, system_variables, parameters, wind, kite, kite_dcm, architecture, scaling):
+    u_eff_in_earth_frame = get_u_eff_in_earth_frame(model_options, system_variables, parameters, wind, kite, architecture, scaling)
     u_eff_in_body_frame = frames.from_earth_to_body(kite_dcm, u_eff_in_earth_frame)
     return u_eff_in_body_frame
 
-def get_u_eff_in_earth_frame(options, variables, wind, kite, architecture):
-    if (options['induction_model'] == 'not_in_use'):
-        u_eff = get_u_eff_in_earth_frame_without_induction(variables, wind, kite, architecture)
+def get_u_eff_in_earth_frame(model_options, system_variables, parameters, wind, kite, architecture, scaling):
+    variables_si = system_variables['SI']
+    if (model_options['induction_model'] == 'not_in_use'):
+        u_eff = get_u_eff_in_earth_frame_without_induction(variables_si, wind, kite, architecture)
 
     else:
-        u_eff = get_u_eff_in_earth_frame_with_induction(options, variables, wind, kite, architecture)
+        u_eff = get_u_eff_in_earth_frame_with_induction(model_options, system_variables, parameters, wind, kite, architecture, scaling)
 
     return u_eff
 
@@ -202,28 +208,31 @@ def get_u_eff_in_earth_frame_without_induction(variables, wind, kite, architectu
 
 
 
-def get_u_eff_in_earth_frame_with_induction(options, variables, wind, kite, architecture):
+def get_u_eff_in_earth_frame_with_induction(model_options, system_variables, parameters, wind, kite, architecture, scaling):
+    variables_si = system_variables['SI']
 
-    if options['induction_model'] == 'averaged':
+    if model_options['induction_model'] == 'averaged':
 
-        q = variables['x']['q{}'.format(architecture.node_label(kite))]
-        dq = variables['x']['dq{}'.format(architecture.node_label(kite))]
-        uw_infty = (1-variables['theta']['a']) * wind.get_velocity(q[2])
+        q = variables_si['x']['q{}'.format(architecture.node_label(kite))]
+        dq = variables_si['x']['dq{}'.format(architecture.node_label(kite))]
+        uw_infty = (1-variables_si['theta']['a']) * wind.get_velocity(q[2])
 
         vec_u_eff_mawes_in_earth_frame = uw_infty - dq
 
     else:
-        vec_u_eff_mawes_in_earth_frame = induction.get_kite_effective_velocity(variables, wind, kite, architecture)
+        parent = architecture.parent_map[kite]
+        vec_u_eff_mawes_in_earth_frame = induction.get_kite_effective_velocity_from_apparent_velocity_var(model_options, system_variables, parameters, architecture, wind, kite, parent, scaling)
     return vec_u_eff_mawes_in_earth_frame
 
 
 
-def get_u_app_alone_in_body_frame(options, variables, wind, kite, kite_dcm, architecture, parameters, outputs):
-    if (options['induction_model'] == 'not_in_use'):
-        u_app = get_u_app_alone_in_body_frame_without_induction(variables, wind, kite, kite_dcm, architecture)
+def get_u_app_alone_in_body_frame(model_options, system_variables, wind, kite, kite_dcm, architecture, parameters, outputs, scaling):
+    variables_si = system_variables['SI']
+    if (model_options['induction_model'] == 'not_in_use'):
+        u_app = get_u_app_alone_in_body_frame_without_induction(variables_si, wind, kite, kite_dcm, architecture)
 
     else:
-        u_app = get_u_app_alone_in_body_frame_with_induction(options, variables, wind, kite, kite_dcm, architecture, parameters, outputs)
+        u_app = get_u_app_alone_in_body_frame_with_induction(model_options, system_variables, wind, kite, kite_dcm, architecture, parameters, outputs, scaling)
 
     return u_app
 
@@ -248,9 +257,9 @@ def get_u_app_alone_in_body_frame_without_induction(variables, wind, kite, kite_
 
 
 
-def get_u_app_alone_in_body_frame_with_induction(options, variables, wind, kite, kite_dcm, architecture, parameters, outputs):
+def get_u_app_alone_in_body_frame_with_induction(model_options, system_variables, wind, kite, kite_dcm, architecture, parameters, outputs, scaling):
 
-    vec_u_eff_mawes_in_earth_frame = get_u_eff_in_earth_frame_with_induction(options, variables, wind, kite, architecture)
+    vec_u_eff_mawes_in_earth_frame = get_u_eff_in_earth_frame_with_induction(model_options, system_variables, parameters, wind, kite, architecture, scaling)
     vec_u_eff_mawes_in_body_frame = frames.from_earth_to_body(kite_dcm, vec_u_eff_mawes_in_earth_frame)
 
     vec_u_eff_alone_in_body_frame = vec_u_eff_mawes_in_body_frame

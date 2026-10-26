@@ -66,13 +66,15 @@ def get_model_constraints(model_options, atmos, wind, system_variables, paramete
     cstr_list.append(support_cstr)
 
     if not model_options['aero']['actuator']['support_only']:
-        a_cstr = get_all_model_induction_factor_constraints(model_options, atmos, wind, variables_si, parameters, outputs, architecture, scaling)
+        a_cstr = get_all_model_induction_factor_constraints(model_options, atmos, wind, system_variables, parameters, outputs, architecture, scaling)
         cstr_list.append(a_cstr)
 
     return cstr_list
 
 
-def get_all_model_induction_factor_constraints(model_options, atmos, wind, variables, parameters, outputs, architecture, scaling):
+def get_all_model_induction_factor_constraints(model_options, atmos, wind, system_variables, parameters, outputs, architecture, scaling):
+
+    variables_si = system_variables['SI']
 
     cstr_list = cstr_op.ConstraintList()
 
@@ -81,12 +83,12 @@ def get_all_model_induction_factor_constraints(model_options, atmos, wind, varia
     layer_parent_map = architecture.layer_nodes
     for parent in layer_parent_map:
         for label in act_comp_labels:
-            induction_factor_cstr = get_induction_factor_cstr(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling)
+            induction_factor_cstr = get_induction_factor_cstr(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, label, scaling)
             cstr_list.append(induction_factor_cstr)
 
         children = architecture.kites_map[parent]
         for kite in children:
-            a_assignment_cstr = actuator_flow.get_induction_factor_assignment_cstr(model_options, variables, kite, parent, scaling)
+            a_assignment_cstr = actuator_flow.get_induction_factor_assignment_cstr(model_options, variables_si, kite, parent, scaling)
             cstr_list.append(a_assignment_cstr)
 
     return cstr_list
@@ -115,7 +117,7 @@ def get_all_model_support_constraints(model_options, wind, system_variables, par
         gamma_cstr = actuator_flow.get_gamma_cstr(parent, variables_si, scaling)
         cstr_list.append(gamma_cstr)
 
-        actuator_orientation_cstr = get_actuator_orientation_cstr(model_options, wind, parent, variables_si, parameters, architecture, scaling)
+        actuator_orientation_cstr = get_actuator_orientation_cstr(model_options, wind, parent, system_variables, parameters, architecture, scaling)
         cstr_list.append(actuator_orientation_cstr)
 
         thrust_cstr = actuator_force.get_thrust_cstr(variables_si, outputs, parent, architecture, scaling)
@@ -124,16 +126,17 @@ def get_all_model_support_constraints(model_options, wind, system_variables, par
     return cstr_list
 
 
-def get_induction_factor_cstr(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling):
+def get_induction_factor_cstr(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, label, scaling):
+    variables_si = system_variables['SI']
 
     if label == 'qaxi':
-        resi = get_momentum_theory_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling)
+        resi = get_momentum_theory_residual(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, label, scaling)
     elif label == 'qasym':
-        resi = get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling)
+        resi = get_steady_asym_pitt_peters_residual(model_options, atmos, wind, system_variables, parameters, outputs, parent, architecture, label, scaling)
     elif label == 'uaxi':
-        resi = get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling)
+        resi = get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, label, scaling)
     elif label == 'uasym':
-        resi = get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent,
+        resi = get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, system_variables, parameters, outputs, parent,
                                                architecture, label, scaling)
     else:
         resi = []
@@ -141,7 +144,7 @@ def get_induction_factor_cstr(model_options, atmos, wind, variables, outputs, pa
         print_op.log_and_raise_error(message)
 
     resi_per_parent_length = resi.shape[0]
-    a_all_per_parent_length = actuator_flow.get_a_all_var(variables, parent, label).shape[0]
+    a_all_per_parent_length = actuator_flow.get_a_all_var(variables_si, parent, label).shape[0]
     if (resi_per_parent_length != a_all_per_parent_length):
         message = 'something went wrong with the actuator induction factor constraint, per parent-node, we have ' + str(resi_per_parent_length) + ' residual-lines vs ' + str(a_all_per_parent_length) + ' a-all variables.'
         print_op.log_and_raise_error(message)
@@ -184,15 +187,15 @@ def assemble_pitt_peters_style_residual(a_all, da_dt_all, t_star, t_star_num, t_
     return resi, term_1_rearranged, term_2_rearranged, term_3_rearranged
 
 
-def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling):
+def get_momentum_theory_residual(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, label, scaling):
+    variables_si = system_variables["SI"]
 
-    a_all = actuator_flow.get_a_all_var(variables, parent, label)
+    a_all = actuator_flow.get_a_all_var(variables_si, parent, label)
     a_all_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)
 
-    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
-                                                              outputs, parent, architecture, scaling)
-    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
-    t_star, t_star_num, t_star_den = actuator_coeff.get_t_star(variables, parameters, parent)
+    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, system_variables, parameters, outputs, parent, architecture, scaling)
+    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label)
+    t_star, t_star_num, t_star_den = actuator_coeff.get_t_star(variables_si, parameters, parent)
 
     resi_unscaled, _, _, _ = assemble_pitt_peters_style_residual(a_all, 0., t_star, t_star_num, t_star_den, 0., LLinv[0, 0], LLinv_num[0, 0], LLinv_denom, c_all[0], c_numer[0], c_denom[0])
 
@@ -210,19 +213,19 @@ def get_momentum_theory_residual(model_options, atmos, wind, variables, outputs,
     return resi
 
 
-def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label, scaling):
+def get_unsteady_axi_pitt_peters_residual(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, label, scaling):
+    variables_si = system_variables['SI']
 
-    a_all = actuator_flow.get_a_all_var(variables, parent, label)
-    da_dt_all = actuator_flow.get_da_all_var(variables, parent, label)
+    a_all = actuator_flow.get_a_all_var(variables_si, parent, label)
+    da_dt_all = actuator_flow.get_da_all_var(variables_si, parent, label)
     a_all_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)
     da_dt_all_ref = actuator_flow.get_da_all_ref(model_options, parent, scaling)
 
-    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
-                                                              outputs, parent, architecture, scaling)
+    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, system_variables, parameters, outputs, parent, architecture, scaling)
 
-    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label)
     MM = actuator_coeff.get_MM_matrix()
-    t_star, t_star_num, t_star_den = actuator_coeff.get_t_star(variables, parameters, parent)
+    t_star, t_star_num, t_star_den = actuator_coeff.get_t_star(variables_si, parameters, parent)
 
     resi_unscaled, _, _, _ = assemble_pitt_peters_style_residual(a_all, da_dt_all, t_star, t_star_num, t_star_den, MM[0, 0], LLinv[0, 0], LLinv_num[0, 0], LLinv_denom, c_all[0], c_numer[0], c_denom[0])
 
@@ -1074,19 +1077,22 @@ def test_signs_of_uaxi(thresh=1e-4):
 
     return None
 
-def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling):
+def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, system_variables, parameters, outputs, parent, architecture, label, scaling):
+    variables_si = system_variables['SI']
 
-    a_all = actuator_flow.get_a_all_var(variables, parent, label)
-    da_dt_all = actuator_flow.get_da_all_var(variables, parent, label)
+    a_all = actuator_flow.get_a_all_var(variables_si, parent, label)
+    da_dt_all = actuator_flow.get_da_all_var(variables_si, parent, label)
     a_all_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)
     da_dt_all_ref = actuator_flow.get_da_all_ref(model_options, parent, scaling)
 
-    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters,
-                                                              outputs, parent, architecture, scaling)
+    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, system_variables, parameters, outputs, parent, architecture, scaling)
 
-    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, system_variables,
+                                                                         outputs, parameters, parent, architecture,
+                                                                         scaling, label)
+
     MM = actuator_coeff.get_MM_matrix()
-    t_star, t_star_num, t_star_den = actuator_coeff.get_t_star(variables, parameters, parent)
+    t_star, t_star_num, t_star_den = actuator_coeff.get_t_star(variables_si, parameters, parent)
 
     resi_unscaled, _, _, _ = assemble_pitt_peters_style_residual(a_all, da_dt_all, t_star, t_star_num, t_star_den, MM, LLinv, LLinv_num, LLinv_denom, c_all, c_numer, c_denom)
 
@@ -1414,18 +1420,19 @@ def test_signs_of_qasym_with_zero_moment(eps=1e-3):
     return None
 
 
-def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, label, scaling):
+def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, system_variables, parameters, outputs, parent, architecture, label, scaling):
+    variables_si = system_variables['SI']
 
-    a_all = actuator_flow.get_a_all_var(variables, parent, label)
+    a_all = actuator_flow.get_a_all_var(variables_si, parent, label)
     a_all_ref = actuator_flow.get_a_all_ref(model_options, parent, scaling)
     da_dt_all = cas.DM.zeros((3, 1))
     da_dt_all_ref = cas.DM.zeros((3, 1))
 
-    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, variables, parameters, outputs, parent, architecture, scaling)
+    c_all, c_numer, c_denom, c_all_ref, c_num_ref, c_den_ref = actuator_coeff.get_c_all_components(model_options, atmos, wind, system_variables, parameters, outputs, parent, architecture, scaling)
 
-    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture, label)
+    LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_val(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label)
     MM = actuator_coeff.get_MM_matrix()
-    t_star, t_star_num, t_star_den = actuator_coeff.get_t_star(variables, parameters, parent)
+    t_star, t_star_num, t_star_den = actuator_coeff.get_t_star(variables_si, parameters, parent)
 
     resi_unscaled, _, _, _ = assemble_pitt_peters_style_residual(a_all, da_dt_all, t_star, t_star_num, t_star_den, MM, LLinv, LLinv_num, LLinv_denom, c_all, c_numer, c_denom)
 
@@ -1444,7 +1451,8 @@ def get_steady_asym_pitt_peters_residual(model_options, atmos, wind, variables, 
     resi = scale_resi(resi_unscaled, resi_reference, term_ref_name)
     return resi
 
-def get_actuator_orientation_cstr(model_options, wind, parent, variables_si, parameters, architecture, scaling):
+def get_actuator_orientation_cstr(model_options, wind, parent, system_variables, parameters, architecture, scaling):
+    variables_si = system_variables['SI']
 
     # --------------------
     # 2 * dcms (18 vars) + 3 * lengths (3 vars)
@@ -1455,7 +1463,7 @@ def get_actuator_orientation_cstr(model_options, wind, parent, variables_si, par
     cstr_list = cstr_op.ConstraintList()
 
     # 9
-    uhat_cstr = actuator_flow.get_wind_dcm_u_along_uzero_cstr(model_options, wind, parent, variables_si, architecture, scaling)
+    uhat_cstr = actuator_flow.get_wind_dcm_u_along_uzero_cstr(model_options, wind, parent, system_variables, architecture, scaling)
     cstr_list.append(uhat_cstr)
     wind_dcm_ortho_cstr = actuator_flow.get_wind_dcm_ortho_cstr(parent, variables_si)
     cstr_list.append(wind_dcm_ortho_cstr)
@@ -1479,9 +1487,10 @@ def get_actuator_orientation_cstr(model_options, wind, parent, variables_si, par
 
 
 
-def collect_actuator_outputs(model_options, atmos, wind, variables, outputs, parameters, architecture, scaling):
-    outputs = collect_actuator_support_outputs(model_options, atmos, wind, variables, outputs, parameters, architecture, scaling)
-    outputs = collect_actuator_induction_factor_outputs(model_options, variables, outputs, architecture)
+def collect_actuator_outputs(model_options, atmos, wind, system_variables, outputs, parameters, architecture, scaling):
+    variables_si = system_variables['SI']
+    outputs = collect_actuator_support_outputs(model_options, atmos, wind, system_variables, outputs, parameters, architecture, scaling)
+    outputs = collect_actuator_induction_factor_outputs(model_options, variables_si, outputs, architecture)
     return outputs
 
 
@@ -1516,49 +1525,68 @@ def collect_actuator_induction_factor_outputs(model_options, variables, outputs,
                 a0_var = actuator_flow.get_a0_var(variables, parent, label)
             outputs['actuator']['a0_' + label + str(parent)] = a0_var
 
+            acos_var = cas.DM(0.)
+            asin_var = cas.DM(0.)
+            if 'asym' in label:
+                acos_var = actuator_flow.get_acos_var(variables, parent, label)
+                asin_var = actuator_flow.get_asin_var(variables, parent, label)
+            outputs['actuator']['acos_' + label + str(parent)] = acos_var
+            outputs['actuator']['asin_' + label + str(parent)] = asin_var
+
+        current_label = actuator_flow.get_label(model_options)
+        outputs['actuator']['a0_' + str(parent)] = outputs['actuator']['a0_' + current_label + str(parent)]
+        outputs['actuator']['acos_' + str(parent)] = outputs['actuator']['acos_' + current_label + str(parent)]
+        outputs['actuator']['asin_' + str(parent)] = outputs['actuator']['asin_' + current_label + str(parent)]
+
+
     return outputs
 
 
-def collect_actuator_support_outputs(model_options, atmos, wind, variables, outputs, parameters, architecture, scaling):
+def collect_actuator_support_outputs(model_options, atmos, wind, system_variables, outputs, parameters, architecture, scaling):
 
+    variables_si = system_variables['SI']
     kite_nodes = architecture.kite_nodes
 
     if 'actuator' not in list(outputs.keys()):
         outputs['actuator'] = {}
 
     for kite in kite_nodes:
-        outputs['actuator']['rhat' + str(kite)] = actuator_geom.get_kite_radial_vector(kite, variables, architecture)
-        outputs['actuator']['radius' + str(kite)] = actuator_geom.get_kite_radius(kite, variables, architecture, parameters)
+        outputs['actuator']['rhat' + str(kite)] = actuator_geom.get_kite_radial_vector(kite, variables_si, architecture)
+        outputs['actuator']['radius' + str(kite)] = actuator_geom.get_kite_radius(kite, variables_si, architecture, parameters)
 
     layer_parents = architecture.layer_nodes
     for parent in layer_parents:
 
-        center = actuator_geom.get_actuator_position_var(variables, parent)
-        velocity = geom.get_center_velocity(model_options, parent, variables, architecture)
-        area = actuator_geom.get_area_var(variables, parent)
-        avg_radius = actuator_geom.get_average_radius(variables, parent, architecture, parameters)
-        nhat = actuator_system.get_actuator_vector_unit_var(variables, 'n', parent)
-        yaw_angle = actuator_flow.get_gamma_var(variables, parent)
-        q_app = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, variables, parent, architecture)
+        center = actuator_geom.get_actuator_position_var(variables_si, parent)
+        velocity = geom.get_center_velocity(model_options, parent, system_variables, architecture, scaling)
+        area = actuator_geom.get_area_var(variables_si, parent)
+        avg_radius = actuator_geom.get_average_radius(variables_si, parent, architecture, parameters)
+        nhat = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
+        uhat = actuator_system.get_actuator_vector_unit_var(variables_si, 'u', parent)
+        yaw_angle = actuator_flow.get_gamma_var(variables_si, parent)
+        q_app = actuator_flow.get_actuator_dynamic_pressure(model_options, atmos, wind, system_variables, parent, architecture, scaling)
 
         outputs['actuator']['center' + str(parent)] = center
         outputs['actuator']['velocity' + str(parent)] = velocity
         outputs['actuator']['area' + str(parent)] = area
         outputs['actuator']['avg_radius' + str(parent)] = avg_radius
         outputs['actuator']['nhat' + str(parent)] = nhat
-        outputs['actuator']['bar_varrho' + str(parent)] = actuator_geom.get_bar_varrho_var(variables, parent)
+        outputs['actuator']['bar_varrho' + str(parent)] = actuator_geom.get_bar_varrho_var(variables_si, parent)
         outputs['actuator']['yaw' + str(parent)] = yaw_angle
         outputs['actuator']['yaw_deg' + str(parent)] = yaw_angle * 180. / np.pi
         outputs['actuator']['dyn_pressure' + str(parent)] = q_app
 
-        thrust = actuator_force.get_actuator_thrust_var(variables, parent)
-        ct = actuator_coeff.get_ct_val(model_options, atmos, wind, variables, outputs, parameters, parent, architecture)
+        thrust = actuator_force.get_actuator_thrust_var(variables_si, parent)
+        ct = actuator_coeff.get_ct_val(model_options, atmos, wind, system_variables, parent, architecture, scaling)
         outputs['actuator']['thrust' + str(parent)] = thrust
         outputs['actuator']['ct' + str(parent)] = ct
 
-        outputs['actuator']['w_z_check' + str(parent)] = actuator_flow.get_wzero_parallel_z_rotor_check(variables, parent)
-        outputs['actuator']['gamma_check' + str(parent)] = actuator_flow.get_gamma_check(variables, parent)
-        outputs['actuator']['gamma_comp' + str(parent)] = actuator_flow.get_gamma_val(variables, parent)
+        outputs['actuator']['sign_nhat_dot_xhat' + str(parent)] = vect_op.sign(cas.mtimes(nhat.T, vect_op.xhat_dm()), eps=1e-6)
+        outputs['actuator']['sign_uzero_dot_xhat' + str(parent)] = vect_op.sign(cas.mtimes(uhat.T, vect_op.xhat_dm()), eps=1e-6)
+
+        outputs['actuator']['w_z_check' + str(parent)] = actuator_flow.get_wzero_parallel_z_rotor_check(variables_si, parent)
+        outputs['actuator']['gamma_check' + str(parent)] = actuator_flow.get_gamma_check(variables_si, parent)
+        outputs['actuator']['gamma_comp' + str(parent)] = actuator_flow.get_gamma_val(variables_si, parent)
 
     return outputs
 
@@ -1572,7 +1600,7 @@ def draw_actuator(ax, side, plot_dict, cosmetics, index):
 def independent_test():
     actuator_flow.test_gamma_angle_for_dcms()
     actuator_coeff.test_LL_inversion_correctly_implemented()
-    # test_signs_of_uaxi()
+    test_signs_of_uaxi()
     test_signs_of_qasym_with_zero_moment()
     test_signs_of_qasym_with_nonzero_moment()
     return None
@@ -1591,7 +1619,5 @@ def sanity_check(init_options, variables_si, wind, architecture, epsilon=1e-5):
     return None
 
 if __name__ == "__main__":
-    # independent_test()
-
-    test_signs_of_uaxi()
+    independent_test()
 

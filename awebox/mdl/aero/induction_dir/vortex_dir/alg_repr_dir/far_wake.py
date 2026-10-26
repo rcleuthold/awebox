@@ -55,11 +55,11 @@ import awebox.tools.print_operations as print_op
 
 from awebox.logger.logger import Logger as awelogger
 
-def build(options, architecture, wind, variables_si, parameters):
+def build(options, architecture, wind, system_variables, parameters, scaling):
 
     far_wake = obj_wake_substructure.WakeSubstructure(substructure_type='far')
     for kite in architecture.kite_nodes:
-        filament_list = build_per_kite(options, kite, wind, variables_si, parameters, architecture)
+        filament_list = build_per_kite(options, kite, wind, system_variables, parameters, architecture, scaling)
         far_wake.append(filament_list)
 
     dict_of_expected_number_of_elements = vortex_tools.get_expected_number_of_far_wake_elements_dict(options, architecture)
@@ -68,7 +68,8 @@ def build(options, architecture, wind, variables_si, parameters):
 
     return far_wake
 
-def build_per_kite(options, kite, wind, variables_si, parameters, architecture):
+def build_per_kite(options, kite, wind, system_variables, parameters, architecture, scaling):
+    variables_si = system_variables['SI']
     far_wake_element_type = general_tools.get_option_from_possible_dicts(options, 'far_wake_element_type', 'vortex')
 
     if far_wake_element_type == 'finite_filament':
@@ -76,7 +77,7 @@ def build_per_kite(options, kite, wind, variables_si, parameters, architecture):
     elif far_wake_element_type == 'semi_infinite_filament':
         list = build_semi_infinite_filament_per_kite(options, kite, wind, variables_si, parameters)
     elif far_wake_element_type == 'semi_infinite_right_cylinder':
-        list = build_semi_infinite_right_cylinders_per_kite(options, kite, wind, variables_si, architecture)
+        list = build_semi_infinite_right_cylinders_per_kite(options, kite, wind, system_variables, architecture, scaling)
     elif far_wake_element_type == 'not_in_use':
         list = obj_element_list.ElementList(expected_number_of_elements=0)
     else:
@@ -152,8 +153,9 @@ def build_semi_infinite_filament_per_kite(options, kite, wind, variables_si, par
 
     return filament_list
 
-def build_semi_infinite_right_cylinders_per_kite(model_options, kite, wind, variables_si, architecture):
+def build_semi_infinite_right_cylinders_per_kite(model_options, kite, wind, system_variables, architecture, scaling):
 
+    variables_si = system_variables['SI']
     parent = architecture.parent_map[kite]
 
     ring = get_far_wake_ring_number(model_options)
@@ -169,7 +171,7 @@ def build_semi_infinite_right_cylinders_per_kite(model_options, kite, wind, vari
     pitch = vortex_tools.get_far_wake_cylinder_pitch_si(parent, variables_si=variables_si)
 
     # the direction of the tangential vorticity must be opposite to the direction of the kite rotation
-    kite_motion_is_right_hand_rule_positive_around_wind_direction = geom.kite_motion_is_right_hand_rule_positive_around_wind_direction(model_options, variables_si, kite, architecture, wind)
+    kite_motion_is_right_hand_rule_positive_around_wind_direction = geom.kite_motion_is_right_hand_rule_positive_around_wind_direction(model_options, system_variables, kite, architecture, wind, scaling)
     # if y(x = 0) = -1 and y(x = 1) = +1 -> y = 2 x - 1
     kite_motion_directionality = 2. * kite_motion_is_right_hand_rule_positive_around_wind_direction - 1.
 
@@ -228,7 +230,9 @@ def test_correct_finite_filaments_defined():
 
     test_type = 'finite_filament'
     options, architecture, wind, var_struct, param_struct, variables_dict, variables_si, parameters = alg_structure.construct_straight_flight_test_object(test_type)
-    far_wake = build(options, architecture, wind, variables_si, parameters)
+    system_variables = {'SI': variables_si, 'scaled': variables_si}
+    scaling = var_struct(1.)
+    far_wake = build(options, architecture, wind, system_variables, parameters, scaling)
 
     far_wake.confirm_all_lists_have_expected_dimensions([test_type])
     fil_list = far_wake.get_list(test_type)
@@ -269,7 +273,9 @@ def test_finite_filament_drawing(test_includes_visualization=False):
 
         test_type = 'finite_filament'
         options, architecture, wind, var_struct, param_struct, variables_dict, variables_si, parameters = alg_structure.construct_straight_flight_test_object(test_type)
-        far_wake = build(options, architecture, wind, variables_si, parameters)
+        system_variables = {'SI': variables_si, 'scaled': variables_si}
+        scaling = var_struct(1.)
+        far_wake = build(options, architecture, wind, system_variables, parameters, scaling)
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
@@ -282,7 +288,9 @@ def test_finite_filament_drawing(test_includes_visualization=False):
 def test_correct_semi_infinite_filaments_defined():
     test_type = 'semi_infinite_filament'
     options, architecture, wind, var_struct, param_struct, variables_dict, variables_si, parameters = alg_structure.construct_straight_flight_test_object(test_type)
-    far_wake = build(options, architecture, wind, variables_si, parameters)
+    system_variables = {'SI': variables_si, 'scaled': variables_si}
+    scaling = var_struct(1.)
+    far_wake = build(options, architecture, wind, system_variables, parameters, scaling)
 
     far_wake.confirm_all_lists_have_expected_dimensions([test_type])
     fil_list = far_wake.get_list(test_type)
@@ -323,7 +331,9 @@ def test_semi_infinite_filament_drawing(test_includes_visualization=False):
     if test_includes_visualization:
         test_type = 'semi_infinite_filament'
         options, architecture, wind, var_struct, param_struct, variables_dict, variables_si, parameters = alg_structure.construct_straight_flight_test_object(test_type)
-        far_wake = build(options, architecture, wind, variables_si, parameters)
+        system_variables = {'SI': variables_si, 'scaled': variables_si}
+        scaling = var_struct(1.)
+        far_wake = build(options, architecture, wind, system_variables, parameters, scaling)
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
@@ -338,7 +348,9 @@ def test_semi_infinite_right_cylinder_drawing(test_includes_visualization=False)
 
         test_type = 'semi_infinite_right_cylinder'
         options, architecture, wind, var_struct, param_struct, variables_dict, variables_si, parameters = alg_structure.construct_circular_flight_test_object(test_type)
-        far_wake = build(options, architecture, wind, variables_si, parameters)
+        system_variables = {'SI': variables_si, 'scaled': variables_si}
+        scaling = var_struct(1.)
+        far_wake = build(options, architecture, wind, system_variables, parameters, scaling)
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
@@ -351,7 +363,9 @@ def test_semi_infinite_right_cylinder_drawing(test_includes_visualization=False)
 def test_correct_semi_infinite_right_cylinders_defined():
     test_type = 'semi_infinite_right_cylinder'
     options, architecture, wind, var_struct, param_struct, variables_dict, variables_si, parameters = alg_structure.construct_circular_flight_test_object(test_type)
-    far_wake = build(options, architecture, wind, variables_si, parameters)
+    system_variables = {'SI': variables_si, 'scaled': variables_si}
+    scaling = var_struct(1.)
+    far_wake = build(options, architecture, wind, system_variables, parameters, scaling)
 
     far_wake.confirm_all_lists_have_expected_dimensions(['semi_infinite_tangential_right_cylinder', 'semi_infinite_longitudinal_right_cylinder'])
     tan_cyl_list = far_wake.get_list('semi_infinite_tangential_right_cylinder')

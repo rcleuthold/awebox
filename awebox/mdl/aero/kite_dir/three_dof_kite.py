@@ -45,27 +45,28 @@ import numpy as np
 from awebox.logger.logger import Logger as awelogger
 
 
-def get_force_vector(options, variables, atmos, wind, architecture, parameters, kite, outputs, kite_obj_for_printing_only=None):
+def get_force_vector(model_options, system_variables, parameters, atmos, wind, architecture, kite, outputs, scaling, kite_obj_for_printing_only=None):
+    variables_si = system_variables['SI']
 
-    f_aero_rot_overwrite = options['aero']['overwrite']['f_aero_rot']
+    f_aero_rot_overwrite = model_options['aero']['overwrite']['f_aero_rot']
     if f_aero_rot_overwrite is not None:
         message = 'three-degree-of-freedom-kites do not yet support overwriting aerodynamic forces with overwrite.f_aero_rot'
         print_op.log_and_raise_error(message)
 
-    kite_dcm = get_kite_dcm(options, variables, wind, kite, architecture)
+    kite_dcm = get_kite_dcm(model_options, system_variables, parameters, wind, kite, architecture, scaling)
 
-    vec_u = tools.get_3dof_reference_air_velocity_in_earth_frame(options, variables, wind, kite, architecture)
+    vec_u = tools.get_3dof_reference_air_velocity_in_earth_frame(model_options, system_variables, parameters, wind, kite, architecture, scaling)
 
     force_found_frame = 'earth'
-    force_found_vector, kite_obj_for_printing_only = get_force_from_u_sym_in_earth_frame(vec_u, options, variables, kite, atmos, wind, architecture,
-                                                             parameters, kite_obj_for_printing_only=kite_obj_for_printing_only)
+    force_found_vector, kite_obj_for_printing_only = get_force_from_u_sym_in_earth_frame(vec_u, model_options, system_variables, kite, atmos, wind, architecture, parameters, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
 
     return force_found_vector, force_found_frame, vec_u, kite_dcm, kite_obj_for_printing_only
 
 
-def get_force_cstr(options, variables, atmos, wind, architecture, parameters, outputs, kite_obj_for_printing_only=None):
+def get_force_cstr(model_options, system_variables, parameters, atmos, wind, architecture, outputs, scaling, kite_obj_for_printing_only=None):
+    variables_si = system_variables['SI']
 
-    f_aero_rot_overwrite = options['aero']['overwrite']['f_aero_rot']
+    f_aero_rot_overwrite = model_options['aero']['overwrite']['f_aero_rot']
     if f_aero_rot_overwrite is not None:
         message = 'three-degree-of-freedom-kites do not yet support overwriting aerodynamic forces with overwrite.f_aero_rot'
         print_op.log_and_raise_error(message)
@@ -75,12 +76,12 @@ def get_force_cstr(options, variables, atmos, wind, architecture, parameters, ou
     for kite in architecture.kite_nodes:
         parent = architecture.parent_map[kite]
 
-        force_found_vector, force_found_frame, vec_u, kite_dcm, kite_obj_for_printing_only = get_force_vector(options, variables, atmos, wind, architecture, parameters, kite, outputs, kite_obj_for_printing_only=kite_obj_for_printing_only)
+        force_found_vector, force_found_frame, vec_u, kite_dcm, kite_obj_for_printing_only = get_force_vector(model_options, system_variables, parameters, atmos, wind, architecture, kite, outputs, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
 
-        forces_dict = tools.get_framed_forces(vec_u, kite_dcm, variables, kite, architecture)
+        forces_dict = tools.get_framed_forces(vec_u, kite_dcm, variables_si, kite, architecture)
         force_framed_variable = forces_dict[force_found_frame]
 
-        f_scale = tools.get_f_scale(parameters, options)
+        f_scale = tools.get_f_scale(parameters, model_options)
 
         resi_f_kite = (force_framed_variable - force_found_vector) / f_scale
 
@@ -94,18 +95,18 @@ def get_force_cstr(options, variables, atmos, wind, architecture, parameters, ou
 
 
 
-def get_force_from_u_sym_in_earth_frame(vec_u, options, variables, kite, atmos, wind, architecture, parameters, kite_obj_for_printing_only=None):
-
+def get_force_from_u_sym_in_earth_frame(vec_u, model_options, system_variables, kite, atmos, wind, architecture, parameters, scaling, kite_obj_for_printing_only=None):
+    variables_si = system_variables['SI']
     parent = architecture.parent_map[kite]
 
     # get relevant variables for kite n
-    q = variables['x']['q' + str(kite) + str(parent)]
-    coeff = variables['x']['coeff' + str(kite) + str(parent)]
+    q = variables_si['x']['q' + str(kite) + str(parent)]
+    coeff = variables_si['x']['coeff' + str(kite) + str(parent)]
 
     # wind parameters
     rho_infty = atmos.get_density(q[2])
 
-    kite_dcm = get_kite_dcm(options, variables, wind, kite, architecture)
+    kite_dcm = get_kite_dcm(model_options, system_variables, parameters, wind, kite, architecture, scaling)
     Lhat = kite_dcm[:,2]
 
     # lift and drag coefficients
@@ -183,17 +184,18 @@ def get_planar_dcm(air_velocity, variables, kite, architecture):
     return planar_dcm
 
 
-def get_kite_dcm(options, variables, wind, kite, architecture):
+def get_kite_dcm(model_options, system_variables, parameters, wind, kite, architecture, scaling):
 
+    variables_si = system_variables['SI']
     parent = architecture.parent_map[kite]
 
-    air_velocity = tools.get_3dof_reference_air_velocity_in_earth_frame(options, variables, wind, kite, architecture)
+    air_velocity = tools.get_3dof_reference_air_velocity_in_earth_frame(model_options, system_variables, parameters, wind, kite, architecture, scaling)
 
     # roll angle
-    coeff = variables['x']['coeff' + str(kite) + str(parent)]
+    coeff = variables_si['x']['coeff' + str(kite) + str(parent)]
     psi = coeff[1]
 
-    planar_dcm = get_planar_dcm(air_velocity, variables, kite, architecture)
+    planar_dcm = get_planar_dcm(air_velocity, variables_si, kite, architecture)
     uhat = planar_dcm[:, 0]
     vhat = planar_dcm[:, 1]
     what = planar_dcm[:, 2]
@@ -207,10 +209,11 @@ def get_kite_dcm(options, variables, wind, kite, architecture):
     return kite_dcm
 
 
-def get_wingtip_position(kite, options, wind, architecture, variables_si, parameters, tip):
+def get_wingtip_position(kite, model_options, wind, architecture, system_variables, parameters, tip, scaling):
+    variables_si = system_variables["SI"]
     parent = architecture.parent_map[kite]
     q_kite = variables_si['x', 'q' + str(kite) + str(parent)]
-    dcm_kite = get_kite_dcm(options, variables_si, wind, kite, architecture)
+    dcm_kite = get_kite_dcm(model_options, system_variables, parameters, wind, kite, architecture, scaling)
     wingtip_position = tools.construct_wingtip_position(q_kite, dcm_kite, parameters, tip)
 
     return wingtip_position

@@ -402,7 +402,8 @@ def generate_options_dict():
     # actuator_qaxi_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
     actuator_qaxi_options['model.aero.actuator.gamma_range'] = [-np.pi / 2., np.pi / 2.]
     actuator_qaxi_options['model.aero.actuator.a_ref'] = 0.3
-    actuator_qaxi_options['model.aero.actuator.a_range'] = [-0.5, 0.5] # in case nhat flips direction? [-cas.inf, 0.5]
+    # actuator_qaxi_options['model.aero.actuator.a_range'] = [-0.5, 0.5] # in case nhat flips direction? [-cas.inf, 0.5]
+    actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5]  # in case nhat flips direction? [-cas.inf, 0.5]
     actuator_qaxi_options['model.aero.actuator.a_fourier_ref'] = 0.1 #1e3
     actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-cas.inf, cas.inf]
     # # actuator_qaxi_options['model.aero.actuator.asym_radial_linearity'] = True
@@ -421,18 +422,27 @@ def generate_options_dict():
     # #actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
     # #actuator_qaxi_options['solver.cost.fictitious.1'] = 1e4
 
-    scfict_exp = 4
-    scgamma_exp = 4
-    swact_exp = -2
-    print('qaxi scf: 1e' + str(scfict_exp))
-    actuator_qaxi_options['solver.cost.fictitious.0'] = 10.**scfict_exp
-    actuator_qaxi_options['solver.cost.fictitious.1'] = 10.**scfict_exp
-    actuator_qaxi_options['solver.cost.gamma.1'] = 10.**scgamma_exp
-    print('qaxi scg: ' + str(actuator_qaxi_options['solver.cost.gamma.1']))
-    actuator_qaxi_options['solver.weights.actuator'] = 10.**swact_exp  # rela, adjust this when things run
-    print('qaxi swa: ' + str(actuator_qaxi_options['solver.weights.actuator']))
+    actuator_qaxi_options['visualization.cosmetics.save_figs'] = True
+    actuator_qaxi_options['visualization.cosmetics.save.format_list'] = ['pdf']
 
-    actuator_qaxi_options['solver.ipopt.disallow_restoration'] = True
+    # list = (1e4, 10., 0.01), (1e3, 100., 1.), (1e2, 100., 1.), (1e2, 10., 1), (1e4, 100., 1.), (1e3, 1000., 0.01), (1e2, 1e4, 1.)
+    # second_list = [2, 3, 4]
+    # sdx = 2
+    # print('qaxi sdx: ' + str(sdx))
+    # ldx = second_list[sdx]
+    # print('qaxi ldx: ' + str(ldx))
+    # scfict_exp = np.log10(list[ldx][0])
+    # scgamma_exp = np.log10(list[ldx][1])
+    # swact_exp = np.log10(list[ldx][2])
+    # print('qaxi scf: 1e' + str(scfict_exp))
+    # actuator_qaxi_options['solver.cost.fictitious.0'] = 10.**scfict_exp
+    # actuator_qaxi_options['solver.cost.fictitious.1'] = 10.**scfict_exp
+    # actuator_qaxi_options['solver.cost.gamma.1'] = 10.**scgamma_exp
+    # print('qaxi scg: ' + str(actuator_qaxi_options['solver.cost.gamma.1']))
+    # actuator_qaxi_options['solver.weights.actuator'] = 10.**swact_exp  # rela, adjust this when things run
+    # print('qaxi swa: ' + str(actuator_qaxi_options['solver.weights.actuator']))
+
+    # actuator_qaxi_options['solver.ipopt.disallow_restoration'] = True
 
     actuator_qaxi_basic_health_options = make_basic_health_variant(actuator_qaxi_options)
 
@@ -646,6 +656,11 @@ def run_test(trial_name, final_homotopy_step='final', overwrite_options={}):
     if not trial.optimization.solve_succeeded:
         message = 'optimization of trial ' + trial_name + ' failed at step ' + trial.optimization.get_failure_step()
         raise Exception(message)
+    else:
+
+        trial.plot(['momentum_theory', 'local_induction_factor', 'actuator_isometric', 'actuator_xy', 'actuator_yz', 'actuator_xz', 'thrust'])
+        plt.show()
+        print_op.warn_about_temporary_functionality_alteration()
 
     del trial
     gc.collect()

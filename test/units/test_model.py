@@ -19,7 +19,6 @@ import awebox.tools.struct_operations as struct_op
 import awebox.tools.vector_operations as vect_op
 import awebox.tools.print_operations as print_op
 import awebox.opts.kite_data.ampyx_data as ampyx_data
-import awebox.mdl.lagr_dyn_dir.tools as lagr_dyn_tools
 import matplotlib.pyplot as plt
 
 logging.basicConfig(filemode='w', format='%(levelname)s:    %(message)s', level=logging.WARNING)
@@ -816,7 +815,7 @@ def test_time_derivative_under_scaling(epsilon=1e-5):
 
         var_scaled = model.variables['x', var_name]
         var_si = struct_op.var_scaled_to_si('x', var_name, var_scaled, model.scaling)
-        dot_var_si = lagr_dyn_tools.time_derivative(var_si, model.variables, model.architecture, model.scaling)
+        dot_var_si = struct_op.time_derivative(var_si, model.variables, model.architecture, model.scaling)
 
         x_dvar_scaled = model.variables['x', deriv_name]
         x_dvar_si = struct_op.var_scaled_to_si('x', deriv_name, x_dvar_scaled, model.scaling)

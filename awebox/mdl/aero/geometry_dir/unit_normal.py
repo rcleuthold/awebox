@@ -65,11 +65,14 @@ def get_n_vec(options, parent, variables, architecture):
     elif model == 'binormal':
         n_vec = get_binormal_n_vec(parent, variables, architecture)
 
-    elif model == 'tether_parallel' and number_kite_children > 1:
-        n_vec = get_tether_parallel_multi_n_vec(parent, variables, architecture)
-
     elif model == 'tether_parallel':
-        n_vec = get_tether_parallel_single_n_vec(variables, architecture)
+        if parent > 1:
+            n_vec = get_parent_tether_segment_n_vec(parent, variables, architecture)
+        else:
+            n_vec = get_groundstation_tether_segment_n_vec(variables, architecture)
+
+    elif model == 'groundstation':
+        n_vec = get_groundstation_tether_segment_n_vec(variables, architecture)
 
     elif model == 'xhat':
         n_vec = vect_op.xhat()
@@ -139,7 +142,7 @@ def get_plane_fit_n_vec(parent, variables, architecture):
     return n_vec
 
 
-def get_tether_parallel_multi_n_vec(parent, variables_si, architecture):
+def get_parent_tether_segment_n_vec(parent, variables_si, architecture):
 
     grandparent = architecture.parent_map[parent]
     q_parent = struct_op.get_variable_from_model_or_reconstruction(variables_si, 'x', 'q' + str(parent) + str(grandparent))
@@ -156,8 +159,8 @@ def get_tether_parallel_multi_n_vec(parent, variables_si, architecture):
     n_vec = q_parent - q_grandparent
     return n_vec
 
-def get_tether_parallel_single_n_vec(variables_si, architecture):
-    return get_tether_parallel_multi_n_vec(1, variables_si, architecture)
+def get_groundstation_tether_segment_n_vec(variables_si, architecture):
+    return get_parent_tether_segment_n_vec(1, variables_si, architecture)
 
 
 def get_dual_n_vec(parent, variables_si, architecture):
@@ -176,7 +179,7 @@ def get_dual_n_vec(parent, variables_si, architecture):
                                                                  'q' + str(kite1) + str(parent))
     vec_diff = qkite1 - qkite0
 
-    vec_tether = get_tether_parallel_multi_n_vec(parent, variables_si, architecture)
+    vec_tether = get_parent_tether_segment_n_vec(parent, variables_si, architecture)
 
     vec_out = vect_op.cross(vec_diff, vec_tether)
     n_vec = vect_op.cross(vec_out, vec_diff)

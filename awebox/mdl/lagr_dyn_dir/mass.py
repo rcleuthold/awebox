@@ -36,7 +36,6 @@ import awebox.tools.struct_operations as struct_op
 import awebox.tools.print_operations as print_op
 
 from awebox.logger.logger import Logger as awelogger
-import awebox.mdl.lagr_dyn_dir.tools as tools
 import awebox.mdl.aero.tether_dir.tether_aero as tether_aero
 
 # ======================

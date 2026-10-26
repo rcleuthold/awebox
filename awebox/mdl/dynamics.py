@@ -44,7 +44,6 @@ import awebox.mdl.aero.tether_dir.tether_aero as tether_aero
 import awebox.mdl.aero.induction_dir.induction as induction
 
 import awebox.mdl.lagr_dyn_dir.lagr_dyn as lagr_dyn
-import awebox.mdl.lagr_dyn_dir.tools as lagr_tools
 
 import awebox.tools.vector_operations as vect_op
 import awebox.tools.struct_operations as struct_op
@@ -55,20 +54,20 @@ import awebox.tools.constraint_operations as cstr_op
 from awebox.logger.logger import Logger as awelogger
 
 
-def make_dynamics(options, atmos, wind, parameters, architecture, options_help=None, kite_obj_for_printing_only=None, tether_obj=None):
+def make_dynamics(model_options, atmos, wind, parameters, architecture, options_help=None, kite_obj_for_printing_only=None, tether_obj=None):
     # system architecture (see zanon2013a)
 
     # --------------------------------------------------------------------------------------
     # generate system states, controls, algebraic vars, lifted vars, generalized coordinates
     # --------------------------------------------------------------------------------------
-    [system_variable_list, system_gc] = system.generate_structure(options, architecture)
+    [system_variable_list, system_gc] = system.generate_structure(model_options, architecture)
 
     # -----------------------------------
     # generate structured SX.sym objects
     # -----------------------------------
     system_variables = {}
     system_variables['scaled'], variables_dict = struct_op.generate_variable_struct(system_variable_list)
-    scaling = generate_scaling(options['scaling'], system_variables['scaled'])
+    scaling = generate_scaling(model_options['scaling'], system_variables['scaled'])
     system_variables['SI'] = generate_si_variables(scaling, system_variables['scaled'])
 
     variables_to_return_to_model = system_variables['scaled']
@@ -85,40 +84,40 @@ def make_dynamics(options, atmos, wind, parameters, architecture, options_help=N
     # define the equality constraints (aka. dynamics)
     # ---------------------------------
 
-    wake = induction.get_wake_if_vortex_model_is_included_in_comparison(options, architecture, wind, system_variables,
+    wake = induction.get_wake_if_vortex_model_is_included_in_comparison(model_options, architecture, wind, system_variables,
                                                                         parameters)
 
     # enforce the lagrangian dynamics
-    lagr_dyn_cstr, outputs, kite_obj_for_printing_only, tether_obj = lagr_dyn.get_dynamics(options,
-                                                                                             atmos,
-                                                                                             wind,
-                                                                                             architecture,
-                                                                                             system_variables,
-                                                                                             system_gc,
-                                                                                             parameters,
-                                                                                             outputs,
-                                                                                             wake,
-                                                                                             scaling,
-                                                                                             kite_obj_for_printing_only=kite_obj_for_printing_only,
-                                                                                             tether_obj=tether_obj)
+    lagr_dyn_cstr, outputs, kite_obj_for_printing_only, tether_obj = lagr_dyn.get_dynamics(model_options,
+                                                                                           atmos,
+                                                                                           wind,
+                                                                                           architecture,
+                                                                                           system_variables,
+                                                                                           system_gc,
+                                                                                           parameters,
+                                                                                           outputs,
+                                                                                           wake,
+                                                                                           scaling,
+                                                                                           kite_obj_for_printing_only=kite_obj_for_printing_only,
+                                                                                           tether_obj=tether_obj)
     cstr_list.append(lagr_dyn_cstr)
 
     # enforce lifted aerodynamic force <-- this must happen after lagr_dyn.get_dynamics, which determines the kite indicators
-    if options['aero']['lift_aero_force']:
-        aero_force_cstr, kite_obj_for_printing_only = kite_aero.get_force_cstr(options, system_variables['SI'], atmos, wind, architecture,
-                                                   parameters, outputs, kite_obj_for_printing_only=kite_obj_for_printing_only)
+    if model_options['aero']['lift_aero_force']:
+        aero_force_cstr, kite_obj_for_printing_only = kite_aero.get_force_cstr(model_options, system_variables, parameters, atmos, wind, architecture,
+                                                   outputs, scaling, kite_obj_for_printing_only=kite_obj_for_printing_only)
         cstr_list.append(aero_force_cstr)
 
     # enforce lifted tether force
-    if options['tether']['lift_tether_force']:
-        tether_force_cstr = tether_aero.get_tether_cstr(options, system_variables['SI'], architecture, outputs)
+    if model_options['tether']['lift_tether_force']:
+        tether_force_cstr = tether_aero.get_tether_cstr(model_options, system_variables['SI'], architecture, outputs)
         cstr_list.append(tether_force_cstr)
 
     # induction constraint
-    if options['induction_model'] == 'not_in_use':
+    if model_options['induction_model'] == 'not_in_use':
         pass
     else:
-        induction_cstr = induction.get_model_constraints(options, wake, scaling, atmos, wind, system_variables,
+        induction_cstr = induction.get_model_constraints(model_options, wake, scaling, atmos, wind, system_variables,
                                                          parameters, outputs, architecture)
         cstr_list.append(induction_cstr)
 
@@ -126,31 +125,31 @@ def make_dynamics(options, atmos, wind, parameters, architecture, options_help=N
     # define the inequality constraints
     # --------------------------------------------
 
-    outputs, stress_cstr = tether_stress_inequality(options, system_variables['SI'], outputs, parameters, architecture,
+    outputs, stress_cstr = tether_stress_inequality(model_options, system_variables['SI'], outputs, parameters, architecture,
                                                     scaling, options_help=options_help)
     cstr_list.append(stress_cstr)
 
-    airspeed_cstr = airspeed_inequality(options, outputs, parameters, wind, architecture, options_help=options_help)
+    airspeed_cstr = airspeed_inequality(model_options, outputs, parameters, wind, architecture, options_help=options_help)
     cstr_list.append(airspeed_cstr)
 
-    aero_validity_cstr = aero_validity_inequality(options, outputs)
+    aero_validity_cstr = aero_validity_inequality(model_options, outputs)
     cstr_list.append(aero_validity_cstr)
 
-    anticollision_cstr, kite_obj_for_printing_only = anticollision_inequality(options, system_variables['SI'], parameters, architecture, options_help=options_help, kite_obj_for_printing_only=kite_obj_for_printing_only)
+    anticollision_cstr, kite_obj_for_printing_only = anticollision_inequality(model_options, system_variables['SI'], parameters, architecture, options_help=options_help, kite_obj_for_printing_only=kite_obj_for_printing_only)
     cstr_list.append(anticollision_cstr)
 
-    acceleration_cstr = acceleration_inequality(options, system_variables['SI'], options_help=options_help)
+    acceleration_cstr = acceleration_inequality(model_options, system_variables['SI'], options_help=options_help)
     cstr_list.append(acceleration_cstr)
 
-    outputs, rotation_cstr, kite_obj_for_printing_only = rotation_inequality(options, system_variables['SI'], parameters, architecture, outputs, options_help=options_help, kite_obj_for_printing_only=kite_obj_for_printing_only)
+    outputs, rotation_cstr, kite_obj_for_printing_only = rotation_inequality(model_options, system_variables['SI'], parameters, architecture, outputs, options_help=options_help, kite_obj_for_printing_only=kite_obj_for_printing_only)
     cstr_list.append(rotation_cstr)
 
-    power, outputs, _ = get_power(options, system_variables, parameters, outputs, architecture, scaling)
-    max_power_cstr = max_power_inequality(options, system_variables['SI'], power, options_help=options_help)
+    power, outputs, _ = get_power(model_options, system_variables, parameters, outputs, architecture, scaling)
+    max_power_cstr = max_power_inequality(model_options, system_variables['SI'], power, options_help=options_help)
     cstr_list.append(max_power_cstr)
 
-    outputs, ellips_cstr, kite_obj_for_printing_only = ellipsoidal_flight_constraint(options, system_variables['SI'], parameters, architecture,
-                                                         outputs, options_help=options_help, kite_obj_for_printing_only=kite_obj_for_printing_only)
+    outputs, ellips_cstr, kite_obj_for_printing_only = ellipsoidal_flight_constraint(model_options, system_variables['SI'], parameters, architecture,
+                                                                                     outputs, options_help=options_help, kite_obj_for_printing_only=kite_obj_for_printing_only)
     cstr_list.append(ellips_cstr)
 
     # ----------------------------------------
@@ -158,10 +157,10 @@ def make_dynamics(options, atmos, wind, parameters, architecture, options_help=N
     # ----------------------------------------
 
     # specify the required integrations, including that the energy is the integral of the instantaneous power
-    derivative_dict = get_dictionary_of_derivatives(options, system_variables, parameters, atmos, wind, outputs,
+    derivative_dict = get_dictionary_of_derivatives(model_options, system_variables, parameters, atmos, wind, outputs,
                                                     architecture, scaling, cstr_list)
     integral_outputs, integral_outputs_fun, integral_scaling, alongside_integration_cstr = manage_alongside_integration(
-        options,
+        model_options,
         derivative_dict,
         system_variables,
         parameters)
@@ -190,7 +189,7 @@ def make_dynamics(options, atmos, wind, parameters, architecture, options_help=N
 
     # add other relevant outputs
     outputs = xdot_outputs(system_variables['SI'], outputs)
-    outputs = power_balance_outputs(options, outputs, system_variables,
+    outputs = power_balance_outputs(model_options, outputs, system_variables,
                                     parameters, architecture,
                                     scaling)  # power balance must be after tether stress inequality
 
@@ -390,7 +389,7 @@ def get_power(options, system_variables, parameters, outputs, architecture, scal
         for kite in architecture.kite_nodes:
             power_si += get_drag_power_from_kite(kite, variables_si, parameters, outputs, architecture)
 
-        outputs['performance']['power_derivative'] = lagr_tools.time_derivative(power_si, system_variables['scaled'],
+        outputs['performance']['power_derivative'] = struct_op.time_derivative(power_si, system_variables['scaled'],
                                                                                 architecture, scaling)
         power_si_without_fictitious = power_si
 
@@ -461,7 +460,7 @@ def comparison_kinetic_and_potential_power_outputs(outputs, system_variables, ar
             e_local += dict[keyname]
 
         # rate of change in kinetic energy
-        P = lagr_tools.time_derivative(e_local, system_variables['scaled'], architecture, scaling)
+        P = struct_op.time_derivative(e_local, system_variables['scaled'], architecture, scaling)
 
         # convention: negative when kinetic energy is added to the system
         outputs['power_balance_comparison'][type] = -1. * P
@@ -508,7 +507,7 @@ def kinetic_power_outputs(outputs, system_variables, architecture, scaling):
         for source in outputs['e_kinetic'].keys():
             # rate of change in kinetic energy
             e_local = outputs['e_kinetic'][source]
-            power_local = lagr_tools.time_derivative(e_local, system_variables['scaled'], architecture, scaling)
+            power_local = struct_op.time_derivative(e_local, system_variables['scaled'], architecture, scaling)
 
             # convention: negative when energy is added to the system
             outputs['power_balance']['P_kin_' + source] = -1. * power_local
@@ -530,7 +529,7 @@ def potential_power_outputs(outputs, system_variables, architecture, scaling):
     for source in outputs['e_potential'].keys():
         # rate of change in potential energy (ignore in-outflow of potential energy)
         e_local = outputs['e_potential'][source]
-        power_local = lagr_tools.time_derivative(e_local, system_variables['scaled'], architecture, scaling)
+        power_local = struct_op.time_derivative(e_local, system_variables['scaled'], architecture, scaling)
 
         # convention: negative when potential energy is added to the system
         outputs['power_balance']['P_pot_' + source] = -1. * power_local
