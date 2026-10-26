@@ -275,13 +275,15 @@ def plot_aero_coefficients(plot_dict, cosmetics, fig_name, fig_num = None):
     plot_output(plot_dict, cosmetics, fig_name, interesting_outputs, fig_num)
 
 def plot_moment_theory_values(plot_dict, cosmetics, fig_name, fig_num=None):
-    interesting_outputs = [('actuator', 'ct'),
-                           ('actuator', 'sign_nhat_dot_xhat'),
-                           ('actuator', 'sign_uzero_dot_xhat'),
-                           ('actuator', 'a0_'),
-                           ('actuator', 'acos_'),
-                           ('actuator', 'asin_')]
-    plot_output(plot_dict, cosmetics, fig_name, interesting_outputs, fig_num)
+    for parent in plot_dict['architecture'].layer_nodes:
+        interesting_outputs = [('actuator', 'ct' + str(parent)),
+                               ('actuator', 'sign_nhat_dot_xhat' + str(parent)),
+                               ('actuator', 'sign_uzero_dot_xhat' + str(parent)),
+                               ('actuator', 'yaw_deg' + str(parent)),
+                               ('actuator', 'a0_' + str(parent)),
+                               ('actuator', 'acos_' + str(parent)),
+                               ('actuator', 'asin_' + str(parent))]
+        plot_output(plot_dict, cosmetics, 'momentum theory on layer ' + str(parent), interesting_outputs, fig_num)
 
 def plot_model_inequalities(plot_dict, cosmetics, fig_name, fig_num=None):
     type_name = 'model_inequalities'

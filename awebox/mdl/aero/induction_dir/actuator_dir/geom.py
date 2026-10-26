@@ -454,7 +454,7 @@ def draw_actuator_annulus(ax, side, plot_dict, cosmetics, index):
         mu_start = (bar_varrho - 0.5) / (bar_varrho + 0.5)
         mu_end = 1.
 
-        for psi_val in np.linspace(0., 2. * np.pi, n_theta):
+        for psi_val in np.linspace(0., 2. * np.pi, n_theta+1): # +1 is for fence-posting
             draw_radial_segment_around_actuator_center(ax, side, plot_dict, cosmetics, index, parent, mu_start, mu_end,
                                                        psi_val, color='grey', alpha=0.3)
     return None
@@ -486,7 +486,7 @@ def draw_actuator_dcm(ax, side, plot_dict, cosmetics, index):
             x_end = x_start + visibility_scaling * vec_ehat
 
             color = dcm_colors[vec_name]
-            viz_tools.basic_draw(ax, side, color=color, x_start=x_start, x_end=x_end, linestyle=':')
+            viz_tools.basic_draw(ax, side, color=color, x_start=x_start, x_end=x_end, linestyle='dashdot')
 
     return None
 
@@ -595,7 +595,7 @@ def draw_arc_around_actuator_center(ax, side, plot_dict, cosmetics, index, paren
         local_psi = psi_start
         data = []
         while local_psi < psi_end:
-            rhat_start = parametric_rhat(rotor_z_hat, rotor_y_hat, local_psi, for_kite_motion_or_induction_distribution='induction_distribution') #clockwise_rotation_about_xhat)
+            rhat_start = parametric_rhat(rotor_z_hat, rotor_y_hat, local_psi, for_kite_motion_or_induction_distribution='induction_distribution')
             x_local = x_center + drawing_radius * rhat_start
             data = cas.horzcat(data, x_local)
             local_psi += delta_psi

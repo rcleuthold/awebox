@@ -563,7 +563,7 @@ def set_default_options(default_user_options, help_options):
         ('visualization', 'cosmetics', 'trajectory', 'cylinder_s_length', 100,      ('longitudinal length of cylinder [m] to be drawn', None), 'x'),
         ('visualization', 'cosmetics', 'trajectory', 'actuator',    False,          ('draw actuator geometry into instantaneous plots', [True, False]), 'x'),
         ('visualization', 'cosmetics', 'trajectory', 'actuator_n_radial', 30,       ('number of rings to use when drawing the actuator annulus', None), 'x'),
-        ('visualization', 'cosmetics', 'trajectory', 'actuator_n_theta', 180,       ('number of tangential steps to be drawn in actuator annulus', None), 'x'),
+        ('visualization', 'cosmetics', 'trajectory', 'actuator_n_theta', 720,       ('number of tangential steps to be drawn in actuator annulus', None), 'x'),
         ('visualization', 'cosmetics', 'trajectory', 'alpha',       0.3,            ('transparency of trajectories in animation', None), 'x'),
         ('visualization', 'cosmetics', 'trajectory', 'margin',      0.05,           ('trajectory figure margins', None), 'x'),
         ('visualization', 'cosmetics', 'trajectory', 'reel_in_linestyle', '-',      ('drawing style of reel-in trajectory, as linestyle input', ['-', '--', ':']), 'x'),

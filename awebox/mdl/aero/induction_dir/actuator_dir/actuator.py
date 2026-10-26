@@ -1483,6 +1483,16 @@ def get_actuator_orientation_cstr(model_options, wind, parent, system_variables,
         message = 'there are an inappropriate number of actuator orientation constraints (' + str(number_constraints) + ')'
         print_op.log_and_raise_error(message)
 
+    print_op.warn_about_temporary_functionality_alteration()
+    for parent in architecture.layer_nodes:
+        uhat = actuator_system.get_actuator_vector_unit_var(variables_si, 'u', parent)
+        sign_uhat_dot_xhat_expr = -cas.mtimes(uhat.T, vect_op.xhat_dm())
+        name = 'actuator_sign_uhat_dot_xhat_' + str(parent)
+        sign_uhat_dot_xhat_cstr = cstr_op.Constraint(expr=sign_uhat_dot_xhat_expr,
+                                  name=name,
+                                  cstr_type='ineq')
+        cstr_list.append(sign_uhat_dot_xhat_cstr)
+
     return cstr_list
 
 
@@ -1581,8 +1591,8 @@ def collect_actuator_support_outputs(model_options, atmos, wind, system_variable
         outputs['actuator']['thrust' + str(parent)] = thrust
         outputs['actuator']['ct' + str(parent)] = ct
 
-        outputs['actuator']['sign_nhat_dot_xhat' + str(parent)] = vect_op.sign(cas.mtimes(nhat.T, vect_op.xhat_dm()), eps=1e-6)
-        outputs['actuator']['sign_uzero_dot_xhat' + str(parent)] = vect_op.sign(cas.mtimes(uhat.T, vect_op.xhat_dm()), eps=1e-6)
+        outputs['actuator']['sign_nhat_dot_xhat' + str(parent)] = vect_op.sign(cas.mtimes(nhat.T, vect_op.xhat_dm()), eps=1e-8)
+        outputs['actuator']['sign_uzero_dot_xhat' + str(parent)] = vect_op.sign(cas.mtimes(uhat.T, vect_op.xhat_dm()), eps=1e-8)
 
         outputs['actuator']['w_z_check' + str(parent)] = actuator_flow.get_wzero_parallel_z_rotor_check(variables_si, parent)
         outputs['actuator']['gamma_check' + str(parent)] = actuator_flow.get_gamma_check(variables_si, parent)

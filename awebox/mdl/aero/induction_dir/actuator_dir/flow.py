@@ -626,7 +626,40 @@ def get_corr_val(model_options, atmos, wind, system_variables, outputs, paramete
 
 def draw_actuator_flow(ax, side, plot_dict, cosmetics, index):
     draw_wind_dcm(ax, side, plot_dict, cosmetics, index)
+    draw_yaw_angle(ax, side, plot_dict, cosmetics, index)
     return ax
+
+def draw_yaw_angle(ax, side, plot_dict, cosmetics, index):
+
+    variables_si = viz_tools.assemble_variable_slice_from_interpolated_data(plot_dict, index)
+    b_ref = plot_dict['options']['model']['params']['geometry']['b_ref']
+
+    architecture = plot_dict['architecture']
+    for parent in architecture.layer_nodes:
+
+        x_center = actuator_geom.get_actuator_position_var(variables_si, parent)
+
+        nhat = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
+        uzero_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'u', parent)
+        vzero_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'v', parent)
+        gamma = get_gamma_val(variables_si, parent)
+
+        avg_radius = plot_dict['outputs']['actuator']['avg_radius' + str(parent)][0][index]
+        drawing_radius = avg_radius * 0.3
+
+        angle = cas.SX.sym('angle')
+        posi_fun = cas.Function('posi_fun', [angle], [x_center + drawing_radius * (uzero_hat * cas.cos(angle) + vzero_hat * cas.sin(angle))])
+
+        n_theta = cosmetics['trajectory']['actuator_n_theta']
+        param_list = cas.DM(np.linspace(0., float(gamma), n_theta + 1))
+        posi_map = posi_fun.map(param_list.shape[0], 'openmp')
+        data = posi_map(param_list)
+
+        color = 'k'
+        viz_tools.basic_draw(ax, side, color=color, data=data, linestyle=':')
+
+    return None
+
 
 
 def draw_wind_dcm(ax, side, plot_dict, cosmetics, index):
@@ -640,19 +673,15 @@ def draw_wind_dcm(ax, side, plot_dict, cosmetics, index):
         avg_radius = plot_dict['outputs']['actuator']['avg_radius' + str(parent)][0][index]
         visibility_scaling = avg_radius
 
-        wind_dcm = get_wind_dcm_var(variables_si, parent)
-        uzero_hat = wind_dcm[:, 0]
-        vzero_hat = wind_dcm[:, 1]
-        wzero_hat = wind_dcm[:, 2]
+        uzero_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'u', parent)
+        vzero_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'v', parent)
+        wzero_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'w', parent)
 
         ehat_dict = {'x': uzero_hat,
                      'y': vzero_hat,
                      'z': wzero_hat}
 
-        x_start = []
-        for dim in range(3):
-            local = plot_dict['outputs']['actuator']['center' + str(parent)][dim][index]
-            x_start = cas.vertcat(x_start, local)
+        x_start = actuator_geom.get_actuator_position_var(variables_si, parent)
 
         for vec_name, vec_ehat in ehat_dict.items():
             x_end = x_start + visibility_scaling * vec_ehat

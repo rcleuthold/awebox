@@ -400,10 +400,11 @@ def generate_options_dict():
     # # actuator_qaxi_options['model.aero.actuator.position_scaling_method'] = 'altitude' #'default' # ['default', 'radius', 'altitude', 'b_ref', 'altitude_and_radius', 'radius_and_tether']
     # actuator_qaxi_options['model.scaling.other.flight_radius_estimate'] = 'cone'
     # actuator_qaxi_options['model.scaling.other.period_estimate'] = 'groundspeed_init'
-    actuator_qaxi_options['model.aero.actuator.gamma_range'] = [-np.pi / 2., np.pi / 2.]
+    # actuator_qaxi_options['model.aero.actuator.gamma_range'] = [-np.pi / 2., np.pi / 2.]
+    actuator_qaxi_options['model.aero.actuator.gamma_range'] = [angle_deg * np.pi/180. for angle_deg in [5., 55.]]
+    # actuator_qaxi_options['model.aero.actuator.gamma_range'] = [5 * np.pi / 180., 55. * np.np.pi / 2.]
     actuator_qaxi_options['model.aero.actuator.a_ref'] = 0.3
-    # actuator_qaxi_options['model.aero.actuator.a_range'] = [-0.5, 0.5] # in case nhat flips direction? [-cas.inf, 0.5]
-    actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5]  # in case nhat flips direction? [-cas.inf, 0.5]
+
     actuator_qaxi_options['model.aero.actuator.a_fourier_ref'] = 0.1 #1e3
     actuator_qaxi_options['model.aero.actuator.a_fourier_range'] = [-cas.inf, cas.inf]
     # # actuator_qaxi_options['model.aero.actuator.asym_radial_linearity'] = True
@@ -418,16 +419,46 @@ def generate_options_dict():
     # actuator_qaxi_options['solver.cost.fictitious.0'] = 10.**scf_exp
     # actuator_qaxi_options['solver.cost.fictitious.1'] = 10.**scf_exp
     #
-    # # actuator_qaxi_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
+    # actuator_qaxi_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
     # #actuator_qaxi_options['solver.cost.fictitious.0'] = 1e4
     # #actuator_qaxi_options['solver.cost.fictitious.1'] = 1e4
 
     actuator_qaxi_options['visualization.cosmetics.save_figs'] = True
     actuator_qaxi_options['visualization.cosmetics.save.format_list'] = ['pdf']
 
+    atype_num = 3
+    scfict_exp = 4
+    scgamma_exp = 2
+    
+    swact_exp = 0
+    
+    if atype_num == 1:
+        actuator_qaxi_options['model.aero.actuator.a_range'] = [-cas.inf, 0.5]
+    elif atype_num == 2:
+        actuator_qaxi_options['model.aero.actuator.a_range'] = [-0.5, 0.5]
+    elif atype_num == 3:
+        actuator_qaxi_options['model.aero.actuator.a_range'] = [0., 0.5]
+    else:
+        print_op.log_and_raise_error('atype_num error')
+    print('actuator_qaxi_options atype: ' + str(atype_num))
+
+    # print('actuator_qaxi_options scf: 1e' + str(scfict_exp))
+    # actuator_qaxi_options['solver.cost.fictitious.0'] = 10.**scfict_exp
+    # actuator_qaxi_options['solver.cost.fictitious.1'] = 10.**scfict_exp
+    # actuator_qaxi_options['solver.cost.gamma.1'] = 10.**scgamma_exp
+    # print('actuator_qaxi_options scg: ' + str(actuator_qaxi_options['solver.cost.gamma.1']))
+    # actuator_qaxi_options['solver.weights.actuator'] = 10.**swact_exp  # rela, adjust this when things run
+    # print('actuator_qaxi_options swa: ' + str(actuator_qaxi_options['solver.weights.actuator']))
+
+    actuator_qaxi_options['solver.ipopt.disallow_restoration'] = False
+    actuator_qaxi_options['solver.ipopt.linear_scaling_on_demand'] = 'no'
+
+    # actuator_qaxi_options['solver.ipopt.disallow_restoration'] = True
+    # actuator_qaxi_options['solver.ipopt.linear_scaling_on_demand'] = 'yes'
+
     # list = (1e4, 10., 0.01), (1e3, 100., 1.), (1e2, 100., 1.), (1e2, 10., 1), (1e4, 100., 1.), (1e3, 1000., 0.01), (1e2, 1e4, 1.)
     # second_list = [2, 3, 4]
-    # sdx = 2
+    # sdx = 0
     # print('qaxi sdx: ' + str(sdx))
     # ldx = second_list[sdx]
     # print('qaxi ldx: ' + str(ldx))
@@ -476,6 +507,9 @@ def generate_options_dict():
     # print('support scg: ' + str(actuator_support_only_options['solver.cost.gamma.1']))
     actuator_support_only_options['solver.weights.actuator'] = 10.**swact_exp  # rela, adjust this when things run
     # print('support swa: ' + str(actuator_support_only_options['solver.weights.actuator']))
+
+    actuator_support_only_options['solver.ipopt.disallow_restoration'] = True
+    actuator_support_only_options['solver.ipopt.linear_scaling_on_demand'] = 'yes'
 
     # actuator_support_only_options['solver.cost.gamma.1'] = 1e3
     # actuator_support_only_options['solver.weights.actuator'] = 1e0
@@ -767,7 +801,7 @@ if __name__ == "__main__":
             # test_actuator_support_only_basic_health()
 
             test_actuator_qaxi()
-            test_actuator_qaxi_basic_health()
+            # test_actuator_qaxi_basic_health()
 
             # 
             # test_actuator_qasym()
