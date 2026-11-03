@@ -185,6 +185,149 @@ def assemble_pitt_peters_style_residual(a_all, da_dt_all, t_star, t_star_num, t_
     resi = term_1_rearranged + term_2_rearranged + term_3_rearranged
     return resi, term_1_rearranged, term_2_rearranged, term_3_rearranged
 
+def test_momentum_theory_in_helicopter_conditions(thresh=0.08):
+
+    all_heli_dict = {}
+
+    # https://kumar-sumeet.github.io/HeliAeroNotes/Lectures/1_MT/MT.html
+    # digitized from plot
+    all_heli_dict['R22'] = {'disk_loading_lb_ft2': 2.6269,
+                            'far_wake_downwash_knots': 27.106}
+    all_heli_dict['AH-1G'] = {'disk_loading_lb_ft2': 5.2771,
+                              'far_wake_downwash_knots': 39.889}
+    all_heli_dict['UH-60'] = {'disk_loading_lb_ft2': 7.1936,
+                              'far_wake_downwash_knots': 47.004}
+    all_heli_dict['AH-64'] = {'disk_loading_lb_ft2': 8.2153,
+                              'far_wake_downwash_knots': 50.122}
+    # all_heli_dict['XV-15'] = {'disk_loading_lb_ft2': 13.5082, # not included because dual-rotor
+    #                           'far_wake_downwash_knots': 63.002}
+    all_heli_dict['CH-53E'] = {'disk_loading_lb_ft2': 14.1743,
+                             'far_wake_downwash_knots': 64.495}
+    # all_heli_dict['V-22'] = {'disk_loading_lb_ft2': 21.8021, # not included, because dual-rotor
+    #                           'far_wake_downwash_knots': 80.623}
+
+    all_heli_dict['R22']['disk_area_m2'] = 46.2     # https://en.wikipedia.org/wiki/Disk_loading
+    all_heli_dict['CH-53E']['disk_area_m2'] = 460.     # https://en.wikipedia.org/wiki/Disk_loading
+    all_heli_dict['AH-1G']['disk_area_m2'] = 141. #https://www.helis.com/database/model/AH-1G-Cobra/
+    all_heli_dict['UH-60']['disk_area_m2'] = 210. #https://en.wikipedia.org/wiki/Sikorsky_UH-60_Black_Hawk
+    all_heli_dict['AH-64']['disk_area_m2'] = 14.63 #https://en.wikipedia.org/wiki/Boeing_AH-64_Apache
+
+    u_zero = 1.
+    rho = 1.225
+    hub_radius = 0.
+
+    lb_ft2_to_pa = 47.88026
+    knot_to_mps = 0.514444
+    for heli_dict in all_heli_dict.values():
+        heli_dict['disk_loading_pa'] = heli_dict['disk_loading_lb_ft2'] * lb_ft2_to_pa
+        heli_dict['far_wake_downwash_mps'] = heli_dict['far_wake_downwash_knots'] * knot_to_mps
+        heli_dict['exterior_radius'] = (heli_dict['disk_area_m2'] / np.pi)**0.5
+        heli_dict['thrust_up_n'] = heli_dict['disk_loading_pa'] * heli_dict['disk_area_m2']
+
+        exterior_radius = heli_dict['exterior_radius']
+        area = heli_dict['disk_area_m2']
+
+        actuator_dynamic_pressure = 0.5 * rho * u_zero**2.
+        radius_bar = (hub_radius + exterior_radius) / 2.
+        wingspan = (exterior_radius - radius_bar) * 2.
+
+        thrust = -1. * heli_dict['thrust_up_n'] # nhat is defined from upstream-to-downstream, eg: downwards
+        moment_y = 0.
+        moment_z = 0.
+
+        n_hat = -vect_op.zhat_dm()
+        u_hat = vect_op.xhat_dm()
+        dcm_act, dcm_wind = actuator_flow.construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat)
+        y_rotor_hat = dcm_act[:, 1]
+        z_rotor_hat = dcm_act[:, 2]
+
+        # n_hat = -vect_op.zhat_dm()
+        # u_hat = n_hat
+        # w_hat = vect_op.yhat_dm()
+        # z_rotor_hat = w_hat
+        # y_rotor_hat = vect_op.cross(z_rotor_hat, n_hat)
+        # v_hat = vect_op.cross(w_hat, u_hat)
+        # dcm_act = cas.horzcat(n_hat, y_rotor_hat, z_rotor_hat)
+        # dcm_wind = cas.horzcat(u_hat, v_hat, w_hat)
+
+        gamma_yaw = vect_op.angle_between(u_hat, n_hat, z_rotor_hat)
+
+        approx_a0 = 0.5 - (1 - (thrust / actuator_dynamic_pressure / area))**0.5 / 2.
+
+        c_all, c_numer, c_denom = actuator_coeff.assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynamic_pressure, area, radius_bar, wingspan)
+
+        step_history = {0: {'a0': approx_a0, 'acos': 0, 'asin': 0}}
+        for step in range(20):
+            corr = actuator_flow.get_corr_val_glauert(approx_a0, gamma_yaw)
+            chi = actuator_flow.get_wake_angle_chi_coleman(gamma_yaw, approx_a0)
+            LL_matr = actuator_coeff.get_LL_matrix_from_corr_and_chi(corr, chi)
+
+            a_all = cas.mtimes(LL_matr, c_all)
+            a_dict = actuator_flow.unstack_a_all(a_all)
+            step_history[step] = a_dict
+
+            approx_a0 = a_dict['a0']
+
+        vec_u_ind = -approx_a0 * n_hat
+        heli_dict['a0'] = approx_a0
+        heli_dict['vec u_ind at disk [m/s]'] = vec_u_ind
+        heli_dict['vec u_ind far-wake [m/s]'] = 2. * vec_u_ind
+        heli_dict['far-wake u_ind downwards [knots]'] = cas.mtimes(2. * vec_u_ind.T, -vect_op.zhat_dm()) / knot_to_mps
+
+        diff = (heli_dict['far-wake u_ind downwards [knots]'] - heli_dict['far_wake_downwash_knots'])
+        error = diff / heli_dict['far_wake_downwash_knots']
+        if error**2. > thresh**2.:
+            message = 'acutator model q.axi. / momentum theory application to helicopters seems not to have worked correctly. '
+            message += 'local error found is ' + str(error)
+            print_op.log_and_raise_error(message)
+
+    # print_op.print_dict_as_table(all_heli_dict)
+
+    # base_name = "helicopter_momentum_theory_verification"
+    #
+    # import os
+    # import matplotlib
+    # if "MPLBACKEND" not in os.environ:
+    #     matplotlib.use("TkAgg")
+    # import matplotlib.pyplot as plt
+    #
+    # fig, ax = plt.subplots(layout='constrained')
+    # for heli_name, heli_dict in all_heli_dict.items():
+    #     ax.scatter([float(heli_dict['disk_loading_lb_ft2'])], [float(heli_dict['far-wake u_ind downwards [knots]'])], label=heli_name)
+    # ax.legend()
+    # ax.set_xlim(0, 22)
+    # ax.set_ylim(0, 80)
+    # # ax.set_xlabel('lb_ft2')
+    # # ax.set_ylabel('knots')
+    #
+    # # 1. Secondary X-axis: Convert Seconds to Milliseconds (multiply by 1000)
+    # # We provide a forward and backward function for the mapping
+    # to_pa = lambda x: x * lb_ft2_to_pa
+    # from_pa = lambda x: x / lb_ft2_to_pa
+    # sec_x = ax.secondary_xaxis('top', functions=(to_pa, from_pa))
+    # sec_x.set_xlabel('Disk Loading [Pa]')
+    #
+    # # 2. Secondary Y-axis: Convert Meters to Feet (multiply by 3.28084)
+    # to_mps = lambda y: y * knot_to_mps
+    # from_mps = lambda y: y / knot_to_mps
+    # sec_y = ax.secondary_yaxis('right', functions=(to_mps, from_mps))
+    # sec_y.set_ylabel('Induced Speed (Vertically-downwards) [m/s]')
+    #
+    # top_ticks_secondary = np.linspace(0, 1000, 6)
+    # right_ticks_secondary = np.linspace(0, 40, 9)
+    # # 2. Use your inverse functions to map them back to primary coordinates
+    # # (Using the lambda logic from your code)
+    # from_pa = lambda x: x / lb_ft2_to_pa  # Inverse function for X
+    # from_mps = lambda y: y / knot_to_mps  # Inverse function for Y
+    # ax.set_xticks([from_pa(x) for x in top_ticks_secondary])
+    # ax.set_yticks([from_mps(y) for y in right_ticks_secondary])
+    # # 3. Turn on the primary grid (it will now align with your custom spacing)
+    # ax.grid(True, linestyle='--', alpha=0.5)
+    #
+    # plt.savefig(base_name + ".pdf", format="pdf")
+
+    return None
+
 
 def get_momentum_theory_residual(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, label, scaling):
     variables_si = system_variables["SI"]
@@ -1124,11 +1267,12 @@ def test_signs_of_qasym_with_nonzero_moment(eps=1e-4):
     diameter = 240. #m, page 03
     gamma_yaw = 20. * np.pi / 180. #pg 05
     hub_radius = 0.2 * (diameter/2.) # fig. 8, pg. 8
+    omega = 7.55 * 2. * np.pi /60. # rad/s, table 1
 
     area = np.pi * (diameter / 2.)**2.
+    exterior_radius = diameter/2.
     rho = 1.225 #guessed
     actuator_dynamic_pressure = 0.5 * rho * u_zero**2.
-    exterior_radius = diameter/2.
     radius_bar = (hub_radius + exterior_radius) / 2.
     wingspan = (exterior_radius - radius_bar) * 2.
 
@@ -1151,7 +1295,7 @@ def test_signs_of_qasym_with_nonzero_moment(eps=1e-4):
     y_rotor_hat = dcm_act[:, 1]
     z_rotor_hat = dcm_act[:, 2]
 
-    moment_y = tilt_moment
+    moment_y = -tilt_moment
     moment_z = yaw_moment
 
     # ct = thrust / area / actuator_dynamic_pressure
@@ -1180,6 +1324,8 @@ def test_signs_of_qasym_with_nonzero_moment(eps=1e-4):
 
         approx_a0 = a_dict['a0']
 
+    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'nonzero_moment')
+
     # print_op.print_dict_as_table(step_history)
     # for positive gamma:
     # [ a0   ]      [ + & 0 & - ] [ + ]   [ + ]
@@ -1190,9 +1336,108 @@ def test_signs_of_qasym_with_nonzero_moment(eps=1e-4):
         message = 'tilt and yaw moment not turning the induction contour in expected direction'
         print_op.log_and_raise_error(message)
 
-    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'nonzero_moment')
 
     return None
+
+
+
+def test_helicopter_values_for_qasym(thresh=1.0):
+
+    # https://link.springer.com/article/10.1007/s13272-023-00680-z
+    # Kostek 2024
+
+    exterior_radius = 0.318 / 2. # (*page 645 *)
+    rho = 1.225 #(*kg / m ^ 3 *)
+    omega = 5400. * 2. *np.pi / 60. # (*rad / s *)
+    u_zero = 12.9 #(*m / s *)
+    tilt = -10. * np.pi / 180.
+
+    hub_radius = 0. #40.e-3 #fig 5
+
+    area = np.pi * exterior_radius**2.
+    actuator_dynamic_pressure = 0.5 * rho * u_zero**2.
+    radius_bar = (hub_radius + exterior_radius) / 2.
+    wingspan = (exterior_radius - radius_bar) * 2.
+
+    # value digitized from fig 14
+    thrust = -7.3774 #N, negative because nhat = -zhat_heli
+
+    # values determined from BEM reconstruction
+    moment_180_to_0 = 1.086e-1 #Nm
+    moment_270_to_90 = 8.707e-3 #Nm
+
+    zhat_heli = cas.cos(tilt) * vect_op.zhat_dm() + cas.sin(tilt) * vect_op.xhat_dm()
+    yhat_heli = vect_op.normed_cross(zhat_heli, vect_op.xhat_dm())
+    xhat_heli = vect_op.normed_cross(yhat_heli, zhat_heli)
+    moment_vector = moment_180_to_0 * xhat_heli + moment_270_to_90 * yhat_heli
+
+    n_hat = -zhat_heli
+    u_hat = vect_op.xhat_dm()
+    dcm_act, dcm_wind = actuator_flow.construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat)
+    y_rotor_hat = dcm_act[:, 1]
+    z_rotor_hat = dcm_act[:, 2]
+
+    moment_y = cas.mtimes(moment_vector.T, y_rotor_hat)
+    moment_z = cas.mtimes(moment_vector.T, z_rotor_hat)
+
+    gamma_yaw = vect_op.angle_between(u_hat, n_hat, z_rotor_hat)
+
+    ct = thrust / area / actuator_dynamic_pressure
+    cmy = moment_y / area / actuator_dynamic_pressure / exterior_radius
+    cmz = moment_z / area / actuator_dynamic_pressure / exterior_radius
+    print('ct: ', ct)
+    print('cmy: ', cmy)
+    print('cmz: ', cmz)
+
+    approx_avg_normal_ind_velocity = 3.0 #in nhat-direction, so positive a = 'down'
+    approx_a0 = approx_avg_normal_ind_velocity / u_zero
+
+    c_all, c_numer, c_denom = actuator_coeff.assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynamic_pressure, area, radius_bar, wingspan)
+
+    step_history = {0: {'a0': approx_a0, 'acos': 0, 'asin': 0}}
+    for step in range(20):
+        # corr = actuator_flow.get_corr_val_axisym(approx_a0)
+        # chi = actuator_flow.get_wake_angle_chi_equal(gamma_yaw)
+        corr = actuator_flow.get_corr_val_glauert(approx_a0, gamma_yaw)
+        chi = actuator_flow.get_wake_angle_chi_jimenez(gamma_yaw, thrust, area, actuator_dynamic_pressure)
+        LL_matr = actuator_coeff.get_LL_matrix_from_corr_and_chi(corr, chi)
+
+        a_all = cas.mtimes(LL_matr, c_all)
+        a_dict = actuator_flow.unstack_a_all(a_all)
+        step_history[step] = a_dict
+
+        approx_a0 = a_dict['a0']
+
+    expected_max_ui = 7.5
+    expected_min_ui = -1.5
+
+    all_u = []
+    mu = 1.
+    for psi in np.linspace(0., 2. * np.pi, 361):
+        radius = mu * exterior_radius
+        radial_vector = actuator_geom.assemble_radial_vector(radius, y_rotor_hat, z_rotor_hat, psi, for_kite_motion_or_induction_distribution='induction_distribution')
+        a_local = actuator_flow.assemble_asym_local_induction_factor(a_dict, psi, mu)
+        ui = u_zero * (-1.) * a_local
+        all_u += [ui]
+
+    found_max_ui = np.max(np.array(all_u))
+    found_min_ui = np.min(np.array(all_u))
+
+    if (found_max_ui - expected_max_ui)**2. > thresh:
+        message = 'helicopter qasym found max ui of ' + str(found_max_ui) + ' m/s when ' + str(expected_max_ui) + ' m/s was expected'
+        print_op.log_and_raise_error(message)
+
+    if (found_min_ui - expected_min_ui)**2. > thresh:
+        message = 'helicopter qasym found min ui of ' + str(found_max_ui) + ' m/s when ' + str(expected_min_ui) + ' m/s was expected'
+        print_op.log_and_raise_error(message)
+
+    # print_op.print_dict_as_table(step_history)
+
+    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'qasym_helicopter')
+
+    return None
+
+
 
 def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, name_string):
     dict = {}
@@ -1233,33 +1478,32 @@ def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor
 
     cmap = 'RdYlBu_r'
 
+    def format_ax(ax):
+        ax.set_xlabel('y')
+        ax.set_ylabel('z')
+        ax.xaxis.set_inverted(True)  # because yhatRotor points left in default view
+        ax.set_aspect('equal')
+        # Draw Y-axis arrow (horizontal, dx=0.5)
+        ax.annotate("", xy=(0.5, 0), xytext=(0, 0),
+                    arrowprops={"arrowstyle": "->", "color": "black", "lw": 0.5})
+        # Draw Z-axis arrow (vertical, dy=0.5)
+        ax.annotate("", xy=(0, 0.5), xytext=(0, 0),
+                    arrowprops={"arrowstyle": "->", "color": "black", "lw": 0.5})
+
     fig, ax = plt.subplots()
     contour = ax.tricontourf(y_array, z_array, a_array, levels=100, cmap=cmap) #, vmin=-6, vmax=-2.5)
     plt.tricontour(y_array, z_array, a_array, levels=100, cmap=cmap)
-    # plt.clim(-6, -2.5)
+    ax.tricontour(y_array, z_array, a_array, levels=[a_dict['a0']], colors='black', linewidths=1.5, linestyles='solid', zorder=10)
     fig.colorbar(contour, ax=ax, label='Normal-direction induction factor [-]')
-    ax.set_xlabel('y')
-    ax.set_ylabel('z')
-    ax.set_aspect('equal')
+    format_ax(ax)
     plt.savefig(base_name + "_a.pdf", format="pdf")
 
-    fig, ax = plt.subplots(
-        subplot_kw={'projection': 'polar'}
-    )
-    ax.set_theta_zero_location('N')     # Set 0° at the top (North)
-    ax.set_theta_direction(-1)     # Set angles to increase clockwise
-    ax.set_thetagrids(np.arange(0, 360, 30))
-    contour = ax.tricontourf(psi_array, mu_array, ui_array, levels=100, cmap=cmap) #, vmin=-6, vmax=-2.5)
-    plt.tricontour(psi_array, mu_array, ui_array, levels=100, cmap=cmap)
-    # add the epigraphs to show rotation of the induction field
-    ax.tricontour(psi_array, mu_array, ui_array, levels=[u_zero * (-1.) * a_dict['a0']], colors='black', linewidths=1.5, linestyles='solid', zorder=10)
-    # Dashed reference line at psi = 0
-    ax.plot([0, 0], [0, 1], color='black', linestyle='--', linewidth=1.5, zorder=10)
-    # plt.clim(-6, -2.5)
-    fig.colorbar(contour, ax=ax, label='Normal induced velocity [m/s]')
-    ax.set_xlabel('y')
-    ax.set_ylabel('z')
-    ax.set_aspect('equal')
+    fig, ax = plt.subplots()
+    contour = ax.tricontourf(y_array, z_array, ui_array, levels=100, cmap=cmap) #, vmin=-6, vmax=-2.5)
+    plt.tricontour(y_array, z_array, ui_array, levels=100, cmap=cmap)
+    ax.tricontour(y_array, z_array, ui_array, levels=[u_zero * (-1.) * a_dict['a0']], colors='black', linewidths=1.5, linestyles='solid', zorder=10)
+    fig.colorbar(contour, ax=ax, label='Normal-direction induced velocity [-]')
+    format_ax(ax)
     plt.savefig(base_name + "_ui.pdf", format="pdf")
 
     plt.show()
@@ -1577,6 +1821,7 @@ def collect_actuator_support_outputs(model_options, atmos, wind, system_variable
 
         outputs['actuator']['center' + str(parent)] = center
         outputs['actuator']['velocity' + str(parent)] = velocity
+        outputs['actuator']['avg_angular_speed' + str(parent)] = actuator_geom.get_actuator_angular_speed(parent, variables_si, parameters, architecture)
         outputs['actuator']['area' + str(parent)] = area
         outputs['actuator']['avg_radius' + str(parent)] = avg_radius
         outputs['actuator']['nhat' + str(parent)] = nhat
@@ -1609,9 +1854,11 @@ def draw_actuator(ax, side, plot_dict, cosmetics, index):
 def independent_test():
     actuator_flow.test_gamma_angle_for_dcms()
     actuator_coeff.test_LL_inversion_correctly_implemented()
+    test_momentum_theory_in_helicopter_conditions()
     test_signs_of_uaxi()
     test_signs_of_qasym_with_zero_moment()
     test_signs_of_qasym_with_nonzero_moment()
+    test_helicopter_values_for_qasym()
     return None
 
 

@@ -273,6 +273,24 @@ def get_actuator_area(parent, variables, parameters):
 
     return area
 
+def get_actuator_angular_speed(parent, variables_si, parameters, architecture):
+
+    n_hat_rotor = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
+    y_hat_rotor = actuator_system.get_actuator_vector_unit_var(variables_si, 'y', parent)
+    z_hat_rotor = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
+
+    omega_avg = 0.
+    for kite in architecture.get_kite_children(parent):
+        psi = get_psi_var(variables_si, kite, parent)
+        rhat = parametric_rhat(z_hat_rotor, y_hat_rotor, psi, for_kite_motion_or_induction_distribution='kite_motion')
+        that = vect_op.normed_cross(n_hat_rotor, rhat)
+        dq = variables_si['x']['dq' + str(kite) + str(parent)]
+        dq_that = cas.mtimes(dq.T, that)
+        local_radius = get_kite_radius(kite, variables_si, architecture, parameters)
+        local_omega = dq_that / local_radius
+        omega_avg += local_omega / float(len(architecture.get_kite_children(parent)))
+    return omega_avg
+
 def get_kite_radial_vector(kite, variables, architecture):
 
     parent = architecture.parent_map[kite]

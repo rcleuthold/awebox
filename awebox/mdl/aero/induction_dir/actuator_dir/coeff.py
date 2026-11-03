@@ -56,7 +56,59 @@ def get_LL_matrix_ref(model_options,parent, scaling):
     chi_ref = 0.
     return get_LL_matrix_from_corr_and_chi(corr, chi_ref)
 
+
+def get_LL_inv_matrix_swapped_signs_from_corr_and_chi(corr, chi):
+    denom = 225. * np.pi**2. + (8192. - 225. * np.pi**2.) * cas.cos(chi)
+
+    inv11_num = 32768. * corr * cas.cos(chi)
+    inv12_num = 0.
+    inv13_num = 1920. * corr * np.pi * cas.sin(chi)
+    inv21_num = 0.
+    inv22_num = denom * cas.cos(chi/2.)**2.
+    inv23_num = 0.
+    inv31_num = -1. * 1920. * np.pi * cas.sin(chi)
+    inv32_num = 0.
+    inv33_num = denom * 4096. / (4096. + (-4096. + 225. * np.pi**2.) * cas.tan(chi/2.)**2.)
+
+    num_row1 = cas.horzcat(inv11_num, inv12_num, inv13_num)
+    num_row2 = cas.horzcat(inv21_num, inv22_num, inv23_num)
+    num_row3 = cas.horzcat(inv31_num, inv32_num, inv33_num)
+    num_matr = cas.vertcat(num_row1, num_row2, num_row3)
+
+    LLinv = num_matr / denom
+
+    return LLinv, num_matr, denom
+
+def get_LL_matrix_swapped_signs_from_corr_and_chi(corr, chi):
+    # see page 136 (3.188) and 137 (3.189) of Wind Energy Handbook, Burton et al.
+    tanhalfchi = cas.tan(chi / 2.)
+    sechalfchi = 1. / cas.cos(chi / 2.)
+
+    LL11 = 0.25 / corr
+    LL12 = 0.
+    LL13 = -15. / 128. * np.pi * tanhalfchi
+    LL21 = 0.
+    LL22 = 1. * sechalfchi**2.
+    LL23 = 0.
+    LL31 = (15. / 128. / corr) * np.pi * tanhalfchi
+    LL32 = 0.
+    LL33 = 1. * (1. - tanhalfchi**2.)
+
+    LL_row1 = cas.horzcat(LL11, LL12, LL13)
+    LL_row2 = cas.horzcat(LL21, LL22, LL23)
+    LL_row3 = cas.horzcat(LL31, LL32, LL33)
+    LL_matr = cas.vertcat(LL_row1, LL_row2, LL_row3)
+
+    return LL_matr
+
 def get_LL_matrix_from_corr_and_chi(corr, chi):
+    # return get_LL_matrix_burton_signs_from_corr_and_chi(corr, chi)
+    return get_LL_matrix_swapped_signs_from_corr_and_chi(corr, chi)
+def get_LL_inv_matrix_from_corr_and_chi(corr, chi):
+    # return get_LL_inv_matrix_burton_signs_from_corr_and_chi(corr, chi)
+    return get_LL_inv_matrix_swapped_signs_from_corr_and_chi(corr, chi)
+
+def get_LL_matrix_burton_signs_from_corr_and_chi(corr, chi):
     # see page 136 (3.188) and 137 (3.189) of Wind Energy Handbook, Burton et al.
     tanhalfchi = cas.tan(chi / 2.)
     sechalfchi = 1. / cas.cos(chi / 2.)
@@ -77,6 +129,30 @@ def get_LL_matrix_from_corr_and_chi(corr, chi):
     LL_matr = cas.vertcat(LL_row1, LL_row2, LL_row3)
 
     return LL_matr
+
+
+
+def get_LL_inv_matrix_burton_signs_from_corr_and_chi(corr, chi):
+    denom = -225. * np.pi**2. + (8192. + 225. * np.pi**2.) * cas.cos(chi)
+
+    inv11_num = 32768. * corr * cas.cos(chi)
+    inv12_num = 0.
+    inv13_num = -1920. * np.pi * corr * cas.sin(chi)
+    inv21_num = 0.
+    inv22_num = denom * (-1. * cas.cos(chi/2.)**2.)
+    inv23_num = 0.
+    inv31_num = 1920. * np.pi * cas.sin(chi)
+    inv32_num = 0.
+    inv33_num = -4096. * (1. + cas.cos(chi))
+
+    num_row1 = cas.horzcat(inv11_num, inv12_num, inv13_num)
+    num_row2 = cas.horzcat(inv21_num, inv22_num, inv23_num)
+    num_row3 = cas.horzcat(inv31_num, inv32_num, inv33_num)
+    num_matr = cas.vertcat(num_row1, num_row2, num_row3)
+
+    LLinv = num_matr / denom
+
+    return LLinv, num_matr, denom
 
 def get_LL_inv_matrix_val(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label):
     variables_si = system_variables['SI']
@@ -108,33 +184,11 @@ def test_LL_inversion_correctly_implemented(thresh=1e-3):
     return None
 
 
-def get_LL_inv_matrix_from_corr_and_chi(corr, chi):
-    denom = -225. * np.pi**2. + (8192. + 225. * np.pi**2.) * cas.cos(chi)
-
-    inv11_num = 32768. * corr * cas.cos(chi)
-    inv12_num = 0.
-    inv13_num = -1920. * np.pi * corr * cas.sin(chi)
-    inv21_num = 0.
-    inv22_num = denom * (-1. * cas.cos(chi/2.)**2.)
-    inv23_num = 0.
-    inv31_num = 1920. * np.pi * cas.sin(chi)
-    inv32_num = 0.
-    inv33_num = -4096. * (1. + cas.cos(chi))
-
-    num_row1 = cas.horzcat(inv11_num, inv12_num, inv13_num)
-    num_row2 = cas.horzcat(inv21_num, inv22_num, inv23_num)
-    num_row3 = cas.horzcat(inv31_num, inv32_num, inv33_num)
-    num_matr = cas.vertcat(num_row1, num_row2, num_row3)
-
-    LLinv = num_matr / denom
-
-    return LLinv, num_matr, denom
-
 
 def get_MM_matrix():
-    MM11 = 1.69765
-    MM22 = 0.113177
-    MM33 = 0.113177
+    MM11 = 16. / 3. / np.pi
+    MM22 = 32. / 45. / np.pi
+    MM33 = MM22
 
     MM_col1 = MM11 * vect_op.xhat()
     MM_col2 = MM22 * vect_op.yhat()

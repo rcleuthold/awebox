@@ -481,6 +481,7 @@ def generate_options_dict():
 
     actuator_support_only_options = copy.deepcopy(actuator_qaxi_options)
     actuator_support_only_options['model.aero.actuator.support_only'] = True
+    actuator_support_only_options['solver.weights.actuator'] = 1.e0 # rela, adjust this when things run
     # actuator_support_only_options['solver.cost_factor.power'] = 1e1
     # print('support pcf: ' + str(actuator_support_only_options['solver.cost_factor.power']))
     # list = (1e2, 1e3, 1), (1e4, 1e4, 0.01), (1e4, 1e4, 0.1), (1e2, 1e3, 0.1), (1e4, 1e3, 1.0), (1e4, 1e2, 0.01), (1e4, 10., 1.),  (1e2, 1e4, 0.1), (1e2, 1e2, 1.0), (1e2, 1e1, 1.0), (1e2, 10.,0.1), (1e1, 1e4, 0.01), (1e1, 1e4, 0.1), (1e1, 1e2, 0.1), (1e1, 10., 0.01)
@@ -799,8 +800,8 @@ if __name__ == "__main__":
             test_vortex_3_dof()
 
         if types_of_problems['actuator']:
-            #test_actuator_support_only()
-            #test_actuator_support_only_basic_health()
+            test_actuator_support_only()
+            test_actuator_support_only_basic_health()
 
             #test_actuator_qaxi()
             #test_actuator_qaxi_basic_health()
@@ -811,8 +812,8 @@ if __name__ == "__main__":
             #test_actuator_uaxi()
             #test_actuator_uaxi_basic_health()
 
-            test_actuator_uasym()
-            test_actuator_uasym_basic_health()
+            # test_actuator_uasym()
+            # test_actuator_uasym_basic_health()
 
             #
             # test_actuator_comparison()
