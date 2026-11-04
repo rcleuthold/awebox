@@ -1256,7 +1256,81 @@ def get_unsteady_asym_pitt_peters_residual(model_options, atmos, wind, system_va
     return resi
 
 
-def test_signs_of_qasym_with_nonzero_moment(eps=1e-4):
+def test_signs_of_qasym_with_nonzero_moment_from_Sun(eps=1e-4):
+
+    # H. Sun, A. Sciacchitano, and W. Yu,
+    # “ An Engineering Model for Static Yawed Wind Turbines Based on Actuator Line Simulations and Symbolic Regression,” Wind Energy 29, no. 5 (2026): e70118,
+    # https://doi.org/10.1002/we.70118.
+
+    u_zero = 8 # m/s, page 5
+    diameter = 126. #m, pg. 3
+    gamma_yaw = 25. * np.pi / 180. # fig. 18b
+    hub_radius = 1.5/2. #m, pg. 5
+    rho = 1.225 # kg/m^3, pg. 3
+    pitch = 0 # page 7
+
+    area = np.pi * (diameter / 2.)**2.
+    exterior_radius = diameter/2.
+    actuator_dynamic_pressure = 0.5 * rho * u_zero**2.
+    radius_bar = (hub_radius + exterior_radius) / 2.
+    wingspan = (exterior_radius - radius_bar) * 2.
+
+    ct = 0.867977 # digitized from figure 2
+    thrust = ct * actuator_dynamic_pressure * area * cas.cos(gamma_yaw)**2. # see (10)
+
+    # interpreted from fig. 3
+    n_hat = cas.cos(gamma_yaw) * vect_op.xhat_dm() + cas.sin(gamma_yaw) * vect_op.yhat_dm()
+
+    u_hat = vect_op.xhat_dm()
+    dcm_act, dcm_wind = actuator_flow.construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat)
+    y_rotor_hat = dcm_act[:, 1]
+    z_rotor_hat = dcm_act[:, 2]
+
+    moment_y = -436224.
+    moment_z = -307100.
+
+    # ct = thrust / area / actuator_dynamic_pressure
+    # cmy = moment_y / area / actuator_dynamic_pressure / exterior_radius
+    # cmz = moment_z / area / actuator_dynamic_pressure / exterior_radius
+    # print('ct: ', ct)
+    # print('cmy: ', cmy)
+    # print('cmz: ', cmz)
+
+    approx_a0 = 0.
+
+    c_all, c_numer, c_denom = actuator_coeff.assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynamic_pressure, area, radius_bar, wingspan)
+
+    step_history = {0: {'a0': approx_a0, 'acos': 0, 'asin': 0}}
+    for step in range(20):
+        corr = actuator_flow.get_corr_val_glauert(approx_a0, vect_op.abs(gamma_yaw))
+        chi = actuator_flow.get_wake_angle_chi_jimenez(vect_op.abs(gamma_yaw), thrust, area, actuator_dynamic_pressure)
+        LL_matr = actuator_coeff.get_LL_matrix_from_corr_and_chi(corr, chi)
+
+        a_all = cas.mtimes(LL_matr, c_all)
+        a_dict = actuator_flow.unstack_a_all(a_all)
+        step_history[step] = a_dict
+
+        approx_a0 = a_dict['a0']
+
+    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'Sun', cmap='turbo_r')
+    # print_op.print_dict_as_table(step_history)
+    # for positive gamma:
+    # [ a0   ]      [ + & 0 & - ] [ + ]   [ + ]
+    # [ acos ] =    [ 0 & - & 0 ] [ + ] = [ - ]
+    # [ asin ]      [ + & 0 & - ] [ - ] = [ + ]
+    white_line_in_same_quadrant_as_paper_plot = (a_dict['a0'] > 0) and (a_dict['acos'] < 0) and (a_dict['asin'] > 0)
+    if not white_line_in_same_quadrant_as_paper_plot:
+        message = 'tilt and yaw moment not turning the induction contour in expected direction'
+        print_op.log_and_raise_error(message)
+
+
+    return None
+
+
+
+
+
+def test_signs_of_qasym_with_nonzero_moment_from_Ma(eps=1e-4):
 
     # Ma L, Li Y, Zhou L, Yang D, Shen X and Du Z (2025)
     # Study on the aeroelastic performance of 15 MW wind turbine under yaw condition. Front. Energy Res. 13:1571567. doi: 10.3389/fenrg.2025.1571567
@@ -1324,7 +1398,7 @@ def test_signs_of_qasym_with_nonzero_moment(eps=1e-4):
 
         approx_a0 = a_dict['a0']
 
-    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'nonzero_moment')
+    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'Ma')
 
     # print_op.print_dict_as_table(step_history)
     # for positive gamma:
@@ -1382,12 +1456,12 @@ def test_helicopter_values_for_qasym(thresh=1.0):
 
     gamma_yaw = vect_op.angle_between(u_hat, n_hat, z_rotor_hat)
 
-    ct = thrust / area / actuator_dynamic_pressure
-    cmy = moment_y / area / actuator_dynamic_pressure / exterior_radius
-    cmz = moment_z / area / actuator_dynamic_pressure / exterior_radius
-    print('ct: ', ct)
-    print('cmy: ', cmy)
-    print('cmz: ', cmz)
+    # ct = thrust / area / actuator_dynamic_pressure
+    # cmy = moment_y / area / actuator_dynamic_pressure / exterior_radius
+    # cmz = moment_z / area / actuator_dynamic_pressure / exterior_radius
+    # print('ct: ', ct)
+    # print('cmy: ', cmy)
+    # print('cmz: ', cmz)
 
     approx_avg_normal_ind_velocity = 3.0 #in nhat-direction, so positive a = 'down'
     approx_a0 = approx_avg_normal_ind_velocity / u_zero
@@ -1439,7 +1513,7 @@ def test_helicopter_values_for_qasym(thresh=1.0):
 
 
 
-def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, name_string):
+def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, name_string, cmap='RdYlBu_r'):
     dict = {}
     idx = 0
     for mu in np.linspace(0., 1., 30):
@@ -1476,7 +1550,7 @@ def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor
 
     base_name = "actuator_q_asym_verification_" + name_string
 
-    cmap = 'RdYlBu_r'
+
 
     def format_ax(ax):
         ax.set_xlabel('y')
@@ -1485,15 +1559,15 @@ def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor
         ax.set_aspect('equal')
         # Draw Y-axis arrow (horizontal, dx=0.5)
         ax.annotate("", xy=(0.5, 0), xytext=(0, 0),
-                    arrowprops={"arrowstyle": "->", "color": "black", "lw": 0.5})
+                    arrowprops={"arrowstyle": "->", "color": "black", "lw": 0.7})
         # Draw Z-axis arrow (vertical, dy=0.5)
         ax.annotate("", xy=(0, 0.5), xytext=(0, 0),
-                    arrowprops={"arrowstyle": "->", "color": "black", "lw": 0.5})
+                    arrowprops={"arrowstyle": "->", "color": "black", "lw": 0.7})
 
     fig, ax = plt.subplots()
     contour = ax.tricontourf(y_array, z_array, a_array, levels=100, cmap=cmap) #, vmin=-6, vmax=-2.5)
     plt.tricontour(y_array, z_array, a_array, levels=100, cmap=cmap)
-    ax.tricontour(y_array, z_array, a_array, levels=[a_dict['a0']], colors='black', linewidths=1.5, linestyles='solid', zorder=10)
+    ax.tricontour(y_array, z_array, a_array, levels=[a_dict['a0']], colors='black', linewidths=1., linestyles='--', zorder=10)
     fig.colorbar(contour, ax=ax, label='Normal-direction induction factor [-]')
     format_ax(ax)
     plt.savefig(base_name + "_a.pdf", format="pdf")
@@ -1501,10 +1575,18 @@ def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor
     fig, ax = plt.subplots()
     contour = ax.tricontourf(y_array, z_array, ui_array, levels=100, cmap=cmap) #, vmin=-6, vmax=-2.5)
     plt.tricontour(y_array, z_array, ui_array, levels=100, cmap=cmap)
-    ax.tricontour(y_array, z_array, ui_array, levels=[u_zero * (-1.) * a_dict['a0']], colors='black', linewidths=1.5, linestyles='solid', zorder=10)
-    fig.colorbar(contour, ax=ax, label='Normal-direction induced velocity [-]')
+    ax.tricontour(y_array, z_array, ui_array, levels=[u_zero * (-1.) * a_dict['a0']], colors='black', linewidths=1., linestyles='--', zorder=10)
+    fig.colorbar(contour, ax=ax, label='(-nhat) direction induced velocity [m/s]')
     format_ax(ax)
     plt.savefig(base_name + "_ui.pdf", format="pdf")
+
+    fig, ax = plt.subplots()
+    contour = ax.tricontourf(y_array, z_array, - a_array, levels=100, cmap=cmap) #, vmin=-6, vmax=-2.5)
+    plt.tricontour(y_array, z_array, - a_array, levels=100, cmap=cmap)
+    ax.tricontour(y_array, z_array, - a_array, levels=[(-1.) * a_dict['a0']], colors='black', linewidths=1., linestyles='--', zorder=10)
+    fig.colorbar(contour, ax=ax, label='(-nhat) direction induced velocity / u0 [-]')
+    format_ax(ax)
+    plt.savefig(base_name + "_neg_a.pdf", format="pdf")
 
     plt.show()
     return None
@@ -1857,7 +1939,8 @@ def independent_test():
     test_momentum_theory_in_helicopter_conditions()
     test_signs_of_uaxi()
     test_signs_of_qasym_with_zero_moment()
-    test_signs_of_qasym_with_nonzero_moment()
+    test_signs_of_qasym_with_nonzero_moment_from_Ma()
+    test_signs_of_qasym_with_nonzero_moment_from_Sun()
     test_helicopter_values_for_qasym()
     return None
 
@@ -1876,4 +1959,5 @@ def sanity_check(init_options, variables_si, wind, architecture, epsilon=1e-5):
 
 if __name__ == "__main__":
     independent_test()
+
 
