@@ -56,43 +56,74 @@ def get_LL_matrix_ref(model_options,parent, scaling):
     chi_ref = 0.
     return get_LL_matrix_from_corr_and_chi(corr, chi_ref)
 
+def get_LL_inputs_with_burton_signs(corr, chi):
+    X = cas.tan(chi/2.)
+    phi_3 = corr
+    phi_1 = -1
+    phi_2 = -1
+    return X, phi_1, phi_2, phi_3
+
+def get_LL_inv_matrix_burton_signs_from_corr_and_chi(corr, chi):
+    X, phi_1, phi_2, phi_3 = get_LL_inputs_with_burton_signs(corr, chi)
+    return make_basic_form_LLinv(X, phi_1, phi_2, phi_3)
+
+def get_LL_matrix_burton_signs_from_corr_and_chi(corr, chi):
+    X, phi_1, phi_2, phi_3 = get_LL_inputs_with_burton_signs(corr, chi)
+    return make_basic_form_LL(X, phi_1, phi_2, phi_3)
+
+
+def get_LL_inputs_with_swapped_signs(corr, chi):
+    X = cas.tan(chi/2.)
+    phi_3 = corr
+    phi_1 = -1
+    phi_2 = +1
+    return X, phi_1, phi_2, phi_3
 
 def get_LL_inv_matrix_swapped_signs_from_corr_and_chi(corr, chi):
-    denom = 225. * np.pi**2. + (8192. - 225. * np.pi**2.) * cas.cos(chi)
+    X, phi_1, phi_2, phi_3 = get_LL_inputs_with_swapped_signs(corr, chi)
+    return make_basic_form_LLinv(X, phi_1, phi_2, phi_3)
 
-    inv11_num = 32768. * corr * cas.cos(chi)
-    inv12_num = 0.
-    inv13_num = 1920. * corr * np.pi * cas.sin(chi)
-    inv21_num = 0.
-    inv22_num = denom * cas.cos(chi/2.)**2.
-    inv23_num = 0.
-    inv31_num = -1. * 1920. * np.pi * cas.sin(chi)
-    inv32_num = 0.
-    inv33_num = denom * 4096. / (4096. + (-4096. + 225. * np.pi**2.) * cas.tan(chi/2.)**2.)
+def get_LL_matrix_swapped_signs_from_corr_and_chi(corr, chi):
+    X, phi_1, phi_2, phi_3 = get_LL_inputs_with_swapped_signs(corr, chi)
+    return make_basic_form_LL(X, phi_1, phi_2, phi_3)
 
-    num_row1 = cas.horzcat(inv11_num, inv12_num, inv13_num)
-    num_row2 = cas.horzcat(inv21_num, inv22_num, inv23_num)
-    num_row3 = cas.horzcat(inv31_num, inv32_num, inv33_num)
+def make_basic_form_LLinv(X, phi_1, phi_2, phi_3):
+
+    denom = 225. * np.pi**2. * phi_1**2. * X**2 - 4096. * phi_2 * (X**2. - 1.)
+
+    num11 = -16384 * phi_2 * phi_3 * (X**2 - 1.)
+    num12 = 0.
+    num13 = - 1920. * np.pi * phi_1 * phi_3 * X
+    num21 = 0.
+    num22 = (1./ (phi_2 * (1. + X**2)) ) * denom
+    num23 = 0.
+    num31 = 1920. * np.pi * phi_1 * X
+    num32 = 0.
+    num33 = 4096.
+
+    num_row1 = cas.horzcat(num11, num12, num13)
+    num_row2 = cas.horzcat(num21, num22, num23)
+    num_row3 = cas.horzcat(num31, num32, num33)
     num_matr = cas.vertcat(num_row1, num_row2, num_row3)
 
     LLinv = num_matr / denom
 
     return LLinv, num_matr, denom
 
-def get_LL_matrix_swapped_signs_from_corr_and_chi(corr, chi):
-    # see page 136 (3.188) and 137 (3.189) of Wind Energy Handbook, Burton et al.
-    tanhalfchi = cas.tan(chi / 2.)
-    sechalfchi = 1. / cas.cos(chi / 2.)
 
-    LL11 = 0.25 / corr
+def make_basic_form_LL(X, phi_1, phi_2, phi_3):
+
+    factor_13 = 15. * np.pi / 128.
+
+    LL11 = (1./4.) * (1./phi_3)
     LL12 = 0.
-    LL13 = -15. / 128. * np.pi * tanhalfchi
+    LL13 = phi_1 * factor_13 * X
     LL21 = 0.
-    LL22 = 1. * sechalfchi**2.
+    LL22 = phi_2 * (1. + X**2)
     LL23 = 0.
-    LL31 = (15. / 128. / corr) * np.pi * tanhalfchi
+    LL31 = -1. * phi_1 * (1./phi_3) * factor_13 * X
     LL32 = 0.
-    LL33 = 1. * (1. - tanhalfchi**2.)
+    LL33 = phi_2 * (1. - X**2.)
 
     LL_row1 = cas.horzcat(LL11, LL12, LL13)
     LL_row2 = cas.horzcat(LL21, LL22, LL23)
@@ -108,51 +139,6 @@ def get_LL_inv_matrix_from_corr_and_chi(corr, chi):
     # return get_LL_inv_matrix_burton_signs_from_corr_and_chi(corr, chi)
     return get_LL_inv_matrix_swapped_signs_from_corr_and_chi(corr, chi)
 
-def get_LL_matrix_burton_signs_from_corr_and_chi(corr, chi):
-    # see page 136 (3.188) and 137 (3.189) of Wind Energy Handbook, Burton et al.
-    tanhalfchi = cas.tan(chi / 2.)
-    sechalfchi = 1. / cas.cos(chi / 2.)
-
-    LL11 = 0.25 / corr
-    LL12 = 0.
-    LL13 = -15. / 128. * np.pi * tanhalfchi
-    LL21 = 0.
-    LL22 = -1. * sechalfchi**2.
-    LL23 = 0.
-    LL31 = (15. / 128. / corr) * np.pi * tanhalfchi
-    LL32 = 0.
-    LL33 = -1. * (1. - tanhalfchi**2.)
-
-    LL_row1 = cas.horzcat(LL11, LL12, LL13)
-    LL_row2 = cas.horzcat(LL21, LL22, LL23)
-    LL_row3 = cas.horzcat(LL31, LL32, LL33)
-    LL_matr = cas.vertcat(LL_row1, LL_row2, LL_row3)
-
-    return LL_matr
-
-
-
-def get_LL_inv_matrix_burton_signs_from_corr_and_chi(corr, chi):
-    denom = -225. * np.pi**2. + (8192. + 225. * np.pi**2.) * cas.cos(chi)
-
-    inv11_num = 32768. * corr * cas.cos(chi)
-    inv12_num = 0.
-    inv13_num = -1920. * np.pi * corr * cas.sin(chi)
-    inv21_num = 0.
-    inv22_num = denom * (-1. * cas.cos(chi/2.)**2.)
-    inv23_num = 0.
-    inv31_num = 1920. * np.pi * cas.sin(chi)
-    inv32_num = 0.
-    inv33_num = -4096. * (1. + cas.cos(chi))
-
-    num_row1 = cas.horzcat(inv11_num, inv12_num, inv13_num)
-    num_row2 = cas.horzcat(inv21_num, inv22_num, inv23_num)
-    num_row3 = cas.horzcat(inv31_num, inv32_num, inv33_num)
-    num_matr = cas.vertcat(num_row1, num_row2, num_row3)
-
-    LLinv = num_matr / denom
-
-    return LLinv, num_matr, denom
 
 def get_LL_inv_matrix_val(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label):
     variables_si = system_variables['SI']
@@ -183,7 +169,15 @@ def test_LL_inversion_correctly_implemented(thresh=1e-3):
 
     return None
 
-
+def make_keller_forcing_term(t_star, LLinv, keller_constant, clockwise_rotation_about_xhat, dcm_rotor, dot_dcm_rotor):
+    if clockwise_rotation_about_xhat:
+        sign_mismatch_to_helicopter = -1.
+    else:
+        sign_mismatch_to_helicopter = 1.
+    keller_matrix = cas.horzcat(0. * vect_op.xhat_dm(), keller_constant * vect_op.zhat_dm(), -1. * sign_mismatch_to_helicopter * keller_constant * vect_op.yhat_dm())
+    dcm_part = cas.mtimes(dcm_rotor.T, dot_dcm_rotor)
+    rhs = -1. * t_star * cas.mtimes(LLinv, cas.mtimes(keller_matrix, cas.mtimes(dcm_part, vect_op.xhat_dm())))
+    return rhs
 
 def get_MM_matrix():
     MM11 = 16. / 3. / np.pi

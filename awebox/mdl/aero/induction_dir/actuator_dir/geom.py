@@ -222,7 +222,7 @@ def get_bar_varrho_cstr(parent, variables, architecture, scaling):
 
 
 def assemble_radial_vector(radius, y_rotor_hat, z_rotor_hat, psi, for_kite_motion_or_induction_distribution='induction_distribution', clockwise_rotation_about_xhat=True):
-    rhat = parametric_rhat(z_rotor_hat, y_rotor_hat, psi, for_kite_motion_or_induction_distribution, clockwise_rotation_about_xhat)
+    rhat = parametric_rhat(y_rotor_hat, z_rotor_hat, psi, for_kite_motion_or_induction_distribution, clockwise_rotation_about_xhat)
     return radius * rhat
 
 def get_varrho_and_psi_cstr(model_options, kite, variables, parameters, architecture):
@@ -282,7 +282,7 @@ def get_actuator_angular_speed(parent, variables_si, parameters, architecture):
     omega_avg = 0.
     for kite in architecture.get_kite_children(parent):
         psi = get_psi_var(variables_si, kite, parent)
-        rhat = parametric_rhat(z_hat_rotor, y_hat_rotor, psi, for_kite_motion_or_induction_distribution='kite_motion')
+        rhat = parametric_rhat(y_hat_rotor, z_hat_rotor, psi, for_kite_motion_or_induction_distribution='kite_motion')
         that = vect_op.normed_cross(n_hat_rotor, rhat)
         dq = variables_si['x']['dq' + str(kite) + str(parent)]
         dq_that = cas.mtimes(dq.T, that)
@@ -299,11 +299,11 @@ def get_kite_radial_vector(kite, variables, architecture):
     z_rotor_hat_var = actuator_system.get_actuator_vector_unit_var(variables, 'z', parent)
 
     psi_var = get_psi_var(variables, kite, parent)
-    rhat = parametric_rhat(z_rotor_hat_var, y_rotor_hat_var, psi_var, for_kite_motion_or_induction_distribution='induction_distribution')
+    rhat = parametric_rhat(y_rotor_hat_var, z_rotor_hat_var, psi_var, for_kite_motion_or_induction_distribution='induction_distribution')
     return rhat
 
 
-def parametric_rhat(z_rotor_hat, y_rotor_hat, psi, for_kite_motion_or_induction_distribution='induction_distribution', clockwise_rotation_about_xhat=True):
+def parametric_rhat(y_rotor_hat, z_rotor_hat, psi, for_kite_motion_or_induction_distribution='induction_distribution', clockwise_rotation_about_xhat=True):
 
     # rotation with right hand rule about + (positive) nhat
     if for_kite_motion_or_induction_distribution == 'kite_motion':
@@ -522,7 +522,7 @@ def draw_average_radius(ax, side, plot_dict, cosmetics, index):
         rotor_z_hat = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
 
         psi = 0.
-        rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, psi, for_kite_motion_or_induction_distribution='induction_distribution') #clockwise_rotation_about_xhat)
+        rhat = parametric_rhat(rotor_y_hat, rotor_z_hat, psi, for_kite_motion_or_induction_distribution='induction_distribution') #clockwise_rotation_about_xhat)
 
         avg_radius = plot_dict['outputs']['actuator']['avg_radius' + str(parent)][0][index]
 
@@ -576,7 +576,7 @@ def draw_radial_segment_around_actuator_center(ax, side, plot_dict, cosmetics, i
         radius_start = mu_start * (b_ref * (bar_varrho + 0.5))
         radius_end = mu_end * (b_ref * (bar_varrho + 0.5))
 
-        rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, psi_val, for_kite_motion_or_induction_distribution='induction_distribution') #clockwise_rotation_about_xhat)
+        rhat = parametric_rhat(rotor_y_hat, rotor_z_hat, psi_val, for_kite_motion_or_induction_distribution='induction_distribution') #clockwise_rotation_about_xhat)
 
         x_start = x_center + radius_start * rhat
         x_end = x_center + radius_end * rhat
@@ -608,7 +608,7 @@ def draw_arc_around_actuator_center(ax, side, plot_dict, cosmetics, index, paren
         drawing_radius = mu_val * (b_ref * (bar_varrho + 0.5))
 
         angle = cas.SX.sym('angle')
-        rhat = parametric_rhat(rotor_z_hat, rotor_y_hat, angle, for_kite_motion_or_induction_distribution='induction_distribution')
+        rhat = parametric_rhat(rotor_y_hat, rotor_z_hat, angle, for_kite_motion_or_induction_distribution='induction_distribution')
         posi_fun = cas.Function('posi_fun', [angle], [x_center + drawing_radius * rhat])
 
         n_theta = cosmetics['trajectory']['actuator_n_theta']

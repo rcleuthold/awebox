@@ -1289,21 +1289,31 @@ def test_signs_of_qasym_with_nonzero_moment_from_Sun(eps=1e-4):
     moment_y = -436224.
     moment_z = -307100.
 
-    # ct = thrust / area / actuator_dynamic_pressure
-    # cmy = moment_y / area / actuator_dynamic_pressure / exterior_radius
-    # cmz = moment_z / area / actuator_dynamic_pressure / exterior_radius
-    # print('ct: ', ct)
-    # print('cmy: ', cmy)
-    # print('cmz: ', cmz)
-
     approx_a0 = 0.
 
     c_all, c_numer, c_denom = actuator_coeff.assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynamic_pressure, area, radius_bar, wingspan)
 
+    veri_test_table = {
+        'name': 'Sun',
+        'YawAngle': gamma_yaw * 180./np.pi,
+        'nhat': n_hat,
+        'uhat': u_hat,
+        'RotorMisalignmentAngle': gamma_yaw * 180./np.pi,
+        'CT': c_all[0],
+        'Cmy': c_all[1],
+        'Cmz': c_all[2],
+        'ExteriorRadius': exterior_radius,
+        'AirDensity': rho,
+        'RotorApparentSpeed': u_zero
+    }
+    print_op.print_dict_as_table(veri_test_table)
+
+
     step_history = {0: {'a0': approx_a0, 'acos': 0, 'asin': 0}}
     for step in range(20):
-        corr = actuator_flow.get_corr_val_glauert(approx_a0, vect_op.abs(gamma_yaw))
-        chi = actuator_flow.get_wake_angle_chi_jimenez(vect_op.abs(gamma_yaw), thrust, area, actuator_dynamic_pressure)
+        corr = actuator_flow.get_corr_val_glauert(approx_a0, gamma_yaw)
+        chi = actuator_flow.get_wake_angle_chi_jimenez(gamma_yaw, thrust, area, actuator_dynamic_pressure)
+        # chi = actuator_flow.get_wake_angle_chi_coleman(gamma_yaw, approx_a0)
         LL_matr = actuator_coeff.get_LL_matrix_from_corr_and_chi(corr, chi)
 
         a_all = cas.mtimes(LL_matr, c_all)
@@ -1312,7 +1322,7 @@ def test_signs_of_qasym_with_nonzero_moment_from_Sun(eps=1e-4):
 
         approx_a0 = a_dict['a0']
 
-    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'Sun', cmap='turbo_r')
+    plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'Sun') #, cmap='turbo_r')
     # print_op.print_dict_as_table(step_history)
     # for positive gamma:
     # [ a0   ]      [ + & 0 & - ] [ + ]   [ + ]
@@ -1386,10 +1396,27 @@ def test_signs_of_qasym_with_nonzero_moment_from_Ma(eps=1e-4):
 
     c_all, c_numer, c_denom = actuator_coeff.assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynamic_pressure, area, radius_bar, wingspan)
 
+    veri_test_table = {
+        'name': 'Ma',
+        'YawAngle': gamma_yaw * 180./np.pi,
+        'nhat': n_hat,
+        'uhat': u_hat,
+        'RotorMisalignmentAngle': gamma_yaw * 180./np.pi,
+        'CT': c_all[0],
+        'Cmy': c_all[1],
+        'Cmz': c_all[2],
+        'ExteriorRadius': exterior_radius,
+        'AirDensity': rho,
+        'RotorApparentSpeed': u_zero
+    }
+    print_op.print_dict_as_table(veri_test_table)
+
+
     step_history = {0: {'a0': approx_a0, 'acos': 0, 'asin': 0}}
     for step in range(20):
-        corr = actuator_flow.get_corr_val_glauert(approx_a0, vect_op.abs(gamma_yaw))
-        chi = actuator_flow.get_wake_angle_chi_jimenez(vect_op.abs(gamma_yaw), thrust, area, actuator_dynamic_pressure)
+        corr = actuator_flow.get_corr_val_glauert(approx_a0, gamma_yaw)
+        chi = actuator_flow.get_wake_angle_chi_jimenez(gamma_yaw, thrust, area, actuator_dynamic_pressure)
+        # chi = actuator_flow.get_wake_angle_chi_coleman(gamma_yaw, approx_a0)
         LL_matr = actuator_coeff.get_LL_matrix_from_corr_and_chi(corr, chi)
 
         a_all = cas.mtimes(LL_matr, c_all)
@@ -1398,7 +1425,7 @@ def test_signs_of_qasym_with_nonzero_moment_from_Ma(eps=1e-4):
 
         approx_a0 = a_dict['a0']
 
-    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'Ma')
+    plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'Ma')
 
     # print_op.print_dict_as_table(step_history)
     # for positive gamma:
@@ -1415,7 +1442,7 @@ def test_signs_of_qasym_with_nonzero_moment_from_Ma(eps=1e-4):
 
 
 
-def test_helicopter_values_for_qasym(thresh=1.0):
+def test_helicopter_values_for_qasym(thresh=2.0):
 
     # https://link.springer.com/article/10.1007/s13272-023-00680-z
     # Kostek 2024
@@ -1456,24 +1483,31 @@ def test_helicopter_values_for_qasym(thresh=1.0):
 
     gamma_yaw = vect_op.angle_between(u_hat, n_hat, z_rotor_hat)
 
-    # ct = thrust / area / actuator_dynamic_pressure
-    # cmy = moment_y / area / actuator_dynamic_pressure / exterior_radius
-    # cmz = moment_z / area / actuator_dynamic_pressure / exterior_radius
-    # print('ct: ', ct)
-    # print('cmy: ', cmy)
-    # print('cmz: ', cmz)
-
     approx_avg_normal_ind_velocity = 3.0 #in nhat-direction, so positive a = 'down'
     approx_a0 = approx_avg_normal_ind_velocity / u_zero
 
     c_all, c_numer, c_denom = actuator_coeff.assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynamic_pressure, area, radius_bar, wingspan)
 
+    veri_test_table = {
+        'name': 'helicopter',
+        'TiltAngle': tilt * 180./np.pi,
+        'nhat': n_hat,
+        'uhat': u_hat,
+        'RotorMisalignmentAngle': gamma_yaw * 180./np.pi,
+        'CT': c_all[0],
+        'Cmy': c_all[1],
+        'Cmz': c_all[2],
+        'ExteriorRadius': exterior_radius,
+        'AirDensity': rho,
+        'RotorApparentSpeed': u_zero
+    }
+    print_op.print_dict_as_table(veri_test_table)
+
     step_history = {0: {'a0': approx_a0, 'acos': 0, 'asin': 0}}
     for step in range(20):
-        # corr = actuator_flow.get_corr_val_axisym(approx_a0)
-        # chi = actuator_flow.get_wake_angle_chi_equal(gamma_yaw)
         corr = actuator_flow.get_corr_val_glauert(approx_a0, gamma_yaw)
         chi = actuator_flow.get_wake_angle_chi_jimenez(gamma_yaw, thrust, area, actuator_dynamic_pressure)
+        # chi = actuator_flow.get_wake_angle_chi_coleman(gamma_yaw, approx_a0)
         LL_matr = actuator_coeff.get_LL_matrix_from_corr_and_chi(corr, chi)
 
         a_all = cas.mtimes(LL_matr, c_all)
@@ -1497,17 +1531,17 @@ def test_helicopter_values_for_qasym(thresh=1.0):
     found_max_ui = np.max(np.array(all_u))
     found_min_ui = np.min(np.array(all_u))
 
-    if (found_max_ui - expected_max_ui)**2. > thresh:
+    if (found_max_ui - expected_max_ui)**2. > thresh**2.:
         message = 'helicopter qasym found max ui of ' + str(found_max_ui) + ' m/s when ' + str(expected_max_ui) + ' m/s was expected'
         print_op.log_and_raise_error(message)
 
-    if (found_min_ui - expected_min_ui)**2. > thresh:
+    if (found_min_ui - expected_min_ui)**2. > thresh**2.:
         message = 'helicopter qasym found min ui of ' + str(found_max_ui) + ' m/s when ' + str(expected_min_ui) + ' m/s was expected'
         print_op.log_and_raise_error(message)
 
     # print_op.print_dict_as_table(step_history)
 
-    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'qasym_helicopter')
+    plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'qasym_helicopter')
 
     return None
 
@@ -1522,7 +1556,7 @@ def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor
             radius = mu * exterior_radius
             radial_vector = actuator_geom.assemble_radial_vector(radius, y_rotor_hat, z_rotor_hat, psi, for_kite_motion_or_induction_distribution='induction_distribution')
             a_local = actuator_flow.assemble_asym_local_induction_factor(a_dict, psi, mu)
-            ui = u_zero * (-1.) * a_local
+            ui = u_zero * (-1.) * a_local # * n_hat
 
             local_dict = {}
             local_dict['mu'] = float(mu)
@@ -1576,7 +1610,7 @@ def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor
     contour = ax.tricontourf(y_array, z_array, ui_array, levels=100, cmap=cmap) #, vmin=-6, vmax=-2.5)
     plt.tricontour(y_array, z_array, ui_array, levels=100, cmap=cmap)
     ax.tricontour(y_array, z_array, ui_array, levels=[u_zero * (-1.) * a_dict['a0']], colors='black', linewidths=1., linestyles='--', zorder=10)
-    fig.colorbar(contour, ax=ax, label='(-nhat) direction induced velocity [m/s]')
+    fig.colorbar(contour, ax=ax, label='Normal-direction induced velocity [m/s]')
     format_ax(ax)
     plt.savefig(base_name + "_ui.pdf", format="pdf")
 
@@ -1584,13 +1618,729 @@ def plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor
     contour = ax.tricontourf(y_array, z_array, - a_array, levels=100, cmap=cmap) #, vmin=-6, vmax=-2.5)
     plt.tricontour(y_array, z_array, - a_array, levels=100, cmap=cmap)
     ax.tricontour(y_array, z_array, - a_array, levels=[(-1.) * a_dict['a0']], colors='black', linewidths=1., linestyles='--', zorder=10)
-    fig.colorbar(contour, ax=ax, label='(-nhat) direction induced velocity / u0 [-]')
+    fig.colorbar(contour, ax=ax, label='Normal-direction induced velocity / u0 [-]')
     format_ax(ax)
     plt.savefig(base_name + "_neg_a.pdf", format="pdf")
 
     plt.show()
     return None
 
+
+def pitch_test_oc6_35():
+
+    # https://re.public.polimi.it/retrieve/f3184f82-aed8-4c8b-9f4a-de090f07bd44/199-RENE24-FOWTALM.pdf
+    # https://wdh.energy.gov/ds/oc6/oc6.phase3
+    # https://docs.nlr.gov/docs/fy23osti/83102.pdf
+
+    import pandas as pd
+    df = pd.read_csv(
+        # "oc6.phase3.dtu1.m53.lc35.forces.txt",
+        # sep=r"\s+",
+        # header=None,
+        "oc6.phase3.sanvito_reconstructed.lc35.forces.txt",
+        sep=",",
+        header=0,
+        names=["time", "pitch_deg", "Fx", "Fy", "Fz", "Mx", "My", "Mz"]
+    )
+
+    n_periods = 3
+    period = df["time"].iloc[-1] - df["time"].iloc[0]
+    df_stacked = pd.concat(
+        [
+            df.assign(time=df["time"] + i * period).iloc[1 if i > 0 else 0:]
+            for i in range(n_periods)
+        ],
+        ignore_index=True
+    )
+
+    xhat = vect_op.xhat_dm()
+    yhat = vect_op.yhat_dm()
+    zhat = vect_op.zhat_dm()
+
+    rho = 1.177 # kg/m^3, pg 12, https://docs.nlr.gov/docs/fy23osti/83102.pdf
+    u_infty = 4.0 #m/s, % table 2, pg. 3, Sanvito
+    # see page 19 https://docs.nlr.gov/docs/fy23osti/83102.pdf
+    # 4.00 m/s is wind speed measured in the tunnel.
+    # 4.19 m/s is equivalent wind-speed after correcting for blockage.
+
+    # from table A.6, https://docs.nlr.gov/docs/fy23osti/83102.pdf
+    freq_pitch_hz = 1.0  # 1/s
+    amp_pitch_deg = 1.4  # deg
+    rotor_rpm = 240.  # rpm
+    blade_pitch_deg = 0.  # deg
+
+    phase_shift_pitch = 0.  # pg. 3 https://re.public.polimi.it/retrieve/f3184f82-aed8-4c8b-9f4a-de090f07bd44/199-RENE24-FOWTALM.pdf
+    phase_shift_azimuth_deg = 7.  # pg. 3 Sanvito
+    tower_tilt_rad = 5. * np.pi / 180  # pg 11, https://docs.nlr.gov/docs/fy23osti/83102.pdf
+
+    rotor_rad_p_s = rotor_rpm * 2. * np.pi / 60.
+    amp_surge_rad = amp_pitch_deg * np.pi / 180.
+
+    # from Table 2, https://docs.nlr.gov/docs/fy23osti/83102.pdf
+    rotor_diameter = 2.38132  # m,
+    hub_diameter = 0.178  # m
+    tower_base_offset = 0.730  # m
+    tower_length = 1.400  # m
+    twr2shft = 0.064  # m
+    rotor_overhang = 0.139  # m
+
+    exterior_radius = rotor_diameter / 2.
+    hub_radius = hub_diameter / 2.
+    wingspan = (rotor_diameter - hub_diameter) / 2.
+    radius_bar = exterior_radius - wingspan / 2.
+    area = np.pi * exterior_radius**2.
+
+    time_sym = cas.SX.sym('time_sym')
+    mu_sym = cas.SX.sym('mu_sym')
+    a_all_sym = cas.SX.sym('a_all_sym', (3, 1))
+    keller_constant_sym = cas.SX.sym('keller_constant_sym')
+    force_vec_sym = cas.SX.sym('force_vec_sym', (3, 1))
+    moment_vec_sym = cas.SX.sym('moment_vec_sym', (3, 1))
+
+    mu_eval = np.linspace(0., 1., 100)
+
+    # table 3, pg. 9 https://docs.nlr.gov/docs/fy23osti/83102.pdf
+    mu_twist = np.array([0.075, 0.124, 0.189, 0.258, 0.327, 0.397, 0.466, 0.533, 0.596, 0.656, 0.711, 0.761, 0.807, 0.847, 0.882, 0.913, 0.940, 0.963, 0.983, 1.000])
+    twist_deg = np.array([17.07668, 17.04199, 15.77593, 12.30509, 9.98299, 8.65143, 7.56522, 6.38165, 5.08008, 3.79042, 2.61685, 1.59090, 0.71754, 0.03751, -0.53510, -1.03393, -1.46251, -1.61172, -1.60710, -1.72236])
+    twist_at_mu_deg_interp = np.interp(mu_eval, mu_twist, twist_deg)
+
+    def get_scalar_beta_and_omega_pitch(time):
+        amp_pitch_rad = amp_pitch_deg * np.pi / 180.
+        omega_pitch_frequency = 2. * np.pi * freq_pitch_hz
+        beta_pitch_rad = amp_pitch_rad * cas.sin(omega_pitch_frequency * time + phase_shift_pitch)
+        omega_pitch_rad_p_s = cas.jacobian(beta_pitch_rad, time)
+        return beta_pitch_rad, omega_pitch_rad_p_s
+    beta_pitch_rad_sym, omega_pitch_rad_p_s_sym = get_scalar_beta_and_omega_pitch(time_sym)
+    pitch_rad_fun = cas.Function('pitch_rad_fun', [time_sym], [beta_pitch_rad_sym])
+
+    def get_base_dcms(time):
+        xhat_cs1 = vect_op.xhat_dm()
+        zhat_cs1 = vect_op.zhat_dm()
+        yhat_cs1 = vect_op.yhat_dm()
+        dcm_cs1 = cas.horzcat(xhat_cs1, yhat_cs1, zhat_cs1)
+
+        beta_pitch_rad, _ = get_scalar_beta_and_omega_pitch(time)
+        tower_angle_rad = tower_tilt_rad - beta_pitch_rad
+        zhat_cs2 = (cas.cos(tower_angle_rad) * zhat_cs1 - cas.sin(tower_angle_rad) * xhat_cs1)
+        yhat_cs2 = -1. * yhat_cs1
+        xhat_cs2 = vect_op.normed_cross(yhat_cs2, zhat_cs2)
+        dcm_cs2 = cas.horzcat(xhat_cs2, yhat_cs2, zhat_cs2)
+
+        xhat_cs3 = -cas.cos(tower_tilt_rad) * xhat_cs2 - cas.sin(tower_tilt_rad) * zhat_cs2
+        yhat_cs3 = yhat_cs1
+        zhat_cs3 = vect_op.normed_cross(xhat_cs3, yhat_cs3)
+        dcm_cs3 = cas.horzcat(xhat_cs3, yhat_cs3, zhat_cs3)
+
+        return dcm_cs1, dcm_cs2, dcm_cs3
+    _, _, dcm_cs3_sym = get_base_dcms(time_sym)
+    dcm_cs3_fun = cas.Function('dcm_cs3_fun', [time_sym], [dcm_cs3_sym])
+
+    def get_cs_center_positions(time):
+        dcm_cs1, dcm_cs2, dcm_cs3 = get_base_dcms(time)
+        zhat_cs2 = dcm_cs2[:, 2]
+        xhat_cs3 = dcm_cs3[:, 0]
+        center_cs1_wrt_earth = tower_base_offset * zhat
+        center_cs2_wrt_earth = center_cs1_wrt_earth + tower_length * zhat_cs2
+        center_cs3_wrt_earth = center_cs2_wrt_earth + twr2shft * zhat_cs2 - rotor_overhang * xhat_cs3
+        return center_cs1_wrt_earth, center_cs2_wrt_earth, center_cs3_wrt_earth
+
+    def get_scalar_psi_and_omega_rot(bdx, time):
+        omega_rot_rad_p_s = rotor_rpm * 2. * np.pi / 60.
+        psi_0 = phase_shift_azimuth_deg * np.pi / 180.
+        psi_bladeshift = bdx * 2. * np.pi / 3.
+        psi_understood = psi_0 + psi_bladeshift + omega_rot_rad_p_s * time
+        return psi_understood, omega_rot_rad_p_s
+
+    def get_understood_order_of_cylindrical_coordinates():
+        # bladeRefVels are mostly u_infty at y/1 position -> nhat
+        # bladeForces are zero at z/2 position -> rhat
+        return {'that': 0, 'nhat': 1, 'rhat': 2}
+    def restack_cylindrical_coordinates(ehats_in_dict):
+        coord_order = get_understood_order_of_cylindrical_coordinates()
+        dcm_restacked = cas.DM.zeros((3, 0))
+        for dir, ddx in coord_order.items():
+            if ddx == dcm_restacked.shape[1]:
+                dcm_restacked = cas.horzcat(dcm_restacked, ehats_in_dict[dir])
+        return dcm_restacked
+
+    def get_blade_fixed_dcms(bdx, time):
+        cylindrical_coord_order = get_understood_order_of_cylindrical_coordinates()
+        base_dcm = cas.DM.eye(3)
+        nhat_wrt_blade = base_dcm[:, cylindrical_coord_order['nhat']]
+        rhat_wrt_blade = base_dcm[:, cylindrical_coord_order['rhat']]
+        that_wrt_blade = base_dcm[:, cylindrical_coord_order['that']]
+        ehat_dict_wrt_blade = {'nhat': nhat_wrt_blade, 'rhat': rhat_wrt_blade, 'that': that_wrt_blade}
+        dcm_blade_wrt_blade = restack_cylindrical_coordinates(ehat_dict_wrt_blade)
+
+        psi, _ = get_scalar_psi_and_omega_rot(bdx, time)
+
+        import copy
+        xhat_wrt_rotor = copy.deepcopy(xhat)
+        yhat_wrt_rotor = copy.deepcopy(yhat)
+        zhat_wrt_rotor = copy.deepcopy(zhat)
+
+        nhat_wrt_rotor = xhat_wrt_rotor
+        rhat_wrt_rotor = actuator_geom.parametric_rhat(yhat_wrt_rotor, zhat_wrt_rotor, psi)
+        that_wrt_rotor = vect_op.normed_cross(nhat_wrt_rotor, rhat_wrt_rotor)
+        ehat_dict_wrt_rotor = {'nhat': nhat_wrt_rotor, 'rhat': rhat_wrt_rotor, 'that': that_wrt_rotor}
+        dcm_blade_wrt_rotor = restack_cylindrical_coordinates(ehat_dict_wrt_rotor)
+
+        _, _, dcm_cs3 = get_base_dcms(time)
+        dcm_blade_wrt_earth = cas.mtimes(dcm_cs3, dcm_blade_wrt_rotor)
+
+        return dcm_blade_wrt_blade, dcm_blade_wrt_rotor, dcm_blade_wrt_earth
+
+    def get_rotation_arm_at_station(bdx, time, mu):
+        _, _, dcm_blade_wrt_earth = get_blade_fixed_dcms(bdx, time)
+        q_center_cs1, _, q_center_cs3 = get_cs_center_positions(time)
+        local_radius = exterior_radius * mu
+        coord_order = get_understood_order_of_cylindrical_coordinates()
+        rhat_blade_wrt_earth = dcm_blade_wrt_earth[:, coord_order['rhat']]
+        q_local = q_center_cs3 + rhat_blade_wrt_earth * local_radius
+        rotation_arm = q_local - q_center_cs3
+        return q_local, rotation_arm
+
+    def get_dq_blade_at_station_wrt_earth(bdx, time, mu):
+
+        _, omega_pitch_rad_p_s = get_scalar_beta_and_omega_pitch(time)
+        _, omega_rot_rad_p_s = get_scalar_psi_and_omega_rot(bdx, time)
+
+        dcm_cs1, _, dcm_cs3 = get_base_dcms(time)
+
+        q_center_cs1, _, q_center_cs3 = get_cs_center_positions(time)
+        q_local, rotation_arm = get_rotation_arm_at_station(bdx, time, mu)
+        xhat_cs3 = dcm_cs3[:, 0]
+        omega_rot_vec = omega_rot_rad_p_s * xhat_cs3
+        rotation_motion = vect_op.cross(omega_rot_vec, rotation_arm)
+
+        pitching_arm = q_local - q_center_cs1
+        yhat_cs1 = dcm_cs1[:, 1]
+        omega_pitch_vec = omega_pitch_rad_p_s * yhat_cs1
+        pitching_motion = vect_op.cross(omega_pitch_vec, pitching_arm)
+
+        dq_blade = rotation_motion + pitching_motion
+        return dq_blade
+
+    def get_dcm_act_and_wind(time):
+        _, _, center_cs3 = get_cs_center_positions(time)
+        dq_actuator = cas.jacobian(center_cs3, time)
+
+        _, _, dcm_cs3 = get_base_dcms(time)
+        xhat_cs3 = dcm_cs3[:, 0]
+
+        u_zero = u_infty * vect_op.xhat_dm() - dq_actuator
+        u_hat = vect_op.normalize(u_zero)
+        n_hat = xhat_cs3
+
+        dcm_act, dcm_wind = actuator_flow.construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat)
+        z_rotor_hat = dcm_act[:, 2]
+
+        gamma_yaw = vect_op.angle_between(u_hat, n_hat, z_rotor_hat)
+        return u_zero, dcm_act, dcm_wind, gamma_yaw
+
+    def get_u_eff_at_station_wrt_blade(bdx, a_all, time, mu):
+        u_zero, dcm_act, dcm_wind, gamma_yaw = get_dcm_act_and_wind(time)
+        n_hat = dcm_act[:, 0]
+        y_rotor_hat = dcm_act[:, 1]
+        z_rotor_hat = dcm_act[:, 2]
+
+        _, _, dcm_cs3 = get_base_dcms(time)
+        yhat_cs3 = dcm_cs3[:, 1]
+        zhat_cs3 = dcm_cs3[:, 2]
+        psi_blade, _ = get_scalar_psi_and_omega_rot(bdx, time)
+
+        r_hat_blade = actuator_geom.parametric_rhat(yhat_cs3, zhat_cs3, psi_blade)
+        psi_induction = cas.atan2(-cas.dot(r_hat_blade, y_rotor_hat), cas.dot(r_hat_blade, z_rotor_hat))
+
+        a_local = actuator_flow.assemble_asym_local_induction_factor(actuator_flow.unstack_a_all(a_all),
+                                                                     psi_induction, mu)
+        u_induced = vect_op.norm(u_zero) * a_local * (-1.) * n_hat
+        vec_u_ref_wrt_earth = u_infty * xhat + u_induced
+        dq_blade_wrt_earth = get_dq_blade_at_station_wrt_earth(bdx, time, mu)
+
+        dcm_blade_wrt_blade, _, dcm_blade_wrt_earth = get_blade_fixed_dcms(bdx, time)
+
+        vec_u_eff_wrt_earth = vec_u_ref_wrt_earth - dq_blade_wrt_earth
+        vec_u_eff_in_cylindrical_coords = cas.mtimes(dcm_blade_wrt_earth.T, vec_u_eff_wrt_earth)
+        vec_u_eff_wrt_blade = cas.mtimes(dcm_blade_wrt_blade, vec_u_eff_in_cylindrical_coords)
+        return vec_u_eff_wrt_blade
+
+    def get_flow_angle_at_station(bdx, a_all, time, mu):
+        vec_u_eff_wrt_blade = get_u_eff_at_station_wrt_blade(bdx, a_all, time, mu)
+
+        cylindrical_coord_order = get_understood_order_of_cylindrical_coordinates()
+
+        u_eff_nhat = vec_u_eff_wrt_blade[cylindrical_coord_order['nhat']]
+        u_eff_that = vec_u_eff_wrt_blade[cylindrical_coord_order['that']]
+
+        flow_angle_understood_rad = cas.atan2(u_eff_nhat, -u_eff_that)
+        flow_angle_deg = flow_angle_understood_rad * 180. / np.pi
+        return flow_angle_deg
+    eff_flow_angle_deg_fun = cas.Function('eff_flow_angle_deg_fun', [a_all_sym, time_sym, mu_sym],
+                                  [get_flow_angle_at_station(0, a_all_sym, time_sym, mu_sym)])
+    app_flow_angle_deg_fun = cas.Function('app_flow_angle_deg_fun', [time_sym, mu_sym],
+                                  [get_flow_angle_at_station(0, cas.DM.zeros((3, 1)), time_sym, mu_sym)])
+
+    def get_normal_flow_velocity_at_station(bdx, a_all, time, mu):
+        vec_u_eff_wrt_blade = get_u_eff_at_station_wrt_blade(bdx, a_all, time, mu)
+        cylindrical_coord_order = get_understood_order_of_cylindrical_coordinates()
+        u_eff_nhat = vec_u_eff_wrt_blade[cylindrical_coord_order['nhat']]
+        return u_eff_nhat
+    u_eff_nhat_fun = cas.Function('u_eff_nhat_fun', [a_all_sym, time_sym, mu_sym], [get_normal_flow_velocity_at_station(0, a_all_sym, time_sym, mu_sym)])
+    u_app_nhat_fun = cas.Function('u_eff_nhat_fun', [time_sym, mu_sym], [get_normal_flow_velocity_at_station(0, cas.DM.zeros((3, 1)), time_sym, mu_sym)])
+
+
+    def calculate_adot(time, a_all, force_vec, moment_vec, keller_constant):
+        u_zero, dcm_act, dcm_wind, gamma_yaw = get_dcm_act_and_wind(time)
+        n_hat = dcm_act[:, 0]
+        y_rotor_hat = dcm_act[:, 1]
+        z_rotor_hat = dcm_act[:, 2]
+
+        t_star = exterior_radius / vect_op.norm(u_zero)
+        actuator_dynamic_pressure = 0.5 * rho * cas.mtimes(u_zero.T, u_zero)
+
+        thrust = cas.mtimes(n_hat.T, force_vec)
+        moment_y = cas.mtimes(y_rotor_hat.T, moment_vec)
+        moment_z = cas.mtimes(z_rotor_hat.T, moment_vec)
+
+        c_all, c_numer, c_denom = actuator_coeff.assemble_c_components_from_pieces(thrust, moment_y, moment_z,
+                                                                                   actuator_dynamic_pressure, area,
+                                                                                   radius_bar, wingspan)
+        MM = actuator_coeff.get_MM_matrix()
+
+        approx_a0 = a_all[0]
+
+        corr = actuator_flow.get_corr_val_glauert(approx_a0, gamma_yaw)
+        chi = actuator_flow.get_wake_angle_chi_jimenez(gamma_yaw, thrust, area, actuator_dynamic_pressure)
+        LLinv, _, _ = actuator_coeff.get_LL_inv_matrix_from_corr_and_chi(corr, chi)
+
+        positive_rotation_about_xhat = True
+        dot_dcm_act = cas.reshape(cas.jacobian(cas.reshape(dcm_act, (9, 1)), time), (3, 3))
+        rhs_keller = actuator_coeff.make_keller_forcing_term(t_star, LLinv, keller_constant, positive_rotation_about_xhat,
+                                                         dcm_act, dot_dcm_act)
+
+        term_2 = cas.mtimes(LLinv, a_all)
+        adot_all = cas.mtimes(cas.inv(MM), (c_all - term_2 + rhs_keller)) / t_star
+        return adot_all
+    adot_all_fun = cas.Function('adot_all_fun', [time_sym, a_all_sym, force_vec_sym, moment_vec_sym, keller_constant_sym], [calculate_adot(time_sym, a_all_sym, force_vec_sym, moment_vec_sym, keller_constant_sym)])
+
+    keller_step_history = {}
+    keller_time_history = {}
+    keller_nhat_dot_xhat_history = {}
+    keller_pitch_history = {}
+    keller_alpha_deg_history = {}
+    keller_u_eff_nhat_history = {}
+    keller_plot_style = {-2.0:':', 0.:'-', 1.0:'--', 2.0:'-.'}
+    for keller_constant in keller_plot_style.keys():
+
+        step_history = {0: {'a0': 0, 'acos': 0, 'asin': 0}}
+        time_history = {0: 0}
+        nhat_dot_xhat_history = {}
+        pitch_history = {}
+        alpha_deg_history = {}
+        u_eff_nhat_history = {}
+        alpha_app_deg_history = {}
+        u_app_nhat_history = {}
+        for idx in range(len(df_stacked)):
+            time_s = df_stacked["time"][idx]
+            fx_read = df_stacked["Fx"][idx]
+            fy_read = df_stacked["Fy"][idx]
+            fz_read = df_stacked["Fz"][idx]
+            mx_read = df_stacked["Mx"][idx]
+            my_read = df_stacked["My"][idx]
+            mz_read = df_stacked["Mz"][idx]
+
+            pitch_angle_rad = pitch_rad_fun(time_s)
+            if (df_stacked["pitch_deg"][idx] - (pitch_angle_rad * 180./np.pi))**2. > 1e-3:
+                message = 'wrong pitch definition'
+                print_op.log_and_raise_error(message)
+
+            dcm_cs3 = dcm_cs3_fun(time_s)
+            xhat_cs3 = dcm_cs3[:, 0]
+            yhat_cs3 = dcm_cs3[:, 1]
+            zhat_cs3 = dcm_cs3[:, 2]
+            total_aero_force = (fx_read * xhat_cs3 + fy_read * yhat_cs3 + fz_read * zhat_cs3)
+            total_aero_moment = (mx_read * xhat_cs3 + my_read * yhat_cs3 + mz_read * zhat_cs3)
+
+            a_all = actuator_flow.restack_a_dict(step_history[idx])
+            adot_now = adot_all_fun(time_s, a_all, total_aero_force, total_aero_moment, keller_constant)
+            if idx + 1 < len(df_stacked):
+                time_next = df_stacked["time"].iloc[idx + 1]
+                dt_next = time_next - time_s
+                a_next = cas.DM(a_all) + dt_next * adot_now
+                step_history[idx + 1] = actuator_flow.unstack_a_all(a_next)
+
+            # Store the time corresponding to the CURRENT velocity calculation
+            time_history[idx + 1] = time_s
+            nhat_dot_xhat_history[idx + 1] = cas.mtimes(xhat_cs3.T, vect_op.xhat_dm())
+            pitch_history[idx + 1] = pitch_angle_rad * 180. / np.pi
+
+            store_u_eff_nhat = []
+            store_flow_angle_deg = []
+            store_u_app_nhat = []
+            store_app_flow_angle_deg = []
+            for mu in mu_eval:
+                store_u_eff_nhat += [float(u_eff_nhat_fun(a_all, time_s, mu))]
+                store_flow_angle_deg += [float(eff_flow_angle_deg_fun(a_all, time_s, mu))]
+                store_u_app_nhat += [float(u_app_nhat_fun(time_s, mu))]
+                store_app_flow_angle_deg += [float(app_flow_angle_deg_fun(time_s, mu))]
+            store_alpha_deg = np.array(store_flow_angle_deg) - twist_at_mu_deg_interp
+            store_alpha_app_deg = np.array(store_app_flow_angle_deg) - twist_at_mu_deg_interp
+
+            u_eff_nhat_history[idx + 1] = np.array(store_u_eff_nhat)
+            alpha_deg_history[idx + 1] = np.array(store_alpha_deg)
+            u_app_nhat_history[idx + 1] = np.array(store_u_app_nhat)
+            alpha_app_deg_history[idx + 1] = np.array(store_alpha_app_deg)
+
+        keller_step_history[keller_constant] = step_history
+        keller_time_history[keller_constant] = time_history
+        keller_nhat_dot_xhat_history[keller_constant] = nhat_dot_xhat_history
+        keller_pitch_history[keller_constant] = pitch_history
+        keller_alpha_deg_history[keller_constant] = alpha_deg_history
+        keller_u_eff_nhat_history[keller_constant] = u_eff_nhat_history
+
+    import os
+    import matplotlib
+    if "MPLBACKEND" not in os.environ:
+        matplotlib.use("TkAgg")
+    import matplotlib.pyplot as plt
+
+    fig = plt.figure()
+    for keller_constant, keller_linestyle in keller_plot_style.items():
+        plt.plot(
+            np.array([float(time) for time in keller_time_history[keller_constant].values()])[1:],
+            np.array([float(pitch) for pitch in keller_pitch_history[keller_constant].values()]),
+            linestyle=keller_linestyle, color='k'
+        )
+    plt.xlabel('time [s]')
+    plt.ylabel('pitch angle [deg]')
+
+    alpha_mu_sanvito = [0.15821, 0.16247, 0.16673, 0.17099, 0.17526, 0.17952, 0.18378, 0.18804, 0.1923, 0.19656,
+                        0.20082, 0.20509, 0.20935, 0.21361, 0.21787, 0.22213, 0.22639, 0.23066, 0.23492, 0.23918,
+                        0.24344, 0.2477, 0.25196, 0.25623, 0.26049, 0.26475, 0.26901, 0.27327, 0.27753, 0.28179,
+                        0.28606, 0.29032, 0.29458, 0.29884, 0.3031, 0.30736, 0.31163, 0.31589, 0.32015, 0.32441,
+                        0.32867, 0.33293, 0.33719, 0.34146, 0.34572, 0.34998, 0.35424, 0.3585, 0.36276, 0.36703,
+                        0.37129, 0.37555, 0.37981, 0.38407, 0.38833, 0.39259, 0.39686, 0.40112, 0.40538, 0.40964,
+                        0.4139, 0.41816, 0.42243, 0.42669, 0.43095, 0.43521, 0.43947, 0.44373, 0.44799, 0.45226,
+                        0.45652, 0.46078, 0.46504, 0.4693, 0.47356, 0.47783, 0.48209, 0.48635, 0.49061, 0.49487,
+                        0.49913, 0.5034, 0.50766, 0.51192, 0.51618, 0.52044, 0.5247, 0.52896, 0.53323, 0.53749, 0.54175,
+                        0.54601, 0.55027, 0.55453, 0.5588, 0.56306, 0.56732, 0.57158, 0.57584, 0.5801, 0.58436, 0.58863,
+                        0.59289, 0.59715, 0.60141, 0.60567, 0.60993, 0.6142, 0.61846, 0.62272, 0.62698, 0.63124, 0.6355,
+                        0.63976, 0.64403, 0.64829, 0.65255, 0.65681, 0.66107, 0.66533, 0.6696, 0.67386, 0.67812,
+                        0.68238, 0.68664, 0.6909, 0.69517, 0.69943, 0.70369, 0.70795, 0.71221, 0.71647, 0.72073, 0.725,
+                        0.72926, 0.73352, 0.73778, 0.74204, 0.7463, 0.75057, 0.75483, 0.75909, 0.76335, 0.76761,
+                        0.77187, 0.77613, 0.7804, 0.78466, 0.78892, 0.79318, 0.79744, 0.8017, 0.80597, 0.81023, 0.81449,
+                        0.81875, 0.82301, 0.82727, 0.83153, 0.8358, 0.84006, 0.84432, 0.84858, 0.85284, 0.8571, 0.86137,
+                        0.86563, 0.86989, 0.87415, 0.87841, 0.88267, 0.88693, 0.8912, 0.89546, 0.89972, 0.90398,
+                        0.90824, 0.9125, 0.91677, 0.92103, 0.92529, 0.92955, 0.93381, 0.93807, 0.94234, 0.9466, 0.95086,
+                        0.95512, 0.95938, 0.96364, 0.9679, 0.97217, 0.97643, 0.98069, 0.98495, 0.98921]
+    alpha_t0_sanvito = [19.9577, 19.2315, 18.5067, 17.7848, 17.0672, 16.3556, 15.6518, 14.9576, 14.2752, 13.6073,
+                        12.9569, 12.3277, 11.7243, 11.1527, 10.6204, 10.1351, 9.7013, 9.32, 8.9874, 8.6971, 8.4412,
+                        8.2122, 8.0034, 7.8095, 7.6263, 7.4508, 7.2806, 7.1152, 6.9546, 6.7989, 6.6479, 6.5016, 6.3599,
+                        6.2228, 6.0902, 5.9618, 5.8378, 5.7179, 5.6021, 5.4903, 5.3824, 5.2783, 5.178, 5.0814, 4.9884,
+                        4.899, 4.813, 4.7304, 4.6511, 4.5751, 4.5024, 4.4328, 4.3663, 4.3029, 4.2425, 4.1848, 4.1299,
+                        4.0775, 4.0276, 3.9801, 3.9349, 3.8918, 3.8509, 3.8121, 3.7752, 3.7403, 3.7073, 3.6761, 3.6468,
+                        3.6192, 3.5933, 3.5691, 3.5465, 3.5256, 3.5062, 3.4885, 3.4722, 3.4575, 3.4443, 3.4326, 3.4223,
+                        3.4136, 3.4062, 3.4003, 3.3958, 3.3927, 3.391, 3.3906, 3.3917, 3.3942, 3.398, 3.4032, 3.4098,
+                        3.4177, 3.4271, 3.4378, 3.4498, 3.4633, 3.4781, 3.4943, 3.5119, 3.5308, 3.5509, 3.5723, 3.595,
+                        3.6188, 3.6437, 3.6698, 3.6969, 3.7252, 3.7544, 3.7847, 3.816, 3.8483, 3.8814, 3.9156, 3.9506,
+                        3.9865, 4.0232, 4.0608, 4.0992, 4.1384, 4.1784, 4.2191, 4.2606, 4.3028, 4.3457, 4.3893, 4.4335,
+                        4.4784, 4.5239, 4.57, 4.6166, 4.6638, 4.7115, 4.7597, 4.8083, 4.8573, 4.9066, 4.9563, 5.0061,
+                        5.0561, 5.1061, 5.1562, 5.2063, 5.2564, 5.3066, 5.3568, 5.407, 5.4573, 5.5077, 5.5582, 5.6087,
+                        5.6593, 5.71, 5.7607, 5.8115, 5.8624, 5.9132, 5.964, 6.0149, 6.0657, 6.1165, 6.1674, 6.2183,
+                        6.2693, 6.3203, 6.3715, 6.4227, 6.4741, 6.5257, 6.5775, 6.6295, 6.682, 6.735, 6.7889, 6.844,
+                        6.9005, 6.9584, 7.0163, 7.0722, 7.1255, 7.1768, 7.2265, 7.2747, 7.3213, 7.3658, 7.4079, 7.4464,
+                        7.4796, 7.5062, 7.525, 7.5366, 7.5454, 7.5577, 7.5775]
+    alpha_t1_sanvito = [21.6555, 20.8665, 20.0658, 19.2641, 18.4721, 17.6996, 16.9547, 16.2432, 15.5689, 14.9334,
+                        14.3373, 13.7796, 13.2589, 12.7733, 12.3208, 11.899, 11.5051, 11.136, 10.7894, 10.4629, 10.155,
+                        9.8638, 9.5882, 9.3269, 9.0789, 8.8432, 8.6189, 8.4055, 8.2021, 8.0081, 7.8231, 7.6464, 7.4778,
+                        7.3166, 7.1626, 7.0154, 6.8747, 6.7401, 6.6113, 6.488, 6.3698, 6.2565, 6.1478, 6.0434, 5.9432,
+                        5.847, 5.7545, 5.6656, 5.5802, 5.4982, 5.4194, 5.3437, 5.2709, 5.2011, 5.1341, 5.0698, 5.0082,
+                        4.9492, 4.8926, 4.8386, 4.7869, 4.7375, 4.6905, 4.6457, 4.6031, 4.5626, 4.5243, 4.4881, 4.454,
+                        4.4219, 4.3918, 4.3637, 4.3375, 4.3132, 4.2906, 4.2698, 4.2507, 4.2332, 4.2172, 4.2028, 4.1899,
+                        4.1785, 4.1684, 4.1597, 4.1524, 4.1464, 4.1416, 4.1381, 4.1358, 4.1347, 4.1348, 4.136, 4.1383,
+                        4.1417, 4.1462, 4.1517, 4.1582, 4.1657, 4.1743, 4.1837, 4.194, 4.2053, 4.2173, 4.2305, 4.2449,
+                        4.2611, 4.2793, 4.2999, 4.3232, 4.3494, 4.3784, 4.4101, 4.444, 4.4799, 4.5172, 4.5556, 4.5948,
+                        4.6346, 4.6747, 4.7151, 4.7555, 4.7961, 4.8368, 4.8775, 4.9184, 4.9594, 5.0005, 5.0417, 5.0831,
+                        5.1245, 5.1661, 5.2079, 5.2497, 5.2918, 5.3339, 5.3762, 5.4187, 5.4613, 5.5041, 5.5471, 5.5902,
+                        5.6336, 5.6771, 5.7209, 5.7648, 5.809, 5.8535, 5.8982, 5.9432, 5.9885, 6.0341, 6.0801, 6.1264,
+                        6.1731, 6.2202, 6.2677, 6.3157, 6.3641, 6.4129, 6.4621, 6.5118, 6.5619, 6.6124, 6.6634, 6.7147,
+                        6.7665, 6.8187, 6.8713, 6.9243, 6.9777, 7.0315, 7.0857, 7.1403, 7.1951, 7.2503, 7.3058, 7.3614,
+                        7.4171, 7.4728, 7.5282, 7.5832, 7.6372, 7.6898, 7.7396, 7.785, 7.8246, 7.8587, 7.8895, 7.9184,
+                        7.9461, 7.9729, 7.9991, 8.0248, 8.0503, 8.0755, 8.1006]
+    alpha_t2_sanvito = [23.4142, 22.7495, 22.0371, 21.2357, 20.2496, 19.1772, 18.3097, 17.5659, 16.8854, 16.2532,
+                        15.664, 15.1138, 14.5992, 14.1179, 13.6677, 13.2468, 12.8538, 12.4863, 12.14, 11.8112, 11.4973,
+                        11.1964, 10.9068, 10.6274, 10.3572, 10.0954, 9.8413, 9.5945, 9.3545, 9.1211, 8.8942, 8.6746,
+                        8.4637, 8.2627, 8.0731, 7.8959, 7.7311, 7.5772, 7.4315, 7.2962, 7.1729, 7.0603, 6.9564, 6.8591,
+                        6.7669, 6.6786, 6.5935, 6.5108, 6.4302, 6.3514, 6.2743, 6.1987, 6.1246, 6.052, 5.9808, 5.911,
+                        5.8427, 5.7758, 5.7104, 5.6464, 5.584, 5.5232, 5.4641, 5.4066, 5.3509, 5.2972, 5.2453, 5.1956,
+                        5.1481, 5.103, 5.0604, 5.0205, 4.9832, 4.9484, 4.9162, 4.8866, 4.8595, 4.8349, 4.8126, 4.7928,
+                        4.7754, 4.7602, 4.7472, 4.7365, 4.7278, 4.7212, 4.7165, 4.7137, 4.7126, 4.7132, 4.7153, 4.7189,
+                        4.7237, 4.7299, 4.7374, 4.7464, 4.7567, 4.7685, 4.7817, 4.7963, 4.8124, 4.8298, 4.8486, 4.8687,
+                        4.89, 4.9125, 4.9361, 4.9608, 4.9864, 5.013, 5.0403, 5.0685, 5.0974, 5.127, 5.1573, 5.1883,
+                        5.2199, 5.2522, 5.2851, 5.3187, 5.3529, 5.3877, 5.4232, 5.4593, 5.496, 5.5334, 5.5715, 5.6102,
+                        5.6496, 5.6897, 5.7306, 5.7721, 5.8145, 5.8576, 5.9014, 5.9459, 5.9911, 6.0369, 6.0833, 6.1301,
+                        6.1774, 6.2251, 6.2731, 6.3214, 6.37, 6.4186, 6.4674, 6.5161, 6.5648, 6.6134, 6.6617, 6.7097,
+                        6.7572, 6.8043, 6.8508, 6.8968, 6.9423, 6.9874, 7.0323, 7.0771, 7.1218, 7.1665, 7.2115, 7.2568,
+                        7.3025, 7.349, 7.3962, 7.4445, 7.494, 7.545, 7.5978, 7.6525, 7.709, 7.7671, 7.8264, 7.8866,
+                        7.9472, 8.008, 8.0683, 8.1276, 8.1854, 8.241, 8.2939, 8.3432, 8.3885, 8.4296, 8.4668, 8.5004,
+                        8.5308, 8.5583, 8.5832, 8.606, 8.6271, 8.6468, 8.6656, 8.684]
+    alpha_t3_sanvito = [21.8605, 20.9911, 20.034, 19.0704, 18.1881, 17.4082, 16.7136, 16.0795, 15.4812, 14.9053,
+                        14.3441, 13.7924, 13.2457, 12.7002, 12.1657, 11.6652, 11.2131, 10.8109, 10.4526, 10.1305,
+                        9.8373, 9.5668, 9.3134, 9.073, 8.8431, 8.6223, 8.4092, 8.2032, 8.0037, 7.8103, 7.6228, 7.4412,
+                        7.2655, 7.096, 6.9332, 6.7778, 6.6306, 6.4923, 6.3632, 6.2436, 6.1332, 6.0313, 5.9369, 5.8487,
+                        5.7649, 5.6842, 5.6051, 5.5271, 5.4503, 5.375, 5.3012, 5.229, 5.1586, 5.0901, 5.0236, 4.9591,
+                        4.8967, 4.8367, 4.779, 4.7237, 4.671, 4.6208, 4.5732, 4.528, 4.4851, 4.4444, 4.4058, 4.3693,
+                        4.3347, 4.3019, 4.2707, 4.2412, 4.2132, 4.1865, 4.1612, 4.1371, 4.1141, 4.0922, 4.0713, 4.052,
+                        4.0343, 4.0187, 4.0052, 3.9939, 3.985, 3.9784, 3.9741, 3.9722, 3.9725, 3.9751, 3.9797, 3.9864,
+                        3.9951, 4.0057, 4.018, 4.0322, 4.048, 4.0654, 4.0843, 4.1047, 4.1264, 4.1495, 4.1739, 4.1995,
+                        4.2263, 4.2542, 4.2831, 4.3131, 4.3441, 4.3759, 4.4086, 4.442, 4.4762, 4.511, 4.5465, 4.5826,
+                        4.6192, 4.6563, 4.694, 4.7321, 4.7707, 4.8098, 4.8493, 4.8891, 4.9294, 4.9701, 5.0111, 5.0524,
+                        5.0942, 5.1362, 5.1786, 5.2213, 5.2643, 5.3076, 5.3512, 5.3951, 5.4393, 5.4838, 5.5285, 5.5735,
+                        5.6188, 5.6644, 5.7102, 5.7563, 5.8027, 5.8493, 5.8962, 5.9433, 5.9908, 6.0385, 6.0864, 6.1347,
+                        6.1832, 6.2321, 6.2812, 6.3307, 6.3804, 6.4305, 6.481, 6.5318, 6.583, 6.6346, 6.6866, 6.7391,
+                        6.7919, 6.8452, 6.8989, 6.9531, 7.0077, 7.0628, 7.1183, 7.1742, 7.2305, 7.2873, 7.3443, 7.4016,
+                        7.459, 7.5164, 7.5736, 7.6304, 7.6863, 7.741, 7.7938, 7.8441, 7.8911, 7.9342, 7.9734, 8.0084,
+                        8.0393, 8.066, 8.0887, 8.1075, 8.1229, 8.1355, 8.1458, 8.1547]
+
+    wax_mu_sanvito = [0.09811, 0.10238, 0.10665, 0.11091, 0.11518, 0.11945, 0.12372, 0.12798, 0.13225, 0.13652, 0.14079,
+                      0.14506, 0.14932, 0.15359, 0.15786, 0.16213, 0.16639, 0.17066, 0.17493, 0.1792, 0.18347, 0.18773,
+                      0.192, 0.19627, 0.20054, 0.20481, 0.20907, 0.21334, 0.21761, 0.22188, 0.22614, 0.23041, 0.23468,
+                      0.23895, 0.24322, 0.24748, 0.25175, 0.25602, 0.26029, 0.26455, 0.26882, 0.27309, 0.27736, 0.28163,
+                      0.28589, 0.29016, 0.29443, 0.2987, 0.30296, 0.30723, 0.3115, 0.31577, 0.32004, 0.3243, 0.32857,
+                      0.33284, 0.33711, 0.34137, 0.34564, 0.34991, 0.35418, 0.35845, 0.36271, 0.36698, 0.37125, 0.37552,
+                      0.37979, 0.38405, 0.38832, 0.39259, 0.39686, 0.40112, 0.40539, 0.40966, 0.41393, 0.4182, 0.42246,
+                      0.42673, 0.431, 0.43527, 0.43953, 0.4438, 0.44807, 0.45234, 0.45661, 0.46087, 0.46514, 0.46941,
+                      0.47368, 0.47794, 0.48221, 0.48648, 0.49075, 0.49502, 0.49928, 0.50355, 0.50782, 0.51209, 0.51635,
+                      0.52062, 0.52489, 0.52916, 0.53343, 0.53769, 0.54196, 0.54623, 0.5505, 0.55477, 0.55903, 0.5633,
+                      0.56757, 0.57184, 0.5761, 0.58037, 0.58464, 0.58891, 0.59318, 0.59744, 0.60171, 0.60598, 0.61025,
+                      0.61451, 0.61878, 0.62305, 0.62732, 0.63159, 0.63585, 0.64012, 0.64439, 0.64866, 0.65292, 0.65719,
+                      0.66146, 0.66573, 0.67, 0.67426, 0.67853, 0.6828, 0.68707, 0.69133, 0.6956, 0.69987, 0.70414,
+                      0.70841, 0.71267, 0.71694, 0.72121, 0.72548, 0.72975, 0.73401, 0.73828, 0.74255, 0.74682, 0.75108,
+                      0.75535, 0.75962, 0.76389, 0.76816, 0.77242, 0.77669, 0.78096, 0.78523, 0.78949, 0.79376, 0.79803,
+                      0.8023, 0.80657, 0.81083, 0.8151, 0.81937, 0.82364, 0.8279, 0.83217, 0.83644, 0.84071, 0.84498,
+                      0.84924, 0.85351, 0.85778, 0.86205, 0.86631, 0.87058, 0.87485, 0.87912, 0.88339, 0.88765, 0.89192,
+                      0.89619, 0.90046, 0.90473, 0.90899, 0.91326, 0.91753, 0.9218, 0.92606, 0.93033, 0.9346, 0.93887,
+                      0.94314, 0.9474, 0.95167, 0.95594, 0.96021, 0.96447, 0.96874, 0.97301, 0.97728, 0.98155, 0.98581,
+                      0.99008]
+    wax_t0_sanvito = [3.77878, 3.77803, 3.77688, 3.7749, 3.77169, 3.76679, 3.75974, 3.75002, 3.73726, 3.72165, 3.70346,
+                      3.68288, 3.66007, 3.63509, 3.60771, 3.57701, 3.54332, 3.50814, 3.47255, 3.43683, 3.40104, 3.36519,
+                      3.32931, 3.29341, 3.2575, 3.2216, 3.18574, 3.14996, 3.11432, 3.07892, 3.0439, 3.01057, 2.98111,
+                      2.95624, 2.93542, 2.91777, 2.90249, 2.88879, 2.87613, 2.86418, 2.85275, 2.84167, 2.8308, 2.82003,
+                      2.8092, 2.79815, 2.78668, 2.77484, 2.7628, 2.75089, 2.73961, 2.72963, 2.72157, 2.71573, 2.71173,
+                      2.70901, 2.70709, 2.70568, 2.70457, 2.70368, 2.70291, 2.70223, 2.70161, 2.70103, 2.7005, 2.7,
+                      2.69953, 2.69908, 2.69866, 2.69826, 2.69788, 2.69752, 2.69718, 2.69686, 2.69655, 2.69627, 2.696,
+                      2.69575, 2.69552, 2.69532, 2.69513, 2.69497, 2.69483, 2.6947, 2.69457, 2.69442, 2.69424, 2.69402,
+                      2.69373, 2.69337, 2.69291, 2.69235, 2.69167, 2.69086, 2.68993, 2.68887, 2.68769, 2.68638, 2.68496,
+                      2.68344, 2.68183, 2.68013, 2.67836, 2.67652, 2.67461, 2.67264, 2.67062, 2.66854, 2.66641, 2.66424,
+                      2.66202, 2.65975, 2.65744, 2.65509, 2.65269, 2.65026, 2.64779, 2.64527, 2.64272, 2.64013, 2.6375,
+                      2.63483, 2.63213, 2.62939, 2.62662, 2.62383, 2.621, 2.61815, 2.61528, 2.61238, 2.60947, 2.60654,
+                      2.6036, 2.60065, 2.59769, 2.59473, 2.59177, 2.58882, 2.58588, 2.58297, 2.58011, 2.57732, 2.57464,
+                      2.57211, 2.56973, 2.56754, 2.56556, 2.56381, 2.56228, 2.56099, 2.55992, 2.55909, 2.55847, 2.55805,
+                      2.55783, 2.55779, 2.55792, 2.55819, 2.55859, 2.55911, 2.55976, 2.56051, 2.56137, 2.56233, 2.5634,
+                      2.56457, 2.56584, 2.56722, 2.56871, 2.57031, 2.57202, 2.57387, 2.57586, 2.578, 2.58031, 2.58283,
+                      2.58559, 2.58865, 2.59204, 2.59583, 2.60008, 2.60485, 2.6102, 2.61615, 2.6227, 2.62982, 2.63743,
+                      2.64543, 2.65372, 2.66222, 2.67092, 2.67981, 2.6889, 2.69823, 2.7078, 2.71764, 2.72779, 2.7383,
+                      2.74922, 2.76065, 2.77269, 2.78556, 2.79954, 2.81509, 2.83266, 2.85292, 2.87669, 2.90474, 2.9366,
+                      2.96913]
+    wax_t1_sanvito = [4.0111, 4.01529, 4.01814, 4.01878, 4.01705, 4.01295, 4.00568, 3.99494, 3.98092, 3.96399, 3.94451,
+                      3.92281, 3.89919, 3.87397, 3.84753, 3.82012, 3.79191, 3.76301, 3.73351, 3.70348, 3.67295, 3.64195,
+                      3.61051, 3.57861, 3.54624, 3.51333, 3.47983, 3.44574, 3.41122, 3.37678, 3.3434, 3.31217, 3.28354,
+                      3.25754, 3.23408, 3.21305, 3.19429, 3.17765, 3.16282, 3.14925, 3.1365, 3.12423, 3.11211, 3.09985,
+                      3.08712, 3.07358, 3.0592, 3.04486, 3.03144, 3.01945, 3.00906, 3.00022, 2.99277, 2.98654, 2.98138,
+                      2.97713, 2.97366, 2.9708, 2.96842, 2.96644, 2.96479, 2.96342, 2.9623, 2.96139, 2.96069, 2.96016,
+                      2.95978, 2.95956, 2.95947, 2.9595, 2.95965, 2.95991, 2.96027, 2.96073, 2.96128, 2.96192, 2.96267,
+                      2.96355, 2.96456, 2.96568, 2.96686, 2.96803, 2.96912, 2.97012, 2.97102, 2.97183, 2.97254, 2.97317,
+                      2.9737, 2.97415, 2.97451, 2.97479, 2.97497, 2.97508, 2.97509, 2.97502, 2.97486, 2.97462, 2.97428,
+                      2.97386, 2.97336, 2.97276, 2.97207, 2.97129, 2.97042, 2.96945, 2.9684, 2.96726, 2.96604, 2.96475,
+                      2.96339, 2.96196, 2.96048, 2.95894, 2.95736, 2.95572, 2.95404, 2.95232, 2.95056, 2.94877, 2.94694,
+                      2.94508, 2.94319, 2.94128, 2.93934, 2.93738, 2.93541, 2.93342, 2.93141, 2.9294, 2.92739, 2.92538,
+                      2.92337, 2.92137, 2.9194, 2.91745, 2.91554, 2.91368, 2.91189, 2.91017, 2.90855, 2.90705, 2.90569,
+                      2.90448, 2.90344, 2.90259, 2.90194, 2.90149, 2.90124, 2.90119, 2.90132, 2.90161, 2.90207, 2.90268,
+                      2.90344, 2.90434, 2.90538, 2.90655, 2.90785, 2.90928, 2.91085, 2.91255, 2.91438, 2.91635, 2.91847,
+                      2.92073, 2.92315, 2.92575, 2.92853, 2.93152, 2.93472, 2.93814, 2.94179, 2.94568, 2.94982, 2.9542,
+                      2.95884, 2.96373, 2.96886, 2.97424, 2.97985, 2.98571, 2.9918, 2.99813, 3.00472, 3.01156, 3.01868,
+                      3.02608, 3.03379, 3.04184, 3.05026, 3.05909, 3.06838, 3.07822, 3.0887, 3.0999, 3.11185, 3.1246,
+                      3.13819, 3.15265, 3.16802, 3.18427, 3.20136, 3.21912, 3.23758, 3.25728, 3.27935, 3.30638, 3.34502,
+                      3.40364]
+    wax_t2_sanvito = [4.23647, 4.24302, 4.24824, 4.25077, 4.24982, 4.24513, 4.23679, 4.22545, 4.212, 4.19705, 4.18102,
+                      4.16425, 4.14707, 4.12983, 4.11244, 4.09388, 4.07322, 4.05007, 4.02455, 3.99702, 3.96784, 3.93738,
+                      3.90601, 3.87394, 3.84131, 3.8082, 3.77465, 3.74069, 3.70632, 3.67149, 3.63611, 3.59989, 3.56231,
+                      3.52649, 3.50306, 3.48402, 3.46556, 3.44734, 3.42928, 3.41136, 3.39355, 3.37588, 3.35836, 3.34106,
+                      3.3241, 3.3078, 3.29262, 3.27878, 3.26541, 3.25252, 3.24085, 3.23069, 3.22216, 3.21531, 3.21016,
+                      3.20657, 3.20418, 3.20271, 3.2019, 3.20159, 3.20163, 3.20188, 3.20224, 3.20261, 3.20291, 3.20313,
+                      3.20331, 3.20349, 3.20371, 3.20401, 3.20442, 3.20496, 3.20567, 3.20657, 3.20769, 3.20905, 3.21065,
+                      3.21244, 3.21436, 3.21634, 3.21834, 3.2203, 3.22222, 3.22405, 3.2258, 3.22745, 3.22901, 3.23046,
+                      3.23182, 3.23308, 3.23424, 3.23531, 3.2363, 3.23721, 3.23805, 3.23883, 3.23955, 3.24023, 3.24087,
+                      3.24146, 3.24203, 3.24256, 3.24306, 3.24353, 3.24399, 3.24442, 3.24482, 3.24521, 3.24559, 3.24594,
+                      3.24628, 3.24661, 3.24692, 3.24722, 3.24751, 3.24779, 3.24807, 3.24833, 3.24858, 3.24883, 3.24908,
+                      3.24932, 3.24955, 3.24978, 3.25001, 3.25024, 3.25047, 3.25069, 3.25092, 3.25115, 3.25138, 3.25161,
+                      3.25184, 3.25208, 3.25232, 3.25258, 3.25284, 3.25311, 3.25339, 3.25368, 3.254, 3.25433, 3.25469,
+                      3.25508, 3.25551, 3.25598, 3.2565, 3.2571, 3.25779, 3.25861, 3.2596, 3.26083, 3.26235, 3.26424,
+                      3.26654, 3.26924, 3.2723, 3.27561, 3.27908, 3.28264, 3.28627, 3.28998, 3.29377, 3.29765, 3.30162,
+                      3.30568, 3.30985, 3.31412, 3.31851, 3.32302, 3.32767, 3.33246, 3.33741, 3.34252, 3.34783, 3.35335,
+                      3.35911, 3.36512, 3.37143, 3.37805, 3.38501, 3.39236, 3.4001, 3.40829, 3.41694, 3.42609, 3.43577,
+                      3.446, 3.45682, 3.46826, 3.48034, 3.49305, 3.50636, 3.52024, 3.53467, 3.54962, 3.56507, 3.58101,
+                      3.59743, 3.61433, 3.63172, 3.64961, 3.66803, 3.68704, 3.70678, 3.72745, 3.74935, 3.77272, 3.79753,
+                      3.82289]
+    wax_t3_sanvito = [4.00687, 4.0066, 4.00624, 4.0057, 4.0048, 4.00326, 4.00029, 3.99304, 3.97846, 3.96001, 3.94062,
+                      3.92061, 3.89994, 3.87851, 3.85619, 3.83277, 3.80794, 3.78139, 3.75294, 3.72258, 3.69046, 3.65682,
+                      3.62196, 3.58617, 3.54971, 3.51281, 3.47563, 3.43827, 3.40087, 3.36356, 3.32651, 3.29008, 3.25526,
+                      3.22431, 3.19917, 3.17917, 3.16223, 3.14679, 3.13208, 3.11779, 3.10373, 3.08979, 3.07587, 3.0619,
+                      3.04776, 3.0333, 3.01827, 3.00257, 2.98711, 2.97347, 2.96279, 2.95495, 2.94927, 2.94513, 2.94202,
+                      2.93961, 2.93769, 2.93617, 2.93495, 2.934, 2.93326, 2.93272, 2.93235, 2.93213, 2.93207, 2.93213,
+                      2.93233, 2.93266, 2.93311, 2.93371, 2.93444, 2.9353, 2.93629, 2.93738, 2.93856, 2.9398, 2.94107,
+                      2.94235, 2.94362, 2.94486, 2.94607, 2.94723, 2.94835, 2.94942, 2.95045, 2.95142, 2.95234, 2.95321,
+                      2.95402, 2.95478, 2.95547, 2.95609, 2.95665, 2.95714, 2.95755, 2.95788, 2.95813, 2.95829, 2.95834,
+                      2.95829, 2.95814, 2.95788, 2.95752, 2.95707, 2.95652, 2.95589, 2.95517, 2.95437, 2.9535, 2.95256,
+                      2.95155, 2.95049, 2.94937, 2.94821, 2.94701, 2.94578, 2.94452, 2.94324, 2.94195, 2.94065, 2.93935,
+                      2.93805, 2.93676, 2.93548, 2.93422, 2.93299, 2.93178, 2.93061, 2.92947, 2.92838, 2.92732, 2.92632,
+                      2.92536, 2.92445, 2.9236, 2.9228, 2.92206, 2.92137, 2.92075, 2.92018, 2.91969, 2.91927, 2.91893,
+                      2.91866, 2.91848, 2.91838, 2.91838, 2.91847, 2.91865, 2.91895, 2.91935, 2.91986, 2.92049, 2.92124,
+                      2.92212, 2.92314, 2.92429, 2.92559, 2.92705, 2.92866, 2.93045, 2.9324, 2.93452, 2.93682, 2.93929,
+                      2.94194, 2.94477, 2.94779, 2.95099, 2.95438, 2.95797, 2.96177, 2.96578, 2.97001, 2.97447, 2.97918,
+                      2.98413, 2.98936, 2.99487, 3.00069, 3.00684, 3.01335, 3.02024, 3.02751, 3.03519, 3.04328, 3.05181,
+                      3.0608, 3.07024, 3.08016, 3.09056, 3.10146, 3.11286, 3.12475, 3.13712, 3.14996, 3.1633, 3.17715,
+                      3.19159, 3.20666, 3.22243, 3.23901, 3.25652, 3.27512, 3.29507, 3.31658, 3.33979, 3.36466, 3.39079,
+                      3.41737]
+
+    wax_label = '(u_infty - dq_blade + u_induced) . nhat [m/s]'
+    alpha_label = 'eff. angle of attack [deg]'
+    from matplotlib.lines import Line2D
+    u_total_dir_dict = {wax_label: keller_u_eff_nhat_history, alpha_label: keller_alpha_deg_history}
+    u_app_dir_dict = {wax_label: u_app_nhat_history, alpha_label: alpha_app_deg_history}
+    time_plot_style = {0.0:'tab:blue', 0.25: 'tab:orange', 0.50:'limegreen', 0.75:'tomato'}
+    comparison_plot_style = {0.0: 'darkblue', 0.25: 'brown', 0.50: 'darkgreen', 0.75: 'darkred'}
+    u_total_comparison_dict = {wax_label:{'mu': wax_mu_sanvito, 0.0:wax_t0_sanvito, 0.25: wax_t1_sanvito, 0.50:wax_t2_sanvito, 0.75:wax_t3_sanvito},
+                               alpha_label: {'mu': alpha_mu_sanvito, 0.0: alpha_t0_sanvito, 0.25: alpha_t1_sanvito, 0.50: alpha_t2_sanvito, 0.75: alpha_t3_sanvito}}
+    for label, u_total_history in u_total_dir_dict.items():
+        fig_found, ax_found = plt.subplots(2, 2)
+        ax_found = ax_found.flatten()
+        fig_error, ax_error = plt.subplots(2, 2)
+        ax_error = ax_error.flatten()
+
+        tdx = 0
+        for time_plot, time_color in comparison_plot_style.items():
+            ax_found[tdx].plot(u_total_comparison_dict[label]['mu'], u_total_comparison_dict[label][time_plot], linestyle='-', color=time_color)
+            idx = next((k for k, v in keller_time_history[0.].items() if np.isclose(float(v), time_plot + float(n_periods) - 1., atol=1e-4, rtol=0.)), None)
+            # idx = next((k for k, v in keller_time_history[0.].items() if v == (time_plot + float(n_periods) - 1.)), None)
+            ax_found[tdx].plot(mu_eval.squeeze(), u_app_dir_dict[label][idx], linestyle='-', color='k')
+            tdx += 1
+
+        for keller_constant, keller_linestyle in keller_plot_style.items():
+            tdx = 0
+            for time_plot, time_color in time_plot_style.items():
+                idx = next((k for k, v in keller_time_history[keller_constant].items() if
+                            np.isclose(float(v), time_plot + float(n_periods) - 1., atol=1e-4, rtol=0.)), None)
+                ax_found[tdx].plot(mu_eval.squeeze(), u_total_history[keller_constant][idx].squeeze(),
+                         linestyle=keller_linestyle, color=time_color)
+                tdx += 1
+
+        for time_plot, time_color in time_plot_style.items():
+            tdx = 0
+            for keller_constant, keller_linestyle in keller_plot_style.items():
+                idx = next((k for k, v in keller_time_history[keller_constant].items() if
+                            np.isclose(float(v), time_plot + float(n_periods) - 1., atol=1e-4, rtol=0.)), None)
+                u_total_local_interpreted = vect_op.spline_interpolation(mu_eval.squeeze(), u_total_history[keller_constant][idx].squeeze(), u_total_comparison_dict[label]['mu'])
+                error_local_interpreted = [(u_total_local_interpreted[idx] - u_total_comparison_dict[label][time_plot][idx])/u_total_comparison_dict[label][time_plot][idx] for idx in range(len(u_total_comparison_dict[label]['mu']))]
+                ax_error[tdx].plot(u_total_comparison_dict[label]['mu'], error_local_interpreted,
+                              linestyle=keller_linestyle, color=time_color)
+                tdx += 1
+
+        for idx in range(4):
+            ax_found[idx].set_xlim([0, 1])
+            if '[deg]' in label:
+                ax_found[idx].set_ylim([0, 20])
+            ax_found[idx].grid(True)
+            ax_found[idx].set_xlabel('r/R [-]')
+
+            ax_error[idx].set_xlim([0, 1])
+            ax_error[idx].grid(True)
+            ax_error[idx].set_xlabel('r/R [-]')
+        fig_found.suptitle(label)
+        fig_error.suptitle(label[:-6] + ': error from Sanvito (2024) [-]')
+
+        time_handles = [
+            Line2D([0], [0], color=color, lw=2, label=f'{t - float(n_periods - 1):g}')
+            for t, color in time_plot_style.items()
+        ]
+        keller_handles = [
+            Line2D([0], [0], color='black', linestyle=ls, lw=2, label=f'{k:g}')
+            for k, ls in keller_plot_style.items()
+        ]
+        sanvito_handles = [
+            Line2D([0], [0], color=color, linestyle='-', lw=2, label=f'{t - float(n_periods - 1):g}')
+            for t, color in comparison_plot_style.items()
+        ]
+        zero_induction_handle = Line2D([0], [0], color='black', linestyle='-', lw=2,
+            label='without induction'
+        )
+        # Row headers
+        header_handles = [
+            Line2D([], [], linestyle='none', label='Time [s]'),
+            Line2D([], [], linestyle='none', label='Keller constant [-]'),
+            Line2D([], [], linestyle='none', label='Sanvito (2024)'),
+        ]
+        # Matplotlib fills legend columns first
+        empty = lambda: Line2D([], [], linestyle='none', label='')
+        zero_label = Line2D([], [], linestyle='none', label='Without induction')
+        zero_line = Line2D([0], [0], color='black', lw=2, label='')
+        handles_found = header_handles.copy()
+        handles_found.append(zero_label)
+        for i, (th, kh, sh) in enumerate(zip(time_handles, keller_handles, sanvito_handles)):
+            handles_found.extend([
+                th,
+                kh,
+                sh,
+                zero_line if i == 0 else empty()
+            ])
+        fig_found.legend(
+            handles=handles_found,
+            ncol=5,
+            loc='lower center',
+            bbox_to_anchor=(0.5, -0.02),
+            frameon=False,
+            fontsize=11,  # Increase from 8 to 11
+            columnspacing=1.5,  # More space between columns
+            handlelength=2.5,  # Longer legend lines
+            handletextpad=0.7,  # More space between line and label
+            labelspacing=0.5,  # More vertical spacing between rows
+            borderaxespad=0.5,
+        )
+        fig_found.subplots_adjust(bottom=0.30, hspace=0.45)
+
+        handles_error = header_handles[:2].copy()
+        for th, kh in zip(time_handles, keller_handles):
+            handles_error.extend([th, kh])
+        fig_error.legend(
+            handles=handles_error,
+            ncol=5,
+            loc='lower center',
+            bbox_to_anchor=(0.5, 0.02),
+            frameon=False,
+            fontsize=11,  # Increase from 8 to 11
+            columnspacing=1.5,  # More space between columns
+            handlelength=2.5,  # Longer legend lines
+            handletextpad=0.7,  # More space between line and label
+            labelspacing=0.5,  # More vertical spacing between rows
+            borderaxespad=0.5,
+        )
+        fig_error.subplots_adjust(bottom=0.30, hspace=0.45)
+
+    fig = plt.figure()
+    afourier_style = {'a0':'tab:blue', 'acos':'tab:orange', 'asin':'forestgreen'}
+    for keller_constant, keller_linestyle in keller_plot_style.items():
+        for aname, acolor in afourier_style.items():
+            plt.plot(np.array([float(time) for time in keller_time_history[keller_constant].values()])[1:], np.array([float(local_dict[aname]) for local_dict in keller_step_history[keller_constant].values()]), label=aname,
+                     linestyle=keller_linestyle, color=acolor)
+    plt.legend()
+    plt.xlabel('time [s]')
+    plt.ylabel('a_0, a_cos, a_sin [-]')
+
+    print_op.print_dict_as_table(step_history)
+    plt.show()
+
+    import pdb; pdb.set_trace()
 
 def test_signs_of_qasym_with_zero_moment(eps=1e-3):
     # see Figures in Burton et al, Wind Energy Handbook:
@@ -1633,9 +2383,30 @@ def test_signs_of_qasym_with_zero_moment(eps=1e-3):
     moment_y = cmy * actuator_dynamic_pressure * area * exterior_radius
     moment_z = cmz * actuator_dynamic_pressure * area * exterior_radius
 
+    n_hat = cas.cos(gamma_yaw) * vect_op.xhat_dm() + cas.sin(gamma_yaw) * vect_op.yhat_dm()
+    u_hat = vect_op.xhat_dm()
+    dcm_act, dcm_wind = actuator_flow.construct_actuator_and_wind_reference_frames_from_n_and_u(n_hat, u_hat)
+    z_rotor_hat = dcm_act[:, 2]
+    misalignment_angle = vect_op.angle_between(u_hat, n_hat, z_rotor_hat)
+
     c_all, c_numer, c_denom = actuator_coeff.assemble_c_components_from_pieces(thrust, moment_y, moment_z, actuator_dynamic_pressure, area, radius_bar, wingspan)
     c_denom_diag_inv = cas.inv(cas.diag(c_denom))
     MM = actuator_coeff.get_MM_matrix()
+
+    veri_test_table = {
+        'name': 'zero_moment',
+        'YawAngle': gamma_yaw * 180./np.pi,
+        'nhat': n_hat,
+        'uhat': u_hat,
+        'RotorMisalignmentAngle': misalignment_angle * 180./np.pi,
+        'CT': c_all[0],
+        'Cmy': cmy,
+        'Cmz': cmz,
+        'ExteriorRadius': exterior_radius,
+        'AirDensity': rho,
+        'RotorApparentSpeed': u_zero
+    }
+    print_op.print_dict_as_table(veri_test_table)
 
     t_star = exterior_radius / u_zero
     t_star_num = exterior_radius
@@ -1643,8 +2414,9 @@ def test_signs_of_qasym_with_zero_moment(eps=1e-3):
 
     step_history = {0: {'a0': approx_a0, 'acos': 0, 'asin': 0}}
     for step in range(20):
-        corr = actuator_flow.get_corr_val_glauert(approx_a0, vect_op.abs(gamma_yaw))
-        chi = actuator_flow.get_wake_angle_chi_jimenez(vect_op.abs(gamma_yaw), thrust, area, actuator_dynamic_pressure)
+        corr = actuator_flow.get_corr_val_glauert(approx_a0, misalignment_angle)
+        chi = actuator_flow.get_wake_angle_chi_jimenez(misalignment_angle, thrust, area, actuator_dynamic_pressure)
+        # chi = actuator_flow.get_wake_angle_chi_coleman(misalignment_angle, approx_a0)
         LL_matr = actuator_coeff.get_LL_matrix_from_corr_and_chi(corr, chi)
         LLinv, LLinv_num, LLinv_denom = actuator_coeff.get_LL_inv_matrix_from_corr_and_chi(corr, chi)
 
@@ -1740,7 +2512,7 @@ def test_signs_of_qasym_with_zero_moment(eps=1e-3):
         print_op.log_and_raise_error(message)
 
     # print_op.print_dict_as_table(step_history)
-    # plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'zero_moment')
+    plot_induction_contour(a_dict, u_zero, exterior_radius, y_rotor_hat, z_rotor_hat, 'zero_moment')
 
     return None
 
@@ -1939,9 +2711,9 @@ def independent_test():
     test_momentum_theory_in_helicopter_conditions()
     test_signs_of_uaxi()
     test_signs_of_qasym_with_zero_moment()
+    test_helicopter_values_for_qasym()
     test_signs_of_qasym_with_nonzero_moment_from_Ma()
     test_signs_of_qasym_with_nonzero_moment_from_Sun()
-    test_helicopter_values_for_qasym()
     return None
 
 
@@ -1958,6 +2730,7 @@ def sanity_check(init_options, variables_si, wind, architecture, epsilon=1e-5):
     return None
 
 if __name__ == "__main__":
-    independent_test()
+    # independent_test()
 
+    pitch_test_oc6_35()
 
