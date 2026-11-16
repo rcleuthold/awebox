@@ -85,7 +85,11 @@ def extend_actuator_support(options, system_lifted, system_states, architecture)
         system_lifted.extend([(prefix + 'gamma' + str(layer_node), (1, 1))])
 
         for dir in get_list_of_directions_that_define_actuator_dcms():
-            system_lifted.extend([(get_actuator_dcm_name(dir, layer_node), (9, 1))])
+            var_type = get_var_type_for_dcm_type(dir)
+            if var_type == 'x':
+                system_states.extend([(get_actuator_dcm_name(dir, layer_node), (9, 1))])
+            else:
+                system_lifted.extend([(get_actuator_dcm_name(dir, layer_node), (9, 1))])
 
         for dir in get_list_of_directions_that_have_length_variables():
             system_lifted.extend([(get_actuator_vector_length_name(dir, layer_node), (1, 1))])
@@ -93,6 +97,12 @@ def extend_actuator_support(options, system_lifted, system_states, architecture)
         system_lifted.extend([(get_actuator_thrust_var_name(layer_node), (1, 1))])
 
     return system_lifted, system_states
+
+def get_var_type_for_dcm_type(dir):
+    if dir in ['n', 'y', 'z']:
+        return 'x'
+    else:
+        return 'z'
 
 def get_list_of_directions_that_define_actuator_dcms():
     return ['n', 'u']
@@ -178,10 +188,20 @@ def get_actuator_dcm_name(direction, layer_node):
     return prefix + dcm_name + 'dcm' + str(layer_node)
 
 def get_actuator_dcm_var(variables_si, direction, layer_node):
-    var_type = 'z'
+    var_type = get_var_type_for_dcm_type(direction)
     dcm_name = get_actuator_dcm_name(direction, layer_node)
     dcm_var = struct_op.get_variable_from_model_or_reconstruction(variables_si, var_type, dcm_name)
     return dcm_var
+
+def get_actuator_dotdcm_var(variables_si, direction, layer_node):
+    var_type = get_var_type_for_dcm_type(direction)
+    if var_type == 'x':
+        dcm_name = 'd' + get_actuator_dcm_name(direction, layer_node)
+    else:
+        message = 'trying to get dot-dcm of wrong actuator dcm'
+        print_op.log_and_raise_error(message)
+    dotdcm_var = struct_op.get_variable_from_model_or_reconstruction(variables_si, 'xdot', dcm_name)
+    return dotdcm_var
 
 def get_actuator_vector_length_name_stripped_of_node(direction):
     prefix = get_actuator_var_name_prefix()

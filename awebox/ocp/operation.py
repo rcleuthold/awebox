@@ -234,12 +234,13 @@ def make_periodicity_equality(model, initial_model_variables, terminal_model_var
 
     for name in struct_op.subkeys(initial_model_variables, 'x'):
 
+        variable_is_an_actuator_rotation_matrix = 'wa_act_dcm' in name
+
         variable_is_an_integration_variable = name in model.integral_scaling.keys()
         variable_is_a_wake_variable = (name[0:2] == 'wv') or (name[:3] == 'dwv')
-        print_op.warn_about_temporary_functionality_alteration()
         variable_is_from_comparison_model = is_induction_variable_from_comparison_model(name, options)
-
         variable_is_not_periodic = variable_is_an_integration_variable or variable_is_a_wake_variable or variable_is_from_comparison_model
+
 
         if not variable_is_not_periodic:
 
@@ -247,6 +248,8 @@ def make_periodicity_equality(model, initial_model_variables, terminal_model_var
             final_value = vect_op.columnize(terminal_model_variables['x', name])
 
             difference = initial_value - final_value
+            if variable_is_an_actuator_rotation_matrix:
+                difference = vect_op.upper_triangular_exclusive(difference)
 
             periodicity_cstr = cas.vertcat(periodicity_cstr, difference)
 

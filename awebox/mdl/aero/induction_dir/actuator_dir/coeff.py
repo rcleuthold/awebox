@@ -169,7 +169,20 @@ def test_LL_inversion_correctly_implemented(thresh=1e-3):
 
     return None
 
-def make_keller_forcing_term(t_star, LLinv, keller_constant, clockwise_rotation_about_xhat, dcm_rotor, dot_dcm_rotor):
+def get_keller_forcing_rhs(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label):
+    variables_si = system_variables['SI']
+    t_star, t_star_num, t_star_den = get_t_star(variables_si, parameters, parent)
+    LLinv, LLinv_num, LLinv_den = get_LL_inv_matrix_val(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label)
+    keller_constant = model_options['aero']['actuator']['keller_constant']
+    clockwise_rotation_about_xhat = model_options['aero']['vortex']['clockwise_rotation_about_xhat']
+    dcm_rotor = cas.reshape(actuator_system.get_actuator_dcm_var(variables_si, 'n', parent), (3, 3))
+    dot_dcm_rotor = cas.reshape(actuator_system.get_actuator_dotdcm_var(variables_si, 'n', parent), (3, 3))
+
+    rhs_keller, rhs_keller_using_only_LLinv_num_and_t_star_num = make_keller_forcing_term(t_star, t_star_num, LLinv, LLinv_num, keller_constant, clockwise_rotation_about_xhat, dcm_rotor, dot_dcm_rotor)
+
+    return rhs_keller, rhs_keller_using_only_LLinv_num_and_t_star_num
+
+def make_keller_forcing_term(t_star, t_star_num, LLinv, LLinv_num, keller_constant, clockwise_rotation_about_xhat, dcm_rotor, dot_dcm_rotor):
     if clockwise_rotation_about_xhat:
         sign_mismatch_to_helicopter = -1.
     else:
@@ -177,7 +190,10 @@ def make_keller_forcing_term(t_star, LLinv, keller_constant, clockwise_rotation_
     keller_matrix = cas.horzcat(0. * vect_op.xhat_dm(), keller_constant * vect_op.zhat_dm(), -1. * sign_mismatch_to_helicopter * keller_constant * vect_op.yhat_dm())
     dcm_part = cas.mtimes(dcm_rotor.T, dot_dcm_rotor)
     rhs = -1. * t_star * cas.mtimes(LLinv, cas.mtimes(keller_matrix, cas.mtimes(dcm_part, vect_op.xhat_dm())))
-    return rhs
+
+    rhs_keller_using_only_LLinv_num_and_t_star_num = -1. * t_star_num * cas.mtimes(LLinv_num, cas.mtimes(keller_matrix, cas.mtimes(dcm_part, vect_op.xhat_dm())))
+
+    return rhs, rhs_keller_using_only_LLinv_num_and_t_star_num
 
 def get_MM_matrix():
     MM11 = 16. / 3. / np.pi

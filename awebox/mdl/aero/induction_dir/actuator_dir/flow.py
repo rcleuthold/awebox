@@ -525,6 +525,28 @@ def get_wake_angle_chi_jimenez(gamma_var, thrust, area, qzero):
     chi = gamma_var + 0.5 * ct_val * cosgamma**2. * singamma
     return chi
 
+def  get_wake_angle_velocity_triangle(model_options, wind, parent, system_variables, architecture, scaling):
+    label = get_label(model_options)
+    variables_si = system_variables['SI']
+
+    n_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'n', parent)
+    y_rotor_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'y', parent)
+    z_rotor_hat_var = actuator_system.get_actuator_vector_unit_var(variables_si, 'z', parent)
+
+    u_vec_val = general_flow.get_vec_u_zero(model_options, wind, parent, system_variables, architecture, scaling)
+
+    vec_u_zero_val = general_flow.get_vec_u_zero(model_options, wind, parent, system_variables, architecture, scaling)
+    u_zero = vect_op.norm(vec_u_zero_val)
+    a_uni = get_a0_var(variables_si, parent, label)
+    u_ind = -1. * a_uni * u_zero * n_hat_var
+
+    vec_u_total = u_vec_val + u_ind
+
+    opposite = vect_op.smooth_abs(cas.mtimes(vec_u_total.T, (-1. * y_rotor_hat_var)))
+    adjacent = vect_op.smooth_abs(cas.mtimes(vec_u_total.T, n_hat_var))
+    chi = cas.arctan2(opposite, adjacent)
+    return chi
+
 def get_wake_angle_chi(model_options, atmos, wind, system_variables, outputs, parameters, parent, architecture, scaling, label):
     variables_si = system_variables['SI']
 
@@ -542,6 +564,8 @@ def get_wake_angle_chi(model_options, atmos, wind, system_variables, outputs, pa
         chi_val = get_wake_angle_chi_coleman(gamma_var, a0_var)
     elif wake_skew == 'jimenez':
         chi_val = get_wake_angle_chi_jimenez(gamma_var, thrust, area, qzero)
+    elif wake_skew == 'velocity-triangle':
+        chi_val = get_wake_angle_velocity_triangle(model_options, wind, parent, system_variables, architecture, scaling)
     elif wake_skew == 'not_in_use':
         chi_val = 0.
     else:
